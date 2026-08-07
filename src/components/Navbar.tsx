@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, GraduationCap, Trophy, Lock, LogOut, Sparkles, LogIn } from 'lucide-react';
+import { ShieldCheck, GraduationCap, Trophy, LogOut, Sparkles, LogIn } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { AuthModal } from './auth/AuthModal';
 
@@ -21,6 +21,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { currentUser, logoutCandidate } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+
+  // Admin Studio tab is ONLY visible if Admin is authenticated or has admin email credentials
+  const isAdminVisible =
+    isAdminAuthenticated ||
+    Boolean(currentUser && (currentUser.role === 'admin' || currentUser.email.toLowerCase().includes('admin')));
 
   return (
     <>
@@ -78,26 +83,23 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             </button>
 
-            <button
-              onClick={() => setActiveTab('admin')}
-              className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 ${
-                activeTab === 'admin'
-                  ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/80'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-              }`}
-            >
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span className="hidden md:inline">Admin Studio</span>
-              {isAdminAuthenticated ? (
+            {/* Admin Studio tab is hidden for regular users, visible only for Admin */}
+            {isAdminVisible && (
+              <button
+                onClick={() => setActiveTab('admin')}
+                className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 ${
+                  activeTab === 'admin'
+                    ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/80'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span className="hidden md:inline">Admin Studio</span>
                 <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-mono font-semibold">
-                  Unlocked
+                  Unlocked 🔓
                 </span>
-              ) : (
-                <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-mono font-semibold flex items-center">
-                  <Lock className="w-2.5 h-2.5 mr-0.5" /> Locked
-                </span>
-              )}
-            </button>
+              </button>
+            )}
 
           </div>
 

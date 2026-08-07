@@ -181,7 +181,22 @@ function MainAppContent() {
       <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500 font-medium">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>Copyright © 2026 <strong>Arshad Abdul</strong>. All Rights Reserved.</span>
-          <span className="font-mono text-slate-400">Evalnium Assessment Platform v2.0 • Light Mode</span>
+          <div className="flex items-center space-x-3 text-slate-400 font-mono">
+            <span>Evalnium Assessment Platform v2.0</span>
+            <span>•</span>
+            <button
+              onClick={() => {
+                if (isAdminAuthenticated) {
+                  setActiveTab('admin');
+                } else {
+                  setShowAdminLockModal(true);
+                }
+              }}
+              className="text-slate-400 hover:text-indigo-600 font-bold transition-colors flex items-center space-x-1"
+            >
+              <span>{isAdminAuthenticated ? 'Admin Studio 🔓' : 'Admin Access 🔒'}</span>
+            </button>
+          </div>
         </div>
       </footer>
     </div>
