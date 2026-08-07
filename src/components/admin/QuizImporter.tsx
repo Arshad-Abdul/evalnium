@@ -92,16 +92,30 @@ export const QuizImporter: React.FC<QuizImporterProps> = ({ onParsedResult }) =>
     }, 200);
   };
 
-  const handleDownloadCSVTemplate = () => {
+  const handleDownloadSingleCSVTemplate = () => {
+    const csvContent = `"Question","Option A","Option B","Option C","Option D","Correct Answer","Explanation"
+"Who coined the term 'Bibliometrics' in 1969?","Paul Otlet","Alan Pritchard","S.R. Ranganathan","Vassily Nalimov","B","Alan Pritchard coined Bibliometrics in 1969."
+"What does PMEST stand for in Colon Classification?","Personality Matter Energy Space Time","Print Media Electronic System Text","Process Method Entity Source Topic","Primary Main Element Secondary Tertiary","A","PMEST stands for Personality, Matter, Energy, Space, Time."`;
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sample_single_language_quiz.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadBilingualCSVTemplate = () => {
     const csvContent = `"Question_Number","Question_English","Question_Hindi","Option_A","Option_B","Option_C","Option_D","Correct_Answer","Explanation_English","Explanation_Hindi"
 "1","Who coined the term 'Bibliometrics' in 1969?","1969 में बिब्लियोमेट्रिक्स शब्द का प्रतिपादन किसने किया था?","Paul Otlet (पॉल ओटलेट)","Alan Pritchard (एलन प्रिचर्ड)","S.R. Ranganathan (एस.आर. रंगनाथन)","Vassily Nalimov (वसीली नलीमोव)","B","Alan Pritchard coined Bibliometrics in 1969.","एलन प्रिचर्ड ने 1969 में यह शब्द दिया।"
 "2","Paul Otlet first utilized 'bibliométrie' in which publication?","पॉल ओटलेट ने 1934 में किस पुस्तक में 'bibliométrie' लिखा?","Traité de Documentation","Classification Décimale Universelle","Manuel de la Documentation","Sciences de l'information","A","Paul Otlet used it in Traité de Documentation (1934).","पॉल ओटलेट ने ट्रेट डी डॉक्यूमेंटेशन (1934) में इसका प्रयोग किया।"`;
     
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'sample_bilingual_quiz_template.csv';
+    a.download = 'sample_bilingual_quiz.csv';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -210,18 +224,28 @@ Explanation: Paul Otlet used 'bibliométrie' in Traité de Documentation (1934).
 
       {/* Supported Formats Pill Bar & Template Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-        <div className="bg-white p-3.5 rounded-xl flex items-center space-x-3 border border-emerald-200 shadow-xs">
-          <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600">
-            <FileSpreadsheet className="w-5 h-5" />
+        <div className="bg-white p-3.5 rounded-xl flex flex-col justify-between border border-emerald-200 shadow-xs space-y-2">
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
+              <FileSpreadsheet className="w-4 h-4" />
+            </div>
+            <h4 className="text-xs font-bold text-slate-900">CSV Templates</h4>
           </div>
-          <div>
-            <h4 className="text-xs font-bold text-slate-900">CSV Sheet (.csv)</h4>
+
+          <div className="flex flex-col space-y-1">
             <button
-              onClick={handleDownloadCSVTemplate}
-              className="text-[11px] text-emerald-700 font-bold hover:underline flex items-center space-x-1 mt-0.5"
+              onClick={handleDownloadSingleCSVTemplate}
+              className="text-[11px] text-emerald-700 font-bold hover:underline flex items-center space-x-1"
             >
               <Download className="w-3 h-3" />
-              <span>Download Template</span>
+              <span>Single-Lang CSV</span>
+            </button>
+            <button
+              onClick={handleDownloadBilingualCSVTemplate}
+              className="text-[11px] text-indigo-700 font-bold hover:underline flex items-center space-x-1"
+            >
+              <Download className="w-3 h-3 text-indigo-600" />
+              <span>Bilingual CSV (En+Hi)</span>
             </button>
           </div>
         </div>
@@ -411,13 +435,22 @@ Answer: C`}
 
             <div className="overflow-y-auto flex-1 space-y-6 pr-2 text-xs sm:text-sm text-slate-700">
               
-              {/* CSV Format */}
+              {/* Single Language CSV Format */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
-                <h4 className="font-bold text-slate-900 text-sm flex items-center space-x-2">
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                  <span>1. CSV Spreadsheet (.csv) — Best for Excel / Google Sheets</span>
-                </h4>
-                <p className="text-slate-500 text-xs">Headers required: <code className="font-mono bg-white border px-1 rounded">Question, Option A, Option B, Option C, Option D, Correct Answer, Explanation</code></p>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-slate-900 text-sm flex items-center space-x-2">
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                    <span>1. Single-Language CSV Format</span>
+                  </h4>
+                  <button
+                    onClick={handleDownloadSingleCSVTemplate}
+                    className="text-xs text-emerald-700 font-bold hover:underline flex items-center space-x-1"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Single-Lang CSV</span>
+                  </button>
+                </div>
+                <p className="text-slate-500 text-xs">Headers: <code className="font-mono bg-white border px-1 rounded">Question, Option A, Option B, Option C, Option D, Correct Answer, Explanation</code></p>
                 <pre className="p-3 bg-white rounded-xl border border-slate-200 font-mono text-[11px] overflow-x-auto text-slate-800">
 {`Question,Option A,Option B,Option C,Option D,Correct Answer,Explanation
 Who coined Bibliometrics?,Paul Otlet,Alan Pritchard,S.R. Ranganathan,Vassily Nalimov,B,Alan Pritchard coined Bibliometrics in 1969.
@@ -425,13 +458,35 @@ What is PMEST?,Personality Matter Energy Space Time,Print Media,Process Method,P
                 </pre>
               </div>
 
+              {/* Bilingual CSV Format */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-slate-900 text-sm flex items-center space-x-2">
+                    <FileSpreadsheet className="w-4 h-4 text-indigo-600" />
+                    <span>2. Bilingual CSV Format (English + Hindi Separate Columns)</span>
+                  </h4>
+                  <button
+                    onClick={handleDownloadBilingualCSVTemplate}
+                    className="text-xs text-indigo-700 font-bold hover:underline flex items-center space-x-1"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Bilingual CSV</span>
+                  </button>
+                </div>
+                <p className="text-slate-500 text-xs">Headers: <code className="font-mono bg-white border px-1 rounded">Question_Number, Question_English, Question_Hindi, Option_A, Option_B, Option_C, Option_D, Correct_Answer, Explanation_English, Explanation_Hindi</code></p>
+                <pre className="p-3 bg-white rounded-xl border border-slate-200 font-mono text-[11px] overflow-x-auto text-slate-800">
+{`Question_Number,Question_English,Question_Hindi,Option_A,Option_B,Option_C,Option_D,Correct_Answer,Explanation_English,Explanation_Hindi
+1,Who coined Bibliometrics?,1969 में बिब्लियोमेट्रिक्स शब्द किसने दिया?,Paul Otlet,Alan Pritchard,S.R. Ranganathan,Vassily Nalimov,B,Coined in 1969.,1969 में प्रतिपादन किया।`}
+                </pre>
+              </div>
+
               {/* Plain Text / DOCX / Markdown Format */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
                 <h4 className="font-bold text-slate-900 text-sm flex items-center space-x-2">
                   <FileText className="w-4 h-4 text-indigo-600" />
-                  <span>2. Plain Text / Word (.docx) / Markdown (.md)</span>
+                  <span>3. Plain Text / Word (.docx) / Markdown (.md)</span>
                 </h4>
-                <p className="text-slate-500 text-xs">Use <code className="font-mono bg-white border px-1 rounded">Question 1</code>, options <code className="font-mono bg-white border px-1 rounded">A) B) C) D)</code> or <code className="font-mono bg-white border px-1 rounded">A. B. C. D.</code>, and <code className="font-mono bg-white border px-1 rounded">Answer: B</code> inline.</p>
+                <p className="text-slate-500 text-xs">Use <code className="font-mono bg-white border px-1 rounded">Question 1</code>, options <code className="font-mono bg-white border px-1 rounded">A) B) C) D)</code>, and <code className="font-mono bg-white border px-1 rounded">Answer: B</code> inline.</p>
                 <pre className="p-3 bg-white rounded-xl border border-slate-200 font-mono text-[11px] overflow-x-auto text-slate-800">
 {`Question 1
 Who coined the term 'Bibliometrics' in 1969?
@@ -444,26 +499,6 @@ D) Vassily Nalimov
 
 Answer: B
 Explanation: Alan Pritchard coined Bibliometrics in 1969.`}
-                </pre>
-              </div>
-
-              {/* Separate Answer Key at Bottom Format */}
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
-                <h4 className="font-bold text-slate-900 text-sm flex items-center space-x-2">
-                  <File className="w-4 h-4 text-amber-600" />
-                  <span>3. Questions + Separate Answer Key Section at Bottom</span>
-                </h4>
-                <p className="text-slate-500 text-xs">Put questions at top, and an <code className="font-mono bg-white border px-1 rounded">Answer Key:</code> block at the bottom!</p>
-                <pre className="p-3 bg-white rounded-xl border border-slate-200 font-mono text-[11px] overflow-x-auto text-slate-800">
-{`Q1. Who formulated Five Laws of Library Science?
-A) Melvil Dewey  B) S.R. Ranganathan  C) C.A. Cutter  D) Henri La Fontaine
-
-Q2. What does MARC stand for?
-A) Machine-Readable Cataloging  B) Media Archival  C) Microfilm Code  D) Multimedia Access
-
-Answer Key:
-1. B
-2. A`}
                 </pre>
               </div>
 

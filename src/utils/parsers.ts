@@ -23,6 +23,14 @@ function fixMojibake(str: string): string {
 }
 
 /**
+ * Helper to strip leading option letter prefixes like "A) ", "B. ", "(C) " from option values
+ */
+function cleanOptionText(text: string): string {
+  if (!text) return '';
+  return text.replace(/^[\(\[]?\s*[A-D1-4][\.\:\)\-]\s*/i, '').trim();
+}
+
+/**
  * Universal Smart Text Parser for Questions & Answers
  */
 export function parsePlainText(text: string): ParseResult {
@@ -125,7 +133,7 @@ export function parsePlainText(text: string): ParseResult {
         else if (optId === '3') optId = 'C';
         else if (optId === '4') optId = 'D';
 
-        const optText = fixMojibake(optMatch[2].trim().replace(/\n+/g, ' '));
+        const optText = cleanOptionText(fixMojibake(optMatch[2].trim().replace(/\n+/g, ' ')));
         if (!options.some(o => o.id === optId)) {
           options.push({ id: optId, text: optText });
         }
@@ -136,7 +144,7 @@ export function parsePlainText(text: string): ParseResult {
         questionText = lines[0];
         let optChar = 65; // 'A'
         for (let i = 1; i < lines.length && i <= 4; i++) {
-          options.push({ id: String.fromCharCode(optChar++), text: fixMojibake(lines[i]) });
+          options.push({ id: String.fromCharCode(optChar++), text: cleanOptionText(fixMojibake(lines[i])) });
         }
       }
     }
@@ -192,7 +200,7 @@ export function parsePlainText(text: string): ParseResult {
 }
 
 /**
- * CSV Parser using PapaParse — Supports Bilingual Columns & Automatic Mojibake Repair
+ * CSV Parser using PapaParse — Exact Header Matching for Single & Bilingual Column Schemas
  */
 export function parseCSV(csvContent: string): ParseResult {
   const errors: string[] = [];
@@ -209,20 +217,22 @@ export function parseCSV(csvContent: string): ParseResult {
     parsed.errors.forEach(err => errors.push(`CSV Row ${err.row}: ${err.message}`));
   }
 
-  parsed.data.forEach((row, idx) => {
-    const findValue = (...keys: string[]): string => {
-      for (const k of Object.keys(row)) {
-        const cleanK = k.trim().toLowerCase();
-        if (keys.some(key => cleanK === key.toLowerCase() || cleanK.includes(key.toLowerCase()))) {
-          return fixMojibake((row[k] || '').trim());
-        }
+  // Exact normalized header matcher prevents Question_Number matching Option_B and Question_Hindi matching Option_D
+  const getValueByHeader = (row: Record<string, string>, candidateHeaders: string[]): string => {
+    const normalizedCandidates = candidateHeaders.map(h => h.toLowerCase().replace(/[\s\_\-]/g, ''));
+    for (const key of Object.keys(row)) {
+      const normKey = key.trim().toLowerCase().replace(/[\s\_\-]/g, '');
+      if (normalizedCandidates.includes(normKey)) {
+        return fixMojibake((row[key] || '').trim());
       }
-      return '';
-    };
+    }
+    return '';
+  };
 
-    const questionEnglish = findValue('question_english', 'questionenglish', 'english');
-    const questionHindi = findValue('question_hindi', 'questionhindi', 'hindi');
-    let questionText = findValue('question', 'qtext', 'questiontext', 'prompt');
+  parsed.data.forEach((row, idx) => {
+    const questionEnglish = getValueByHeader(row, ['question_english', 'questionenglish', 'english_question', 'english']);
+    const questionHindi = getValueByHeader(row, ['question_hindi', 'questionhindi', 'hindi_question', 'hindi']);
+    let questionText = getValueByHeader(row, ['question', 'question_text', 'questiontext', 'prompt']);
 
     if (questionEnglish && questionHindi) {
       questionText = `English: ${questionEnglish}\n\nहिन्दी: ${questionHindi}`;
@@ -232,12 +242,12 @@ export function parseCSV(csvContent: string): ParseResult {
       questionText = questionHindi;
     }
 
-    const optA = findValue('option_a', 'option a', 'opta', 'a');
-    const optB = findValue('option_b', 'option b', 'optb', 'b');
-    const optC = findValue('option_c', 'option c', 'optc', 'c');
-    const optD = findValue('option_d', 'option d', 'optd', 'd');
+    const optA = getValueByHeader(row, ['option_a', 'optiona', 'opta']);
+    const optB = getValueByHeader(row, ['option_b', 'optionb', 'optb']);
+    const optC = getValueByHeader(row, ['option_c', 'optionc', 'optc']);
+    const optD = getValueByHeader(row, ['option_d', 'optiond', 'optd']);
     
-    let answer = findValue('correct_answer', 'correct answer', 'answer', 'correct_option', 'key', 'ans').toUpperCase();
+    let answer = getValueByHeader(row, ['correct_answer', 'correctanswer', 'answer', 'correct_option', 'correctoption', 'key', 'ans']).toUpperCase();
     if (answer.startsWith('OPTION ')) answer = answer.replace('OPTION ', '').trim();
     if (['1', '2', '3', '4'].includes(answer)) {
       answer = String.fromCharCode(64 + parseInt(answer, 10));
@@ -246,9 +256,9 @@ export function parseCSV(csvContent: string): ParseResult {
       answer = 'A';
     }
 
-    const explanationEnglish = findValue('explanation_english', 'explanationenglish');
-    const explanationHindi = findValue('explanation_hindi', 'explanationhindi');
-    let explanation = findValue('explanation', 'exp', 'reason');
+    const explanationEnglish = getValueByHeader(row, ['explanation_english', 'explanationenglish']);
+    const explanationHindi = getValueByHeader(row, ['explanation_hindi', 'explanationhindi']);
+    let explanation = getValueByHeader(row, ['explanation', 'exp', 'reason']);
 
     if (explanationEnglish && explanationHindi) {
       explanation = `English: ${explanationEnglish}\n\nहिन्दी: ${explanationHindi}`;
@@ -259,10 +269,10 @@ export function parseCSV(csvContent: string): ParseResult {
     }
 
     const options: { id: string; text: string }[] = [];
-    if (optA) options.push({ id: 'A', text: optA });
-    if (optB) options.push({ id: 'B', text: optB });
-    if (optC) options.push({ id: 'C', text: optC });
-    if (optD) options.push({ id: 'D', text: optD });
+    if (optA) options.push({ id: 'A', text: cleanOptionText(optA) });
+    if (optB) options.push({ id: 'B', text: cleanOptionText(optB) });
+    if (optC) options.push({ id: 'C', text: cleanOptionText(optC) });
+    if (optD) options.push({ id: 'D', text: cleanOptionText(optD) });
 
     const correctOpt = options.find(o => o.id === answer);
     const defaultExp = correctOpt
