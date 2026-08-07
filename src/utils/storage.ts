@@ -1,8 +1,8 @@
 import type { Quiz, QuizAttemptResult } from '../types/quiz';
 import { INITIAL_QUIZZES } from '../data/initialQuizzes';
 
-const QUIZZES_KEY = 'lis_quiz_app_quizzes_v1';
-const RESULTS_KEY = 'lis_quiz_app_results_v1';
+const QUIZZES_KEY = 'evalnium_quizzes_v3';
+const RESULTS_KEY = 'evalnium_results_v3';
 
 export function getStoredQuizzes(): Quiz[] {
   try {
@@ -12,7 +12,7 @@ export function getStoredQuizzes(): Quiz[] {
       return INITIAL_QUIZZES;
     }
     const parsed = JSON.parse(data);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_QUIZZES;
+    return Array.isArray(parsed) ? parsed : INITIAL_QUIZZES;
   } catch (err) {
     console.error('Error reading quizzes from LocalStorage:', err);
     return INITIAL_QUIZZES;
