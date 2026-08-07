@@ -93,15 +93,15 @@ export const QuizImporter: React.FC<QuizImporterProps> = ({ onParsedResult }) =>
   };
 
   const handleDownloadCSVTemplate = () => {
-    const csvContent = `"Question","Option A","Option B","Option C","Option D","Correct Answer","Explanation"
-"Who coined the term 'Bibliometrics' in 1969?","Paul Otlet","Alan Pritchard","S.R. Ranganathan","Vassily Nalimov","B","Alan Pritchard coined Bibliometrics in 1969."
-"What does PMEST stand for in Colon Classification?","Personality Matter Energy Space Time","Print Media Electronic System Text","Process Method Entity Source Topic","Primary Main Element Secondary Tertiary","A","PMEST stands for Personality, Matter, Energy, Space, Time."`;
+    const csvContent = `"Question_Number","Question_English","Question_Hindi","Option_A","Option_B","Option_C","Option_D","Correct_Answer","Explanation_English","Explanation_Hindi"
+"1","Who coined the term 'Bibliometrics' in 1969?","1969 में बिब्लियोमेट्रिक्स शब्द का प्रतिपादन किसने किया था?","Paul Otlet (पॉल ओटलेट)","Alan Pritchard (एलन प्रिचर्ड)","S.R. Ranganathan (एस.आर. रंगनाथन)","Vassily Nalimov (वसीली नलीमोव)","B","Alan Pritchard coined Bibliometrics in 1969.","एलन प्रिचर्ड ने 1969 में यह शब्द दिया।"
+"2","Paul Otlet first utilized 'bibliométrie' in which publication?","पॉल ओटलेट ने 1934 में किस पुस्तक में 'bibliométrie' लिखा?","Traité de Documentation","Classification Décimale Universelle","Manuel de la Documentation","Sciences de l'information","A","Paul Otlet used it in Traité de Documentation (1934).","पॉल ओटलेट ने ट्रेट डी डॉक्यूमेंटेशन (1934) में इसका प्रयोग किया।"`;
     
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'sample_quiz_template.csv';
+    a.download = 'sample_bilingual_quiz_template.csv';
     a.click();
     URL.revokeObjectURL(url);
   };

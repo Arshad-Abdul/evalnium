@@ -63,7 +63,7 @@ export function parsePlainText(text: string): ParseResult {
     let inlineAnswer = '';
     let inlineExplanation = '';
 
-    const ansMatch = remainingBlock.match(/(?:Answer|Ans|Correct Answer|Correct Option|Key|उत्तर)\s*:?\s*[\(\[]?\s*([A-D1-4])\s*[\)\]]?(?:\n|$)/i);
+    const ansMatch = remainingBlock.match(/(?:Answer|Ans|Correct Answer|Correct Option|Correct_Answer|Key|उत्तर)\s*:?\s*[\(\[]?\s*([A-D1-4])\s*[\)\]]?(?:\n|$)/i);
     if (ansMatch) {
       let val = ansMatch[1].toUpperCase();
       if (val === '1') val = 'A';
@@ -81,10 +81,8 @@ export function parsePlainText(text: string): ParseResult {
     }
 
     // Extract options: A), A., (A), [A], A-, a), a., 1), 1.
-    // Try multi-line option matching first
     let optionMatches = [...remainingBlock.matchAll(/(?:^|\n)\s*[\*\-]?\s*[\(\[]?\s*([A-D1-4])[\.\:\)\-]\s*([\s\S]+?)(?=(?:\n\s*[\*\-]?\s*[\(\[]?\s*[A-D1-4][\.\:\)\-]|\n*$))/gi)];
 
-    // If multi-line matching yields < 2, try inline option matching (e.g. A) Cat B) Dog C) Bird D) Fish)
     if (optionMatches.length < 2) {
       optionMatches = [...remainingBlock.matchAll(/[\(\[]?\s*([A-D])[\.\:\)\-]\s*([^\n\(\)A-D]+?)(?=(?:[\(\[]?\s*[A-D][\.\:\)\-]|$))/gi)];
     }
@@ -95,7 +93,6 @@ export function parsePlainText(text: string): ParseResult {
     if (optionMatches.length >= 2) {
       const firstOptIndex = optionMatches[0].index || 0;
       questionText = remainingBlock.substring(0, firstOptIndex).trim();
-      // Remove trailing "Options / विकल्प:" labels
       questionText = questionText.replace(/(?:\n|^)\s*(?:Options\s*\/?\s*विकल्प|Options|विकल्प)\s*:?\s*$/i, '').trim();
 
       for (const optMatch of optionMatches) {
@@ -111,7 +108,6 @@ export function parsePlainText(text: string): ParseResult {
         }
       }
     } else {
-      // Fallback line splitter: line 1 = question, lines 2..5 = options A..D
       const lines = remainingBlock.split('\n').map(l => l.trim()).filter(Boolean);
       if (lines.length >= 3) {
         questionText = lines[0];
@@ -123,6 +119,15 @@ export function parsePlainText(text: string): ParseResult {
     }
 
     questionText = questionText.replace(/^[\#\*\s\d\.\:\)]+/, '').trim();
+    
+    // Extract English & Hindi blocks if present in questionText
+    let questionEnglish: string | undefined;
+    let questionHindi: string | undefined;
+    const engMatch = questionText.match(/(?:English|Eng)\s*:?\s*([\s\S]+?)(?=(?:\n\s*(?:हिन्दी|Hindi)\s*:?|$))/i);
+    const hinMatch = questionText.match(/(?:हिन्दी|Hindi)\s*:?\s*([\s\S]+?)(?=(?:\n\s*(?:English|Eng)\s*:?|$))/i);
+    if (engMatch) questionEnglish = engMatch[1].trim();
+    if (hinMatch) questionHindi = hinMatch[1].trim();
+
     const finalAnswer = inlineAnswer || answerKeyMap[qNumberStr] || (options.length > 0 ? options[0].id : 'A');
 
     const correctOpt = options.find(o => o.id === finalAnswer);
@@ -142,6 +147,8 @@ export function parsePlainText(text: string): ParseResult {
       questions.push({
         tempId: `parsed_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
         questionText,
+        questionEnglish,
+        questionHindi,
         options: options.length >= 2 ? options : [
           { id: 'A', text: 'True' },
           { id: 'B', text: 'False' }
@@ -162,7 +169,7 @@ export function parsePlainText(text: string): ParseResult {
 }
 
 /**
- * CSV Parser using PapaParse
+ * CSV Parser using PapaParse — Supports Bilingual Columns (Question_English, Question_Hindi, Explanation_English, Explanation_Hindi)
  */
 export function parseCSV(csvContent: string): ParseResult {
   const errors: string[] = [];
@@ -188,13 +195,24 @@ export function parseCSV(csvContent: string): ParseResult {
       return '';
     };
 
-    const questionText = findValue('question', 'qtext', 'questiontext', 'prompt');
-    const optA = findValue('option a', 'option_a', 'opta', 'a');
-    const optB = findValue('option b', 'option_b', 'optb', 'b');
-    const optC = findValue('option c', 'option_c', 'optc', 'c');
-    const optD = findValue('option d', 'option_d', 'optd', 'd');
+    const questionEnglish = findValue('question_english', 'questionenglish', 'english');
+    const questionHindi = findValue('question_hindi', 'questionhindi', 'hindi');
+    let questionText = findValue('question', 'qtext', 'questiontext', 'prompt');
+
+    if (questionEnglish && questionHindi) {
+      questionText = `English: ${questionEnglish}\n\nहिन्दी: ${questionHindi}`;
+    } else if (questionEnglish) {
+      questionText = questionEnglish;
+    } else if (questionHindi) {
+      questionText = questionHindi;
+    }
+
+    const optA = findValue('option_a', 'option a', 'opta', 'a');
+    const optB = findValue('option_b', 'option b', 'optb', 'b');
+    const optC = findValue('option_c', 'option c', 'optc', 'c');
+    const optD = findValue('option_d', 'option d', 'optd', 'd');
     
-    let answer = findValue('correct answer', 'answer', 'correct_option', 'key', 'ans').toUpperCase();
+    let answer = findValue('correct_answer', 'correct answer', 'answer', 'correct_option', 'key', 'ans').toUpperCase();
     if (answer.startsWith('OPTION ')) answer = answer.replace('OPTION ', '').trim();
     if (['1', '2', '3', '4'].includes(answer)) {
       answer = String.fromCharCode(64 + parseInt(answer, 10));
@@ -203,7 +221,18 @@ export function parseCSV(csvContent: string): ParseResult {
       answer = 'A';
     }
 
-    const explanation = findValue('explanation', 'exp', 'reason');
+    const explanationEnglish = findValue('explanation_english', 'explanationenglish');
+    const explanationHindi = findValue('explanation_hindi', 'explanationhindi');
+    let explanation = findValue('explanation', 'exp', 'reason');
+
+    if (explanationEnglish && explanationHindi) {
+      explanation = `English: ${explanationEnglish}\n\nहिन्दी: ${explanationHindi}`;
+    } else if (explanationEnglish) {
+      explanation = explanationEnglish;
+    } else if (explanationHindi) {
+      explanation = explanationHindi;
+    }
+
     const options: { id: string; text: string }[] = [];
     if (optA) options.push({ id: 'A', text: optA });
     if (optB) options.push({ id: 'B', text: optB });
@@ -216,19 +245,22 @@ export function parseCSV(csvContent: string): ParseResult {
       : `Option (${answer}) is the correct answer.`;
 
     const finalExplanation = explanation || defaultExp;
-
     const isValid = Boolean(questionText && options.length >= 2);
 
     if (questionText || options.length > 0) {
       questions.push({
         tempId: `csv_${idx}_${Date.now()}`,
         questionText: questionText || `Question ${idx + 1}`,
+        questionEnglish: questionEnglish || (questionText && !questionHindi ? questionText : undefined),
+        questionHindi: questionHindi || undefined,
         options: options.length >= 2 ? options : [
           { id: 'A', text: 'Option A' },
           { id: 'B', text: 'Option B' }
         ],
         correctOptionId: answer,
         explanation: finalExplanation,
+        explanationEnglish: explanationEnglish || (explanation && !explanationHindi ? explanation : undefined),
+        explanationHindi: explanationHindi || undefined,
         isValid,
         validationError: !isValid ? 'Requires a question title and at least 2 options' : undefined
       });

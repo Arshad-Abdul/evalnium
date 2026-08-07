@@ -8,9 +8,13 @@ export interface Option {
 export interface Question {
   id: string;
   questionText: string;
+  questionEnglish?: string;
+  questionHindi?: string;
   options: Option[];
   correctOptionId: string; // 'A', 'B', 'C', 'D'
   explanation?: string;
+  explanationEnglish?: string;
+  explanationHindi?: string;
   topic?: string;
   marks?: number;
 }
@@ -24,6 +28,10 @@ export interface Quiz {
   difficulty: DifficultyLevel;
   timeLimitMinutes: number; // in minutes, e.g. 15
   passingPercentage: number; // e.g. 60
+  negativeMarks?: number; // e.g. 0, 0.25, 0.33, 0.5
+  shuffleQuestions?: boolean;
+  shuffleOptions?: boolean;
+  enablePracticeMode?: boolean;
   questions: Question[];
   isPublished: boolean;
   createdAt: string;
@@ -61,9 +69,13 @@ export interface QuizAttemptResult {
 export interface ParsedQuestion {
   tempId: string;
   questionText: string;
-  options: { id: string; text: string }[];
+  questionEnglish?: string;
+  questionHindi?: string;
+  options: Option[];
   correctOptionId: string;
   explanation?: string;
+  explanationEnglish?: string;
+  explanationHindi?: string;
   isValid: boolean;
   validationError?: string;
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { ParsedQuestion, ParseResult, Quiz, DifficultyLevel } from '../../types/quiz';
-import { Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award } from 'lucide-react';
+import { Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert } from 'lucide-react';
 
 interface McqPreviewEditorProps {
   parseResult: ParseResult;
@@ -22,6 +22,12 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('Medium');
   const [timeLimitMinutes, setTimeLimitMinutes] = useState(10);
   const [passingPercentage, setPassingPercentage] = useState(60);
+
+  // Enhanced Quiz Options
+  const [negativeMarks, setNegativeMarks] = useState<number>(0);
+  const [shuffleQuestions, setShuffleQuestions] = useState<boolean>(false);
+  const [shuffleOptions, setShuffleOptions] = useState<boolean>(false);
+  const [enablePracticeMode, setEnablePracticeMode] = useState<boolean>(false);
 
   const [questions, setQuestions] = useState<ParsedQuestion[]>(parseResult.questions);
 
@@ -81,6 +87,10 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       difficulty,
       timeLimitMinutes: Math.max(1, timeLimitMinutes),
       passingPercentage: Math.min(100, Math.max(10, passingPercentage)),
+      negativeMarks,
+      shuffleQuestions,
+      shuffleOptions,
+      enablePracticeMode,
       isPublished: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -88,12 +98,16 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       questions: questions.map((q, idx) => ({
         id: `q_${idx + 1}_${Date.now()}`,
         questionText: q.questionText,
+        questionEnglish: q.questionEnglish,
+        questionHindi: q.questionHindi,
         options: q.options.length >= 2 ? q.options : [
           { id: 'A', text: 'True' },
           { id: 'B', text: 'False' }
         ],
         correctOptionId: q.correctOptionId || 'A',
         explanation: q.explanation,
+        explanationEnglish: q.explanationEnglish,
+        explanationHindi: q.explanationHindi,
         topic: topic,
         marks: 1
       }))
@@ -147,11 +161,11 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
         </div>
       </div>
 
-      {/* Quiz Metadata Config Form */}
+      {/* Quiz Metadata & Advanced Rules Form */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
         <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
           <Layers className="w-5 h-5 text-indigo-600" />
-          <span>Quiz Information & Exam Controls</span>
+          <span>Quiz Information & Advanced Controls</span>
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -189,11 +203,11 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2 border-t border-slate-100">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center space-x-1">
               <Clock className="w-3.5 h-3.5 text-amber-600" />
-              <span>Time Limit (Minutes)</span>
+              <span>Time Limit (Mins)</span>
             </label>
             <input
               type="number"
@@ -208,7 +222,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center space-x-1">
               <Award className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Passing Percentage (%)</span>
+              <span>Passing %</span>
             </label>
             <input
               type="number"
@@ -218,6 +232,23 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               onChange={(e) => setPassingPercentage(parseInt(e.target.value) || 60)}
               className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-sm font-mono font-bold focus:border-indigo-500 focus:bg-white focus:outline-none"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center space-x-1">
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
+              <span>Negative Marking</span>
+            </label>
+            <select
+              value={negativeMarks}
+              onChange={(e) => setNegativeMarks(parseFloat(e.target.value))}
+              className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-sm font-bold focus:border-indigo-500 focus:bg-white focus:outline-none"
+            >
+              <option value={0}>None (0 Marks)</option>
+              <option value={0.25}>-0.25 Marks (25%)</option>
+              <option value={0.33}>-0.33 Marks (1/3rd)</option>
+              <option value={0.5}>-0.50 Marks (50%)</option>
+            </select>
           </div>
 
           <div>
@@ -233,6 +264,58 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
             </select>
           </div>
         </div>
+
+        {/* Shuffling & Practice Toggles */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-100">
+          <label className="flex items-center space-x-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-slate-100/70 transition-colors">
+            <input
+              type="checkbox"
+              checked={shuffleQuestions}
+              onChange={(e) => setShuffleQuestions(e.target.checked)}
+              className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+            />
+            <div>
+              <span className="block text-xs font-bold text-slate-900 flex items-center space-x-1">
+                <Shuffle className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Shuffle Questions</span>
+              </span>
+              <span className="text-[10px] text-slate-500">Randomize question order for each candidate</span>
+            </div>
+          </label>
+
+          <label className="flex items-center space-x-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-slate-100/70 transition-colors">
+            <input
+              type="checkbox"
+              checked={shuffleOptions}
+              onChange={(e) => setShuffleOptions(e.target.checked)}
+              className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+            />
+            <div>
+              <span className="block text-xs font-bold text-slate-900 flex items-center space-x-1">
+                <Shuffle className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Shuffle Options</span>
+              </span>
+              <span className="text-[10px] text-slate-500">Randomize choice order (A, B, C, D)</span>
+            </div>
+          </label>
+
+          <label className="flex items-center space-x-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-slate-100/70 transition-colors">
+            <input
+              type="checkbox"
+              checked={enablePracticeMode}
+              onChange={(e) => setEnablePracticeMode(e.target.checked)}
+              className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+            />
+            <div>
+              <span className="block text-xs font-bold text-slate-900 flex items-center space-x-1">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Instant Practice Mode</span>
+              </span>
+              <span className="text-[10px] text-slate-500">Show instant answer explanation on selection</span>
+            </div>
+          </label>
+        </div>
+
       </div>
 
       {/* Extracted MCQ Items List */}
