@@ -4,16 +4,18 @@ import { Clock, HelpCircle, Award, ShieldAlert, Play, ArrowLeft, User } from 'lu
 
 interface QuizInstructionsModalProps {
   quiz: Quiz;
+  defaultCandidateName?: string;
   onCancel: () => void;
   onStartExam: (candidateName: string) => void;
 }
 
 export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
   quiz,
+  defaultCandidateName,
   onCancel,
   onStartExam,
 }) => {
-  const [candidateName, setCandidateName] = useState('Candidate');
+  const [candidateName, setCandidateName] = useState(defaultCandidateName || 'Candidate');
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">

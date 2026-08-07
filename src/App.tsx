@@ -1,23 +1,22 @@
 import { useState, useEffect } from 'react';
 import type { Quiz, QuizAttemptResult } from './types/quiz';
-import { getStoredQuizzes, saveQuiz, deleteQuiz, resetQuizzesToDefault, getStoredResults, saveResult } from './utils/storage';
+import { getStoredQuizzes, saveQuiz, deleteQuiz, getStoredResults, saveResult } from './utils/storage';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AdminLockModal } from './components/admin/AdminLockModal';
+import { LeaderboardView } from './components/user/LeaderboardView';
 import { TopicCatalog } from './components/user/TopicCatalog';
 import { QuizInstructionsModal } from './components/user/QuizInstructionsModal';
 import { ExamRunner } from './components/user/ExamRunner';
 import { ExamResultView } from './components/user/ExamResultView';
 
-export function App() {
-  const [activeTab, setActiveTab] = useState<'user' | 'admin'>('user');
+function MainAppContent() {
+  const { isAdminAuthenticated, logoutAdmin, currentUser } = useAuth();
+  const [activeTab, setActiveTab] = useState<'user' | 'leaderboard' | 'admin'>('user');
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [attemptsHistory, setAttemptsHistory] = useState<QuizAttemptResult[]>([]);
 
-  // Admin Auth Protection State
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
-    return sessionStorage.getItem('lis_admin_authenticated') === 'true';
-  });
   const [showAdminLockModal, setShowAdminLockModal] = useState<boolean>(false);
 
   // Exam Workflow State
@@ -31,7 +30,13 @@ export function App() {
     setAttemptsHistory(getStoredResults());
   }, []);
 
-  const handleTabChange = (tab: 'user' | 'admin') => {
+  useEffect(() => {
+    if (currentUser?.name) {
+      setCandidateName(currentUser.name);
+    }
+  }, [currentUser]);
+
+  const handleTabChange = (tab: 'user' | 'leaderboard' | 'admin') => {
     if (tab === 'admin') {
       if (!isAdminAuthenticated) {
         setShowAdminLockModal(true);
@@ -39,20 +44,17 @@ export function App() {
         setActiveTab('admin');
       }
     } else {
-      setActiveTab('user');
+      setActiveTab(tab);
     }
   };
 
   const handleUnlockAdmin = () => {
-    setIsAdminAuthenticated(true);
-    sessionStorage.setItem('lis_admin_authenticated', 'true');
     setShowAdminLockModal(false);
     setActiveTab('admin');
   };
 
   const handleAdminLogout = () => {
-    setIsAdminAuthenticated(false);
-    sessionStorage.removeItem('lis_admin_authenticated');
+    logoutAdmin();
     setActiveTab('user');
   };
 
@@ -74,15 +76,6 @@ export function App() {
     setQuizzes(updated);
   };
 
-  const handleResetData = () => {
-    if (confirm('Reset to default pre-loaded topic quizzes? (Custom quizzes will be reset)')) {
-      const reset = resetQuizzesToDefault();
-      setQuizzes(reset);
-      setExamPhase('catalog');
-      setSelectedQuiz(null);
-    }
-  };
-
   // Exam handlers
   const handleSelectQuiz = (quiz: Quiz) => {
     setSelectedQuiz(quiz);
@@ -90,7 +83,7 @@ export function App() {
   };
 
   const handleStartExam = (name: string) => {
-    setCandidateName(name);
+    setCandidateName(name || currentUser?.name || 'Candidate');
     setExamPhase('running');
   };
 
@@ -114,7 +107,7 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
       {/* App Navbar */}
       <Navbar
         activeTab={activeTab}
@@ -122,7 +115,6 @@ export function App() {
         isAdminAuthenticated={isAdminAuthenticated}
         onAdminLogout={handleAdminLogout}
         totalQuizzesCount={quizzes.filter(q => q.isPublished).length}
-        onResetData={handleResetData}
       />
 
       {/* Main Container View */}
@@ -134,12 +126,14 @@ export function App() {
             onDeleteQuiz={handleDeleteQuiz}
             onTogglePublish={handleTogglePublish}
           />
+        ) : activeTab === 'leaderboard' ? (
+          <LeaderboardView />
         ) : (
-          /* User Exam Portal */
+          /* Candidate Exam Portal */
           <>
             {examPhase === 'catalog' && (
               <TopicCatalog
-                quizzes={quizzes}
+                quizzes={quizzes.filter((q) => q.isPublished)}
                 attemptsHistory={attemptsHistory}
                 onSelectQuiz={handleSelectQuiz}
               />
@@ -148,8 +142,9 @@ export function App() {
             {examPhase === 'instructions' && selectedQuiz && (
               <QuizInstructionsModal
                 quiz={selectedQuiz}
-                onCancel={handleGoHome}
+                defaultCandidateName={currentUser?.name || candidateName}
                 onStartExam={handleStartExam}
+                onCancel={() => setExamPhase('catalog')}
               />
             )}
 
@@ -174,7 +169,7 @@ export function App() {
         )}
       </main>
 
-      {/* Admin Passcode Protection Modal */}
+      {/* Protected Admin Passcode Modal */}
       {showAdminLockModal && (
         <AdminLockModal
           onUnlock={handleUnlockAdmin}
@@ -182,18 +177,22 @@ export function App() {
         />
       )}
 
-      {/* Sleek Footer */}
-      <footer className="glass-panel border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p>© 2026 LIS Quiz & Exam Studio • Multi-Format MCQ Importer & CBT Simulator</p>
-          <div className="flex items-center space-x-4">
-            <span className="hover:text-slate-400 cursor-pointer" onClick={() => setActiveTab('user')}>Candidate Portal</span>
-            <span>•</span>
-            <span className="hover:text-slate-400 cursor-pointer" onClick={() => handleTabChange('admin')}>Admin Studio</span>
-          </div>
+      {/* Global Footer */}
+      <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500 font-medium">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <span>Copyright © 2026 <strong>Arshad Abdul</strong>. All Rights Reserved.</span>
+          <span className="font-mono text-slate-400">Evalnium Assessment Platform v2.0 • Light Mode</span>
         </div>
       </footer>
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <AuthProvider>
+      <MainAppContent />
+    </AuthProvider>
   );
 }
 

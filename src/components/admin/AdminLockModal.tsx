@@ -1,24 +1,25 @@
 import React, { useState } from 'react';
 import { ShieldCheck, Lock, KeyRound, Eye, EyeOff, ArrowLeft, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface AdminLockModalProps {
   onUnlock: () => void;
   onCancel: () => void;
-  savedPasscode?: string;
 }
 
 export const AdminLockModal: React.FC<AdminLockModalProps> = ({
   onUnlock,
   onCancel,
-  savedPasscode = 'admin123',
 }) => {
+  const { loginAdmin } = useAuth();
   const [passcode, setPasscode] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (passcode === savedPasscode || passcode === 'admin123') {
+    const success = loginAdmin(passcode);
+    if (success) {
       setErrorMsg(null);
       onUnlock();
     } else {
@@ -42,7 +43,7 @@ export const AdminLockModal: React.FC<AdminLockModalProps> = ({
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
             </h2>
             <p className="text-xs text-slate-500 mt-0.5 font-medium">
-              Enter admin passcode to upload quizzes & access converter studio.
+              Enter master passcode to upload quizzes & manage platform settings.
             </p>
           </div>
         </div>
