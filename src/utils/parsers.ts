@@ -3,6 +3,26 @@ import * as mammoth from 'mammoth';
 import type { ParsedQuestion, ParseResult } from '../types/quiz';
 
 /**
+ * Automatic Mojibake Repair Helper (Fixes garbled Hindi text from Excel ANSI/Windows-1252 export like "à¤ªà¥...")
+ */
+function fixMojibake(str: string): string {
+  if (!str) return str;
+  if (/[\u00C0-\u00FF]/.test(str)) {
+    try {
+      const bytes = new Uint8Array([...str].map(c => c.charCodeAt(0) & 0xFF));
+      const decoder = new TextDecoder('utf-8');
+      const repaired = decoder.decode(bytes);
+      if (repaired && !repaired.includes('')) {
+        return repaired;
+      }
+    } catch {
+      // ignore if repair fails
+    }
+  }
+  return str;
+}
+
+/**
  * Universal Smart Text Parser for Questions & Answers
  */
 export function parsePlainText(text: string): ParseResult {
@@ -13,8 +33,11 @@ export function parsePlainText(text: string): ParseResult {
     return { questions: [], rawText: text, errors: ['File or text is empty.'] };
   }
 
+  // Repair any garbled text encoding first
+  const cleanRawText = fixMojibake(text);
+
   // Normalize line endings
-  const cleanText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const cleanText = cleanRawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   
   // Isolated Answer Key section at bottom (e.g. "Answer Key:", "Answers:", "Key:")
   let mainContent = cleanText;
@@ -102,7 +125,7 @@ export function parsePlainText(text: string): ParseResult {
         else if (optId === '3') optId = 'C';
         else if (optId === '4') optId = 'D';
 
-        const optText = optMatch[2].trim().replace(/\n+/g, ' ');
+        const optText = fixMojibake(optMatch[2].trim().replace(/\n+/g, ' '));
         if (!options.some(o => o.id === optId)) {
           options.push({ id: optId, text: optText });
         }
@@ -113,12 +136,12 @@ export function parsePlainText(text: string): ParseResult {
         questionText = lines[0];
         let optChar = 65; // 'A'
         for (let i = 1; i < lines.length && i <= 4; i++) {
-          options.push({ id: String.fromCharCode(optChar++), text: lines[i] });
+          options.push({ id: String.fromCharCode(optChar++), text: fixMojibake(lines[i]) });
         }
       }
     }
 
-    questionText = questionText.replace(/^[\#\*\s\d\.\:\)]+/, '').trim();
+    questionText = fixMojibake(questionText.replace(/^[\#\*\s\d\.\:\)]+/, '').trim());
     
     // Extract English & Hindi blocks if present in questionText
     let questionEnglish: string | undefined;
@@ -135,7 +158,7 @@ export function parsePlainText(text: string): ParseResult {
       ? `Option (${finalAnswer}): "${correctOpt.text}" is the correct answer.`
       : `Option (${finalAnswer}) is the correct answer.`;
 
-    const finalExplanation = inlineExplanation || defaultExp;
+    const finalExplanation = fixMojibake(inlineExplanation || defaultExp);
 
     const isValid = Boolean(questionText && options.length >= 2);
     let validationError: string | undefined;
@@ -169,13 +192,15 @@ export function parsePlainText(text: string): ParseResult {
 }
 
 /**
- * CSV Parser using PapaParse — Supports Bilingual Columns (Question_English, Question_Hindi, Explanation_English, Explanation_Hindi)
+ * CSV Parser using PapaParse — Supports Bilingual Columns & Automatic Mojibake Repair
  */
 export function parseCSV(csvContent: string): ParseResult {
   const errors: string[] = [];
   const questions: ParsedQuestion[] = [];
 
-  const parsed = Papa.parse<Record<string, string>>(csvContent, {
+  const cleanCSVContent = fixMojibake(csvContent);
+
+  const parsed = Papa.parse<Record<string, string>>(cleanCSVContent, {
     header: true,
     skipEmptyLines: true,
   });
@@ -189,7 +214,7 @@ export function parseCSV(csvContent: string): ParseResult {
       for (const k of Object.keys(row)) {
         const cleanK = k.trim().toLowerCase();
         if (keys.some(key => cleanK === key.toLowerCase() || cleanK.includes(key.toLowerCase()))) {
-          return (row[k] || '').trim();
+          return fixMojibake((row[k] || '').trim());
         }
       }
       return '';
