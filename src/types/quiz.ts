@@ -32,6 +32,8 @@ export interface Quiz {
   shuffleQuestions?: boolean;
   shuffleOptions?: boolean;
   enablePracticeMode?: boolean;
+  quizType?: 'practice' | 'live_contest'; // 'practice' (24/7 Unlimited) vs 'live_contest' (Strict 1-Time Lock)
+  scheduledStartDateTime?: string;
   questions: Question[];
   isPublished: boolean;
   createdAt: string;
@@ -50,24 +52,32 @@ export interface QuizAttemptResult {
   id: string;
   quizId: string;
   quizTitle: string;
-  topic: string;
   candidateName: string;
-  totalQuestions: number;
-  attemptedQuestions: number;
-  correctAnswers: number;
-  wrongAnswers: number;
-  skippedQuestions: number;
+  topic: string;
   score: number;
   maxScore: number;
   percentage: number;
   passed: boolean;
   timeSpentSeconds: number;
   attemptedAt: string;
-  userAnswers: Record<string, UserAnswer>; // questionId -> UserAnswer
+  userAnswers: Record<string, UserAnswer>;
+  correctAnswers: number;
+  wrongAnswers: number;
+  skippedQuestions: number;
+  totalQuestions?: number;
+  attemptedQuestions?: number;
+}
+
+export interface ParseResult {
+  title?: string;
+  topic?: string;
+  questions: ParsedQuestion[];
+  errors: string[];
+  rawText?: string;
 }
 
 export interface ParsedQuestion {
-  tempId: string;
+  tempId?: string;
   questionText: string;
   questionEnglish?: string;
   questionHindi?: string;
@@ -76,14 +86,6 @@ export interface ParsedQuestion {
   explanation?: string;
   explanationEnglish?: string;
   explanationHindi?: string;
-  isValid: boolean;
+  isValid?: boolean;
   validationError?: string;
-}
-
-export interface ParseResult {
-  title?: string;
-  topic?: string;
-  questions: ParsedQuestion[];
-  rawText?: string;
-  errors: string[];
 }

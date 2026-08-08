@@ -186,13 +186,19 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
 
           {/* Action Buttons */}
           <div className="flex items-center space-x-3 pt-2">
-            <button
-              onClick={onRetake}
-              className="w-1/2 py-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center space-x-2 transition-all"
-            >
-              <RotateCcw className="w-4 h-4 text-indigo-600" />
-              <span>Retake Exam</span>
-            </button>
+            {quiz.quizType === 'live_contest' ? (
+              <div className="w-1/2 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 font-bold text-xs flex items-center justify-center space-x-2 cursor-not-allowed">
+                <span>🔒 Retakes Disabled (Live Contest)</span>
+              </div>
+            ) : (
+              <button
+                onClick={onRetake}
+                className="w-1/2 py-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center space-x-2 transition-all"
+              >
+                <RotateCcw className="w-4 h-4 text-indigo-600" />
+                <span>Retake Exam</span>
+              </button>
+            )}
 
             <button
               onClick={onGoHome}

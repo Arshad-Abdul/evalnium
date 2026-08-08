@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Quiz } from '../../types/quiz';
-import { Clock, HelpCircle, Award, ShieldAlert, Play, ArrowLeft, User } from 'lucide-react';
+import { Clock, HelpCircle, Award, ShieldAlert, Play, ArrowLeft, User, Trophy, Sparkles } from 'lucide-react';
 
 interface QuizInstructionsModalProps {
   quiz: Quiz;
@@ -58,15 +58,34 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
           </div>
         </div>
 
+        {/* Exam Type Callout Rule */}
+        {quiz.quizType === 'live_contest' ? (
+          <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs space-y-1">
+            <span className="font-bold text-amber-900 flex items-center space-x-1 text-sm">
+              <Trophy className="w-4 h-4 text-amber-600" />
+              <span>🏆 Official Live Contest Exam (STRICT 1-TIME ATTEMPT)</span>
+            </span>
+            <p className="font-medium">
+              This is a live competitive exam. You get <strong>ONLY 1 ATTEMPT</strong>. Once submitted, your score will be permanently locked on the Global Leaderboard and retakes will be disabled.
+            </p>
+          </div>
+        ) : (
+          <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-950 text-xs flex items-center space-x-2">
+            <Sparkles className="w-4 h-4 text-blue-600 flex-shrink-0" />
+            <span><strong>🌐 24/7 Practice Exam:</strong> Unlimited retakes available. Practice anytime to improve your score!</span>
+          </div>
+        )}
+
         {/* Exam Rules & Instructions */}
         <div className="space-y-2 text-xs sm:text-sm text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-200">
           <h4 className="font-bold text-slate-900 flex items-center space-x-1.5 text-sm mb-2">
             <ShieldAlert className="w-4 h-4 text-indigo-600" />
             <span>Computer-Based Test (CBT) Instructions:</span>
           </h4>
-          <ul className="space-y-1.5 list-disc list-inside text-slate-600">
+          <ul className="space-y-1.5 list-disc list-inside text-slate-600 text-xs">
             <li>The exam countdown timer begins as soon as you click <strong>Begin Test Now</strong>.</li>
             <li>Each question has 4 choices with 1 correct option.</li>
+            {quiz.negativeMarks ? <li className="text-rose-700 font-bold">Negative Marking: -{quiz.negativeMarks} marks deducted for incorrect answers.</li> : null}
             <li>Use the Question Palette on the right to navigate between questions.</li>
             <li>Automatic submission will occur when the timer reaches zero.</li>
             <li>Your scorecard and detailed answer rationale will be generated immediately upon submission.</li>

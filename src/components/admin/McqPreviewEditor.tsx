@@ -15,19 +15,18 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   onBack,
   onSaveQuiz,
 }) => {
-  const [title, setTitle] = useState(parseResult.title || `${sourceFileName.replace(/\.[^/.]+$/, "")} Quiz`);
-  const [description, setDescription] = useState('Topic-wise practice exam converted from document import.');
-  const [topic, setTopic] = useState(parseResult.topic || 'Library & Information Science');
+  const [title, setTitle] = useState(parseResult.title || sourceFileName.replace(/\.[^/.]+$/, ''));
+  const [topic, setTopic] = useState(parseResult.topic || 'General Knowledge');
   const [category] = useState('General');
+  const [description, setDescription] = useState(`Comprehensive assessment covering ${parseResult.questions.length} MCQs.`);
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('Medium');
-  const [timeLimitMinutes, setTimeLimitMinutes] = useState(10);
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState(15);
   const [passingPercentage, setPassingPercentage] = useState(60);
-
-  // Enhanced Quiz Options
-  const [negativeMarks, setNegativeMarks] = useState<number>(0);
-  const [shuffleQuestions, setShuffleQuestions] = useState<boolean>(false);
-  const [shuffleOptions, setShuffleOptions] = useState<boolean>(false);
-  const [enablePracticeMode, setEnablePracticeMode] = useState<boolean>(false);
+  const [negativeMarks, setNegativeMarks] = useState<number>(0.25);
+  const [shuffleQuestions, setShuffleQuestions] = useState(true);
+  const [shuffleOptions, setShuffleOptions] = useState(true);
+  const [enablePracticeMode, setEnablePracticeMode] = useState(false);
+  const [quizType, setQuizType] = useState<'practice' | 'live_contest'>('practice');
 
   const [questions, setQuestions] = useState<ParsedQuestion[]>(parseResult.questions);
 
@@ -91,6 +90,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       shuffleQuestions,
       shuffleOptions,
       enablePracticeMode,
+      quizType,
       isPublished: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -201,6 +201,44 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
             className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-sm font-medium focus:border-indigo-500 focus:bg-white focus:outline-none"
             placeholder="Brief details about what topics this quiz covers..."
           />
+        </div>
+
+        {/* Exam Type Selector: Practice vs Strict Live Contest */}
+        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+          <label className="block text-xs font-bold text-slate-900">Select Exam Mode & Candidate Access Rule</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setQuizType('practice')}
+              className={`p-3 rounded-lg border text-left flex items-start space-x-3 transition-all ${
+                quizType === 'practice'
+                  ? 'bg-white border-blue-600 text-blue-950 font-bold shadow-xs'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">🌐</span>
+              <div>
+                <p className="text-xs font-bold">24/7 Practice Exam</p>
+                <p className="text-[11px] text-slate-500 font-medium">Permanent live test. Candidates can attempt anytime, unlimited retakes.</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setQuizType('live_contest')}
+              className={`p-3 rounded-lg border text-left flex items-start space-x-3 transition-all ${
+                quizType === 'live_contest'
+                  ? 'bg-white border-amber-600 text-amber-950 font-bold shadow-xs'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs">🏆</span>
+              <div>
+                <p className="text-xs font-bold">Strict Live Contest Exam (Single Attempt)</p>
+                <p className="text-[11px] text-slate-500 font-medium">1-Time Lock Exam. Candidates compete on Live Leaderboard and CANNOT retake!</p>
+              </div>
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2 border-t border-slate-100">
@@ -348,7 +386,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               </div>
 
               <button
-                onClick={() => handleDeleteQuestion(q.tempId)}
+                onClick={() => handleDeleteQuestion(q.tempId || '')}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                 title="Delete question"
               >
@@ -361,7 +399,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               <textarea
                 rows={2}
                 value={q.questionText}
-                onChange={(e) => handleUpdateQuestionText(q.tempId, e.target.value)}
+                onChange={(e) => handleUpdateQuestionText(q.tempId || '', e.target.value)}
                 placeholder="Enter Question Text..."
                 className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-semibold text-sm focus:border-indigo-500 focus:bg-white focus:outline-none"
               />
@@ -383,7 +421,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                       type="radio"
                       name={`correct_${q.tempId}`}
                       checked={q.correctOptionId === opt.id}
-                      onChange={() => handleSetCorrectOption(q.tempId, opt.id)}
+                      onChange={() => handleSetCorrectOption(q.tempId || '', opt.id)}
                       className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 bg-white border-slate-300"
                     />
                     <span className={`w-6 h-6 rounded-md font-bold text-xs flex items-center justify-center ${
@@ -396,7 +434,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                   <input
                     type="text"
                     value={opt.text}
-                    onChange={(e) => handleUpdateOptionText(q.tempId, opt.id, e.target.value)}
+                    onChange={(e) => handleUpdateOptionText(q.tempId || '', opt.id, e.target.value)}
                     placeholder={`Option ${opt.id} text...`}
                     className="flex-1 bg-transparent text-sm text-slate-900 font-semibold focus:outline-none"
                   />
@@ -413,7 +451,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               <textarea
                 rows={2}
                 value={q.explanation || ''}
-                onChange={(e) => handleUpdateExplanation(q.tempId, e.target.value)}
+                onChange={(e) => handleUpdateExplanation(q.tempId || '', e.target.value)}
                 placeholder="Detailed explanation for the correct answer..."
                 className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-400 font-medium focus:border-indigo-500 focus:bg-white focus:outline-none"
               />
