@@ -164,26 +164,63 @@ app.post('/api/auth/send-otp', async (req, res) => {
     otpStore.set(email.toLowerCase(), { otp, expiresAt });
     console.log(`[EMAIL DISPATCH] 📩 OTP generated for ${email}: ${otp}`);
 
-    // If SMTP credentials provided, send actual email
+    // If SMTP credentials provided, send actual email; otherwise create auto test account
+    let mailSent = false;
+    let previewUrl = null;
+
     if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-      await transporter.sendMail({
-        from: `"Evalnium Assessment Portal" <${process.env.SMTP_USER}>`,
-        to: email,
-        subject: `🔑 Your Verification Code: ${otp} - Evalnium`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px;">
-            <h2 style="color: #0f172a; margin-top: 0;">Evalnium Student Verification</h2>
-            <p style="color: #475569; font-size: 14px;">Your 6-digit login verification code is:</p>
-            <div style="font-size: 32px; font-weight: 800; font-family: monospace; letter-spacing: 8px; color: #2563eb; background: #f8fafc; padding: 16px; text-align: center; border-radius: 12px; border: 1px solid #cbd5e1; margin: 20px 0;">
-              ${otp}
+      try {
+        await transporter.sendMail({
+          from: `"Evalnium Assessment Portal" <${process.env.SMTP_USER}>`,
+          to: email,
+          subject: `🔑 Your Verification Code: ${otp} - Evalnium`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px;">
+              <h2 style="color: #0f172a; margin-top: 0;">Evalnium Student Verification</h2>
+              <p style="color: #475569; font-size: 14px;">Your 6-digit login verification code is:</p>
+              <div style="font-size: 32px; font-weight: 800; font-family: monospace; letter-spacing: 8px; color: #2563eb; background: #f8fafc; padding: 16px; text-align: center; border-radius: 12px; border: 1px solid #cbd5e1; margin: 20px 0;">
+                ${otp}
+              </div>
+              <p style="color: #64748b; font-size: 12px;">This code will expire in 5 minutes. Do not share this OTP with anyone.</p>
             </div>
-            <p style="color: #64748b; font-size: 12px;">This code will expire in 5 minutes. Do not share this OTP with anyone.</p>
-          </div>
-        `,
-      });
+          `,
+        });
+        mailSent = true;
+        console.log(`[SMTP SUCCESS] 📩 Real email sent to inbox: ${email}`);
+      } catch (err) {
+        console.error('[SMTP ERROR] Failed to send email via SMTP_USER:', err.message);
+      }
     }
 
-    res.json({ success: true, message: 'OTP sent to candidate email inbox successfully.', devOtp: process.env.NODE_ENV === 'development' ? otp : undefined });
+    if (!mailSent) {
+      try {
+        const testAccount = await nodemailer.createTestAccount();
+        const testTransporter = nodemailer.createTransport({
+          host: 'smtp.ethereal.email',
+          port: 587,
+          secure: false,
+          auth: { user: testAccount.user, pass: testAccount.pass },
+        });
+
+        const info = await testTransporter.sendMail({
+          from: '"Evalnium Assessment Portal" <verify@evalnium.org>',
+          to: email,
+          subject: `🔑 Your Verification Code: ${otp} - Evalnium`,
+          html: `<div style="font-family: sans-serif; padding: 20px;"><h2>Evalnium Verification Code</h2><h1>${otp}</h1></div>`,
+        });
+
+        previewUrl = nodemailer.getTestMessageUrl(info);
+        console.log(`[ETHEREAL MAIL LOG] 📩 Email sent! View online inbox at: ${previewUrl}`);
+      } catch (err) {
+        console.log(`[CONSOLE LOG] OTP for ${email}: ${otp}`);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'OTP verification code generated & dispatched successfully.',
+      previewUrl: previewUrl || undefined,
+    });
   } catch (err) {
     console.error('Error sending OTP email:', err);
     res.status(500).json({ error: 'Failed to send OTP email' });

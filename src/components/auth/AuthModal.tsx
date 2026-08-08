@@ -21,6 +21,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [otpError, setOtpError] = useState<string | null>(null);
   const [resendTimer, setResendTimer] = useState<number>(30);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -62,6 +63,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       if (res.ok) {
         setOtpDigits(['', '', '', '', '', '']);
         setResendTimer(30);
+        if (data.previewUrl) setPreviewUrl(data.previewUrl);
         setStep('otp_verify');
       } else {
         setOtpError(data.error || 'Failed to send OTP to email.');
@@ -290,6 +292,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <p className="text-[11px] text-indigo-700 leading-relaxed font-medium">
                 We sent a 6-digit verification code to <strong>{email}</strong>. Please check your email inbox (or spam folder) and enter the code below:
               </p>
+              {previewUrl && (
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-block mt-2 text-xs font-bold text-blue-600 hover:text-blue-800 underline"
+                >
+                  🔗 Open Simulated Inbox to View Sent Email ➔
+                </a>
+              )}
             </div>
 
             {successMsg ? (
