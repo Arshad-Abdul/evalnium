@@ -187,14 +187,48 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                   const isContest = quiz.quizType === 'live_contest';
                   const hasAttempted = attemptsHistory.some(a => a.quizId === quiz.id);
 
-                  if (isContest && hasAttempted) {
+                  if (isContest) {
+                    const now = new Date();
+                    const startDate = quiz.scheduledStartDateTime ? new Date(quiz.scheduledStartDateTime) : null;
+                    const endDate = quiz.scheduledEndDateTime ? new Date(quiz.scheduledEndDateTime) : null;
+
+                    if (hasAttempted) {
+                      return (
+                        <button
+                          onClick={() => setShowHistoryModal(true)}
+                          className="w-full py-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-300 flex items-center justify-center space-x-2 transition-colors"
+                        >
+                          <History className="w-3.5 h-3.5 text-amber-600" />
+                          <span>🔒 1-Time Locked (View Scorecard)</span>
+                        </button>
+                      );
+                    }
+
+                    if (startDate && now < startDate) {
+                      return (
+                        <div className="w-full py-2.5 rounded-lg bg-amber-50 text-amber-900 font-bold text-xs border border-amber-300 flex items-center justify-center space-x-1.5 text-center">
+                          <Clock className="w-3.5 h-3.5 text-amber-600" />
+                          <span>⏳ Contest Starts: {startDate.toLocaleDateString()} {startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      );
+                    }
+
+                    if (endDate && now > endDate) {
+                      return (
+                        <div className="w-full py-2.5 rounded-lg bg-slate-100 text-slate-500 font-bold text-xs border border-slate-300 flex items-center justify-center space-x-1.5 text-center">
+                          <Clock className="w-3.5 h-3.5 text-rose-600" />
+                          <span>🔒 Contest Window Closed</span>
+                        </div>
+                      );
+                    }
+
                     return (
                       <button
-                        onClick={() => setShowHistoryModal(true)}
-                        className="w-full py-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-300 flex items-center justify-center space-x-2 transition-colors"
+                        onClick={() => onSelectQuiz(quiz)}
+                        className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20 flex items-center justify-center space-x-2 transition-all animate-pulse"
                       >
-                        <History className="w-3.5 h-3.5 text-amber-600" />
-                        <span>🔒 1-Time Locked (View Scorecard)</span>
+                        <Play className="w-3.5 h-3.5 fill-slate-950" />
+                        <span>🟢 LIVE CONTEST NOW! (Attempt Test)</span>
                       </button>
                     );
                   }
@@ -205,7 +239,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                       className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs flex items-center justify-center space-x-2 transition-colors"
                     >
                       <Play className="w-3.5 h-3.5 fill-white" />
-                      <span>{isContest ? 'Start Live Contest Exam' : 'Start CBT Examination'}</span>
+                      <span>Start CBT Examination</span>
                     </button>
                   );
                 })()}

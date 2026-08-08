@@ -27,6 +27,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [shuffleOptions, setShuffleOptions] = useState(true);
   const [enablePracticeMode, setEnablePracticeMode] = useState(false);
   const [quizType, setQuizType] = useState<'practice' | 'live_contest'>('practice');
+  const [scheduledStartDateTime, setScheduledStartDateTime] = useState<string>('');
+  const [scheduledEndDateTime, setScheduledEndDateTime] = useState<string>('');
 
   const [questions, setQuestions] = useState<ParsedQuestion[]>(parseResult.questions);
 
@@ -91,6 +93,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       shuffleOptions,
       enablePracticeMode,
       quizType,
+      scheduledStartDateTime: scheduledStartDateTime || undefined,
+      scheduledEndDateTime: scheduledEndDateTime || undefined,
       isPublished: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -239,6 +243,40 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               </div>
             </button>
           </div>
+
+          {quizType === 'live_contest' && (
+            <div className="pt-3 border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center space-x-1">
+                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Contest Official Start Date & Time</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  required
+                  value={scheduledStartDateTime}
+                  onChange={(e) => setScheduledStartDateTime(e.target.value)}
+                  className="w-full p-2 rounded-lg border border-amber-300 bg-white font-mono text-xs font-bold text-slate-900 focus:outline-none focus:border-amber-600"
+                />
+                <p className="text-[10px] text-slate-500 mt-1 font-medium">Candidates CANNOT start test before this exact time.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center space-x-1">
+                  <Clock className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Contest Official Closing Date & Time</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  required
+                  value={scheduledEndDateTime}
+                  onChange={(e) => setScheduledEndDateTime(e.target.value)}
+                  className="w-full p-2 rounded-lg border border-rose-300 bg-white font-mono text-xs font-bold text-slate-900 focus:outline-none focus:border-rose-600"
+                />
+                <p className="text-[10px] text-slate-500 mt-1 font-medium">Exam portal locks permanently for new submissions after this time.</p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2 border-t border-slate-100">

@@ -33,7 +33,8 @@ export interface Quiz {
   shuffleOptions?: boolean;
   enablePracticeMode?: boolean;
   quizType?: 'practice' | 'live_contest'; // 'practice' (24/7 Unlimited) vs 'live_contest' (Strict 1-Time Lock)
-  scheduledStartDateTime?: string;
+  scheduledStartDateTime?: string; // ISO string e.g. "2026-08-10T10:00"
+  scheduledEndDateTime?: string; // ISO string e.g. "2026-08-10T12:00"
   questions: Question[];
   isPublished: boolean;
   createdAt: string;
