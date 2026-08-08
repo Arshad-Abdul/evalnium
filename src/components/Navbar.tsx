@@ -27,8 +27,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   const isAdminVisible =
-    isAdminAuthenticated ||
-    Boolean(currentUser && (currentUser.role === 'admin' || currentUser.email.toLowerCase().includes('admin')));
+    isAdminAuthenticated &&
+    (!currentUser || currentUser.role === 'admin');
 
   return (
     <>

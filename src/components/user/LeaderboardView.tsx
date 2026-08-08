@@ -3,8 +3,10 @@ import type { LeaderboardEntry } from '../../types/auth';
 import { getStoredResults } from '../../utils/storage';
 import { exportLeaderboardToCSV } from '../../utils/export';
 import { Trophy, Award, Medal, Search, Sparkles, Filter, Clock, Download } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 export const LeaderboardView: React.FC = () => {
+  const { isAdminAuthenticated, currentUser } = useAuth();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTopic, setSelectedTopic] = useState('All');
@@ -76,13 +78,15 @@ export const LeaderboardView: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-3">
-            <button
-              onClick={() => exportLeaderboardToCSV(filteredEntries)}
-              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs flex items-center space-x-2 transition-all"
-            >
-              <Download className="w-4 h-4" />
-              <span>Export Ranks to CSV</span>
-            </button>
+            {(isAdminAuthenticated || currentUser?.role === 'admin') && (
+              <button
+                onClick={() => exportLeaderboardToCSV(filteredEntries)}
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs flex items-center space-x-2 transition-all"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export Ranks to CSV</span>
+              </button>
+            )}
 
             <div className="flex items-center space-x-3 bg-indigo-50/60 p-4 rounded-2xl border border-indigo-100">
               <Sparkles className="w-8 h-8 text-indigo-600 flex-shrink-0" />
