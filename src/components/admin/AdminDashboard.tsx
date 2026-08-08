@@ -29,6 +29,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'import' | 'manage' | 'announcements' | 'cloud'>('import');
   const [parsedResult, setParsedResult] = useState<{ res: ParseResult; sourceName: string } | null>(null);
   const [cloudSyncMsg, setCloudSyncMsg] = useState<string | null>(null);
+  const [showSensitiveConfig, setShowSensitiveConfig] = useState(false);
 
   const handleParsed = (res: ParseResult, sourceName: string) => {
     setParsedResult({ res, sourceName });
@@ -164,11 +165,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-3 bg-slate-50 p-5 rounded-xl border border-slate-200 text-xs">
-              <h3 className="font-bold text-slate-900 text-sm">Cloud Connection Parameters</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-slate-900 text-sm">Cloud Connection Parameters</h3>
+                <button
+                  onClick={() => setShowSensitiveConfig(!showSensitiveConfig)}
+                  className="text-[11px] text-blue-600 hover:text-blue-800 font-bold flex items-center space-x-1"
+                >
+                  {showSensitiveConfig ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  <span>{showSensitiveConfig ? 'Hide Details' : 'Show Details'}</span>
+                </button>
+              </div>
               <div className="space-y-2 font-mono text-[11px] text-slate-700">
-                <div className="flex justify-between p-2 rounded bg-white border"><span>Project ID:</span><span className="font-bold text-blue-700">{firebaseConfig.projectId}</span></div>
-                <div className="flex justify-between p-2 rounded bg-white border"><span>Auth Domain:</span><span className="font-bold text-blue-700">{firebaseConfig.authDomain}</span></div>
-                <div className="flex justify-between p-2 rounded bg-white border"><span>Storage Bucket:</span><span className="font-bold text-blue-700">{firebaseConfig.storageBucket}</span></div>
+                <div className="flex justify-between p-2 rounded bg-white border">
+                  <span>Project ID:</span>
+                  <span className="font-bold text-blue-700">
+                    {showSensitiveConfig ? firebaseConfig.projectId : '••••••••••••'}
+                  </span>
+                </div>
+                <div className="flex justify-between p-2 rounded bg-white border">
+                  <span>Auth Domain:</span>
+                  <span className="font-bold text-blue-700">
+                    {showSensitiveConfig ? firebaseConfig.authDomain : '••••••••••••'}
+                  </span>
+                </div>
+                <div className="flex justify-between p-2 rounded bg-white border">
+                  <span>Storage Bucket:</span>
+                  <span className="font-bold text-blue-700">
+                    {showSensitiveConfig ? firebaseConfig.storageBucket : '••••••••••••'}
+                  </span>
+                </div>
               </div>
             </div>
 

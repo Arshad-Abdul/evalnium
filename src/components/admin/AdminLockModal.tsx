@@ -67,7 +67,7 @@ export const AdminLockModal: React.FC<AdminLockModalProps> = ({
                 type={showPass ? 'text' : 'password'}
                 value={passcode}
                 onChange={(e) => setPasscode(e.target.value)}
-                placeholder="Enter passcode (Default: admin123)"
+                placeholder="Enter secure admin passcode"
                 autoFocus
                 className="w-full p-3.5 pr-10 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-mono text-sm focus:border-emerald-500 focus:bg-white focus:outline-none"
               />
@@ -79,9 +79,6 @@ export const AdminLockModal: React.FC<AdminLockModalProps> = ({
                 {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-[11px] text-slate-500 mt-1.5 font-medium">
-              Default passcode: <code className="text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">admin123</code>
-            </p>
           </div>
 
           <div className="flex items-center space-x-3 pt-2">
