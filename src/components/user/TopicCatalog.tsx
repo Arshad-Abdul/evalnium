@@ -30,6 +30,13 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
     onSelectQuiz(quiz);
   };
 
+  const myAttempts = attemptsHistory.filter(attempt => {
+    if (!currentUser) return false;
+    const matchEmail = currentUser.email && attempt.candidateEmail && attempt.candidateEmail.toLowerCase() === currentUser.email.toLowerCase();
+    const matchName = currentUser.name && attempt.candidateName.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
+    return matchEmail || matchName;
+  });
+
   const topics = ['All', ...Array.from(new Set(quizzes.map(q => q.topic)))];
   const publishedQuizzes = quizzes.filter(q => q.isPublished);
 
@@ -61,11 +68,17 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
 
           <div className="flex items-center space-x-4 pt-2">
             <button
-              onClick={() => setShowHistoryModal(true)}
+              onClick={() => {
+                if (!currentUser) {
+                  setShowAuthModal(true);
+                  return;
+                }
+                setShowHistoryModal(true);
+              }}
               className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/10 text-xs font-semibold flex items-center space-x-2 transition-all"
             >
               <History className="w-4 h-4 text-emerald-400" />
-              <span>My Test Attempts ({attemptsHistory.length})</span>
+              <span>My Test Attempts ({myAttempts.length})</span>
             </button>
           </div>
         </div>
@@ -295,12 +308,12 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
             </div>
 
             <div className="overflow-y-auto flex-1 space-y-3 pr-1 text-xs">
-              {attemptsHistory.length === 0 ? (
+              {myAttempts.length === 0 ? (
                 <div className="text-center py-8 text-slate-500 font-medium">
-                  No exam scorecards logged yet. Take a CBT test to track your performance history!
+                  No exam scorecards logged for {currentUser?.name || 'your account'} yet. Take a CBT test to track your performance history!
                 </div>
               ) : (
-                attemptsHistory.map((attempt) => (
+                myAttempts.map((attempt) => (
                   <div key={attempt.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between gap-4">
                     <div>
                       <h4 className="font-bold text-slate-900 text-sm">{attempt.quizTitle}</h4>

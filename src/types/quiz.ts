@@ -54,6 +54,7 @@ export interface QuizAttemptResult {
   quizId: string;
   quizTitle: string;
   candidateName: string;
+  candidateEmail?: string;
   topic: string;
   score: number;
   maxScore: number;

@@ -5,6 +5,7 @@ import { saveBookmarkedQuestion } from './RevisionHubModal';
 import { ExamHeader } from '../exam/ExamHeader';
 import { QuestionPalette } from '../exam/QuestionPalette';
 import { QuestionCard } from '../exam/QuestionCard';
+import { useAuth } from '../../context/AuthContext';
 
 interface ExamRunnerProps {
   quiz: Quiz;
@@ -18,6 +19,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
   candidateName,
   onFinishExam,
 }) => {
+  const { currentUser } = useAuth();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [timeRemainingSeconds, setTimeRemainingSeconds] = useState(quiz.timeLimitMinutes * 60);
   const [userAnswers, setUserAnswers] = useState<Record<string, UserAnswer>>({});
@@ -192,6 +194,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
       quizId: quiz.id,
       quizTitle: quiz.title,
       candidateName,
+      candidateEmail: currentUser?.email,
       topic: quiz.topic,
       score: finalScore,
       maxScore,
