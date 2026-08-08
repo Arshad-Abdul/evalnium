@@ -1,7 +1,18 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import type { Quiz, QuizAttemptResult } from './types/quiz';
 import type { Announcement } from './types/announcement';
-import { getStoredQuizzes, saveQuiz, deleteQuiz, getStoredResults, saveResult } from './utils/storage';
+import {
+  getStoredQuizzes,
+  saveQuiz,
+  deleteQuiz,
+  getStoredResults,
+  saveResult,
+  syncQuizzesFromMySQL,
+  syncResultsFromMySQL,
+  syncAnnouncementsFromMySQL,
+  saveAnnouncementToCloud,
+  deleteAnnouncementFromCloud
+} from './utils/storage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { AdminLockModal } from './components/admin/AdminLockModal';
@@ -53,10 +64,28 @@ function MainAppContent() {
   const [candidateName, setCandidateName] = useState('Candidate');
   const [lastResult, setLastResult] = useState<QuizAttemptResult | null>(null);
 
+  const refreshDataFromMySQL = async () => {
+    const cloudQuizzes = await syncQuizzesFromMySQL();
+    if (cloudQuizzes) setQuizzes(cloudQuizzes);
+
+    const cloudResults = await syncResultsFromMySQL();
+    if (cloudResults) setAttemptsHistory(cloudResults);
+
+    const cloudAnns = await syncAnnouncementsFromMySQL();
+    if (cloudAnns) setAnnouncements(cloudAnns);
+  };
+
   useEffect(() => {
     setQuizzes(getStoredQuizzes());
     setAttemptsHistory(getStoredResults());
     setAnnouncements(getStoredAnnouncements());
+
+    // Fetch initial data from MySQL database server
+    refreshDataFromMySQL();
+
+    // Auto-poll MySQL server every 3 seconds for real-time multi-computer sync
+    const timer = setInterval(refreshDataFromMySQL, 3000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -90,12 +119,14 @@ function MainAppContent() {
   const handleSaveQuiz = (quiz: Quiz) => {
     const updated = saveQuiz(quiz);
     setQuizzes(updated);
+    refreshDataFromMySQL();
   };
 
   const handleDeleteQuiz = (id: string) => {
     if (confirm('Are you sure you want to delete this quiz?')) {
       const updated = deleteQuiz(id);
       setQuizzes(updated);
+      refreshDataFromMySQL();
     }
   };
 
@@ -103,18 +134,21 @@ function MainAppContent() {
     const updatedQuiz = { ...quiz, isPublished: !quiz.isPublished };
     const updated = saveQuiz(updatedQuiz);
     setQuizzes(updated);
+    refreshDataFromMySQL();
   };
 
   const handleSaveAnnouncement = (ann: Announcement) => {
     const updated = [ann, ...announcements];
     setAnnouncements(updated);
     localStorage.setItem(ANNOUNCEMENTS_KEY, JSON.stringify(updated));
+    saveAnnouncementToCloud(ann);
   };
 
   const handleDeleteAnnouncement = (id: string) => {
     const updated = announcements.filter(a => a.id !== id);
     setAnnouncements(updated);
     localStorage.setItem(ANNOUNCEMENTS_KEY, JSON.stringify(updated));
+    deleteAnnouncementFromCloud(id);
   };
 
   // Exam handlers

@@ -1,20 +1,26 @@
 import type { Quiz, QuizAttemptResult } from '../types/quiz';
+import type { Announcement } from '../types/announcement';
 import { INITIAL_QUIZZES } from '../data/initialQuizzes';
 
 const QUIZZES_KEY = 'evalnium_quizzes_v3';
 const RESULTS_KEY = 'evalnium_results_v3';
+const ANNOUNCEMENTS_KEY = 'evalnium_announcements_v1';
 
-const API_BASE_URL = typeof window !== 'undefined'
-  ? `http://${window.location.hostname || 'localhost'}:5000/api`
-  : 'http://localhost:5000/api';
+const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname || 'localhost';
+    return `http://${host}:5000/api`;
+  }
+  return 'http://localhost:5000/api';
+};
 
-// Sync with MySQL Database Server asynchronously
+// --- QUIZZES CLOUD & LOCAL SYNC ---
 export async function syncQuizzesFromMySQL(): Promise<Quiz[] | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/quizzes`);
+    const res = await fetch(`${getApiBaseUrl()}/quizzes`);
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         localStorage.setItem(QUIZZES_KEY, JSON.stringify(data));
         return data;
       }
@@ -33,7 +39,7 @@ export function getStoredQuizzes(): Quiz[] {
       return INITIAL_QUIZZES;
     }
     const parsed = JSON.parse(data);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_QUIZZES;
+    return Array.isArray(parsed) ? parsed : INITIAL_QUIZZES;
   } catch (err) {
     console.error('Error reading quizzes from storage:', err);
     return INITIAL_QUIZZES;
@@ -59,7 +65,7 @@ export function saveQuiz(quiz: Quiz): Quiz[] {
   }
 
   // Push to MySQL Server async
-  fetch(`${API_BASE_URL}/quizzes`, {
+  fetch(`${getApiBaseUrl()}/quizzes`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(quiz),
@@ -73,21 +79,17 @@ export function deleteQuiz(id: string): Quiz[] {
   const updated = quizzes.filter(q => q.id !== id);
   localStorage.setItem(QUIZZES_KEY, JSON.stringify(updated));
 
-  fetch(`${API_BASE_URL}/quizzes/${id}`, {
+  fetch(`${getApiBaseUrl()}/quizzes/${id}`, {
     method: 'DELETE',
   }).catch(() => {});
 
   return updated;
 }
 
-export function resetQuizzesToDefault(): Quiz[] {
-  localStorage.setItem(QUIZZES_KEY, JSON.stringify(INITIAL_QUIZZES));
-  return INITIAL_QUIZZES;
-}
-
+// --- RESULTS & LEADERBOARD CLOUD & LOCAL SYNC ---
 export async function syncResultsFromMySQL(): Promise<QuizAttemptResult[] | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/results`);
+    const res = await fetch(`${getApiBaseUrl()}/results`);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -121,7 +123,7 @@ export function saveResult(result: QuizAttemptResult): QuizAttemptResult[] {
   }
 
   // Push to MySQL Server async
-  fetch(`${API_BASE_URL}/results`, {
+  fetch(`${getApiBaseUrl()}/results`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(result),
@@ -130,6 +132,33 @@ export function saveResult(result: QuizAttemptResult): QuizAttemptResult[] {
   return updated;
 }
 
-export function clearUserHistory(): void {
-  localStorage.removeItem(RESULTS_KEY);
+// --- ANNOUNCEMENTS CLOUD & LOCAL SYNC ---
+export async function syncAnnouncementsFromMySQL(): Promise<Announcement[] | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/announcements`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        localStorage.setItem(ANNOUNCEMENTS_KEY, JSON.stringify(data));
+        return data;
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return null;
+}
+
+export function saveAnnouncementToCloud(ann: Announcement): void {
+  fetch(`${getApiBaseUrl()}/announcements`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(ann),
+  }).catch(() => {});
+}
+
+export function deleteAnnouncementFromCloud(id: string): void {
+  fetch(`${getApiBaseUrl()}/announcements/${id}`, {
+    method: 'DELETE',
+  }).catch(() => {});
 }
