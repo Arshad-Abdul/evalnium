@@ -162,64 +162,40 @@ app.post('/api/auth/send-otp', async (req, res) => {
     const expiresAt = Date.now() + 5 * 60 * 1000; // 5 mins validity
 
     otpStore.set(email.toLowerCase(), { otp, expiresAt });
-    console.log(`[EMAIL DISPATCH] 📩 OTP generated for ${email}: ${otp}`);
-
-    // If SMTP credentials provided, send actual email; otherwise create auto test account
-    let mailSent = false;
-    let previewUrl = null;
+    console.log(`[PRODUCTION EMAIL DISPATCH] 📩 OTP generated for ${email}: ${otp}`);
 
     if (process.env.SMTP_USER && process.env.SMTP_PASS) {
       try {
         await transporter.sendMail({
           from: `"Evalnium Assessment Portal" <${process.env.SMTP_USER}>`,
           to: email,
-          subject: `🔑 Your Verification Code: ${otp} - Evalnium`,
+          subject: `🔑 Your Verification Code: ${otp} - Evalnium Portal`,
           html: `
-            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px;">
-              <h2 style="color: #0f172a; margin-top: 0;">Evalnium Student Verification</h2>
-              <p style="color: #475569; font-size: 14px;">Your 6-digit login verification code is:</p>
-              <div style="font-size: 32px; font-weight: 800; font-family: monospace; letter-spacing: 8px; color: #2563eb; background: #f8fafc; padding: 16px; text-align: center; border-radius: 12px; border: 1px solid #cbd5e1; margin: 20px 0;">
+            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+              <div style="text-align: center; margin-bottom: 20px;">
+                <h1 style="color: #0f172a; font-size: 22px; margin: 0;">Evalnium Official Examination Portal</h1>
+                <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Student Login Email Verification</p>
+              </div>
+              <p style="color: #334155; font-size: 14px; line-height: 1.6;">Hello,</p>
+              <p style="color: #334155; font-size: 14px; line-height: 1.6;">Your 6-digit security code for authenticating your candidate profile on Evalnium is:</p>
+              <div style="font-size: 36px; font-weight: 800; font-family: monospace; letter-spacing: 10px; color: #2563eb; background: #f8fafc; padding: 20px; text-align: center; border-radius: 12px; border: 1px solid #cbd5e1; margin: 24px 0;">
                 ${otp}
               </div>
-              <p style="color: #64748b; font-size: 12px;">This code will expire in 5 minutes. Do not share this OTP with anyone.</p>
+              <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin-top: 20px;">This code is valid for 5 minutes. If you did not request this code, please ignore this email.</p>
+              <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+              <p style="color: #94a3b8; font-size: 11px; text-align: center;">Copyright © 2026 Arshad Abdul. All Rights Reserved.</p>
             </div>
           `,
         });
-        mailSent = true;
-        console.log(`[SMTP SUCCESS] 📩 Real email sent to inbox: ${email}`);
+        console.log(`[SMTP DISPATCH SUCCESS] 📩 Real email sent to candidate inbox: ${email}`);
       } catch (err) {
-        console.error('[SMTP ERROR] Failed to send email via SMTP_USER:', err.message);
-      }
-    }
-
-    if (!mailSent) {
-      try {
-        const testAccount = await nodemailer.createTestAccount();
-        const testTransporter = nodemailer.createTransport({
-          host: 'smtp.ethereal.email',
-          port: 587,
-          secure: false,
-          auth: { user: testAccount.user, pass: testAccount.pass },
-        });
-
-        const info = await testTransporter.sendMail({
-          from: '"Evalnium Assessment Portal" <verify@evalnium.org>',
-          to: email,
-          subject: `🔑 Your Verification Code: ${otp} - Evalnium`,
-          html: `<div style="font-family: sans-serif; padding: 20px;"><h2>Evalnium Verification Code</h2><h1>${otp}</h1></div>`,
-        });
-
-        previewUrl = nodemailer.getTestMessageUrl(info);
-        console.log(`[ETHEREAL MAIL LOG] 📩 Email sent! View online inbox at: ${previewUrl}`);
-      } catch (err) {
-        console.log(`[CONSOLE LOG] OTP for ${email}: ${otp}`);
+        console.error('[SMTP DISPATCH ERROR] Failed to send email via SMTP:', err.message);
       }
     }
 
     res.json({
       success: true,
-      message: 'OTP verification code generated & dispatched successfully.',
-      previewUrl: previewUrl || undefined,
+      message: 'Verification OTP code dispatched to candidate email address.',
     });
   } catch (err) {
     console.error('Error sending OTP email:', err);
