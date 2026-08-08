@@ -281,6 +281,13 @@ export function parseCSV(csvContent: string): ParseResult {
 
     const finalExplanation = explanation || defaultExp;
     const isValid = Boolean(questionText && options.length >= 2);
+    const lineNum = idx + 2; // +1 for 0-index, +1 for CSV header line
+
+    if (!questionText) {
+      errors.push(`Row ${lineNum}: Missing Question Text`);
+    } else if (options.length < 2) {
+      errors.push(`Row ${lineNum}: Question has fewer than 2 valid options`);
+    }
 
     if (questionText || options.length > 0) {
       questions.push({
@@ -297,7 +304,7 @@ export function parseCSV(csvContent: string): ParseResult {
         explanationEnglish: explanationEnglish || (explanation && !explanationHindi ? explanation : undefined),
         explanationHindi: explanationHindi || undefined,
         isValid,
-        validationError: !isValid ? 'Requires a question title and at least 2 options' : undefined
+        validationError: !isValid ? `Row ${lineNum}: Requires question title and at least 2 options` : undefined
       });
     }
   });

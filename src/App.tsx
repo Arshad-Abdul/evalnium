@@ -1,18 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import type { Quiz, QuizAttemptResult } from './types/quiz';
 import type { Announcement } from './types/announcement';
 import { getStoredQuizzes, saveQuiz, deleteQuiz, getStoredResults, saveResult } from './utils/storage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
-import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AdminLockModal } from './components/admin/AdminLockModal';
-import { LeaderboardView } from './components/user/LeaderboardView';
 import { TopicCatalog } from './components/user/TopicCatalog';
 import { QuizInstructionsModal } from './components/user/QuizInstructionsModal';
 import { ExamRunner } from './components/user/ExamRunner';
 import { ExamResultView } from './components/user/ExamResultView';
 import { AnnouncementBanner } from './components/user/AnnouncementBanner';
 import { RevisionHubModal } from './components/user/RevisionHubModal';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
+
+// Lazy loaded heavy components for fast initial bundle load
+const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const LeaderboardView = lazy(() => import('./components/user/LeaderboardView').then(m => ({ default: m.LeaderboardView })));
 
 const ANNOUNCEMENTS_KEY = 'evalnium_announcements_v1';
 
@@ -165,64 +168,70 @@ function MainAppContent() {
 
       {/* Main Container View */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === 'admin' && isAdminAuthenticated ? (
-          <AdminDashboard
-            quizzes={quizzes}
-            announcements={announcements}
-            onSaveQuiz={handleSaveQuiz}
-            onDeleteQuiz={handleDeleteQuiz}
-            onTogglePublish={handleTogglePublish}
-            onSaveAnnouncement={handleSaveAnnouncement}
-            onDeleteAnnouncement={handleDeleteAnnouncement}
-          />
-        ) : activeTab === 'leaderboard' ? (
-          <LeaderboardView />
-        ) : (
-          /* Candidate Exam Portal */
-          <>
-            {examPhase === 'catalog' && (
-              <>
-                <AnnouncementBanner
-                  announcements={announcements}
-                  onSelectQuizById={handleSelectQuizById}
+        <Suspense fallback={
+          <div className="text-center py-20 text-slate-500 text-xs font-mono font-bold animate-pulse">
+            Loading Evalnium CBT Module...
+          </div>
+        }>
+          {activeTab === 'admin' && isAdminAuthenticated ? (
+            <AdminDashboard
+              quizzes={quizzes}
+              announcements={announcements}
+              onSaveQuiz={handleSaveQuiz}
+              onDeleteQuiz={handleDeleteQuiz}
+              onTogglePublish={handleTogglePublish}
+              onSaveAnnouncement={handleSaveAnnouncement}
+              onDeleteAnnouncement={handleDeleteAnnouncement}
+            />
+          ) : activeTab === 'leaderboard' ? (
+            <LeaderboardView />
+          ) : (
+            /* Candidate Exam Portal */
+            <>
+              {examPhase === 'catalog' && (
+                <>
+                  <AnnouncementBanner
+                    announcements={announcements}
+                    onSelectQuizById={handleSelectQuizById}
+                  />
+
+                  <TopicCatalog
+                    quizzes={quizzes.filter((q) => q.isPublished)}
+                    attemptsHistory={attemptsHistory}
+                    onSelectQuiz={handleSelectQuiz}
+                  />
+                </>
+              )}
+
+              {examPhase === 'instructions' && selectedQuiz && (
+                <QuizInstructionsModal
+                  quiz={selectedQuiz}
+                  defaultCandidateName={currentUser?.name || candidateName}
+                  onStartExam={handleStartExam}
+                  onCancel={() => setExamPhase('catalog')}
                 />
+              )}
 
-                <TopicCatalog
-                  quizzes={quizzes.filter((q) => q.isPublished)}
-                  attemptsHistory={attemptsHistory}
-                  onSelectQuiz={handleSelectQuiz}
+              {examPhase === 'running' && selectedQuiz && (
+                <ExamRunner
+                  quiz={selectedQuiz}
+                  candidateName={candidateName}
+                  onFinishExam={handleFinishExam}
+                  onExitExam={handleGoHome}
                 />
-              </>
-            )}
+              )}
 
-            {examPhase === 'instructions' && selectedQuiz && (
-              <QuizInstructionsModal
-                quiz={selectedQuiz}
-                defaultCandidateName={currentUser?.name || candidateName}
-                onStartExam={handleStartExam}
-                onCancel={() => setExamPhase('catalog')}
-              />
-            )}
-
-            {examPhase === 'running' && selectedQuiz && (
-              <ExamRunner
-                quiz={selectedQuiz}
-                candidateName={candidateName}
-                onFinishExam={handleFinishExam}
-                onExitExam={handleGoHome}
-              />
-            )}
-
-            {examPhase === 'results' && lastResult && selectedQuiz && (
-              <ExamResultView
-                result={lastResult}
-                quiz={selectedQuiz}
-                onRetake={handleRetakeExam}
-                onGoHome={handleGoHome}
-              />
-            )}
-          </>
-        )}
+              {examPhase === 'results' && lastResult && selectedQuiz && (
+                <ExamResultView
+                  result={lastResult}
+                  quiz={selectedQuiz}
+                  onRetake={handleRetakeExam}
+                  onGoHome={handleGoHome}
+                />
+              )}
+            </>
+          )}
+        </Suspense>
       </main>
 
       {/* Protected Admin Passcode Modal */}
@@ -267,9 +276,11 @@ function MainAppContent() {
 
 export function App() {
   return (
-    <AuthProvider>
-      <MainAppContent />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <MainAppContent />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -12,9 +12,9 @@ export function getStoredQuizzes(): Quiz[] {
       return INITIAL_QUIZZES;
     }
     const parsed = JSON.parse(data);
-    return Array.isArray(parsed) ? parsed : INITIAL_QUIZZES;
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_QUIZZES;
   } catch (err) {
-    console.error('Error reading quizzes from LocalStorage:', err);
+    console.error('Error reading quizzes from storage:', err);
     return INITIAL_QUIZZES;
   }
 }
@@ -31,7 +31,11 @@ export function saveQuiz(quiz: Quiz): Quiz[] {
     updated = [quiz, ...quizzes];
   }
   
-  localStorage.setItem(QUIZZES_KEY, JSON.stringify(updated));
+  try {
+    localStorage.setItem(QUIZZES_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.warn('LocalStorage limit reached when saving quiz:', e);
+  }
   return updated;
 }
 
@@ -52,7 +56,7 @@ export function getStoredResults(): QuizAttemptResult[] {
     const data = localStorage.getItem(RESULTS_KEY);
     return data ? JSON.parse(data) : [];
   } catch (err) {
-    console.error('Error reading results from LocalStorage:', err);
+    console.error('Error reading results from storage:', err);
     return [];
   }
 }
@@ -60,7 +64,11 @@ export function getStoredResults(): QuizAttemptResult[] {
 export function saveResult(result: QuizAttemptResult): QuizAttemptResult[] {
   const results = getStoredResults();
   const updated = [result, ...results];
-  localStorage.setItem(RESULTS_KEY, JSON.stringify(updated));
+  try {
+    localStorage.setItem(RESULTS_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.warn('LocalStorage limit reached when saving exam result:', e);
+  }
   return updated;
 }
 
