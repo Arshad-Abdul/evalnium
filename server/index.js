@@ -10,29 +10,31 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
 const DB_CONFIG = {
-  host: 'localhost',
-  user: 'root',
-  password: 'evalnium@2026',
-  port: 3306,
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASS || 'evalnium@2026',
+  port: parseInt(process.env.DB_PORT || '3306', 10),
 };
 
-const DB_NAME = 'evalnium_db';
+const DB_NAME = process.env.DB_NAME || 'evalnium_db';
 
 let pool;
 
 // In-Memory OTP Store: email -> { otp, expiresAt }
 const otpStore = new Map();
 
-// Transporter configuration: Uses SMTP env or fallback
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587', 10),
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || '',
-  },
-});
+function createMailTransporter() {
+  const user = process.env.SMTP_USER || 'arsnaz1234@gmail.com';
+  const pass = (process.env.SMTP_PASS || 'uzviogcsymqzxbar').replace(/\s+/g, '');
+
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: user,
+      pass: pass,
+    },
+  });
+}
 
 async function initDatabase() {
   try {
@@ -164,44 +166,42 @@ app.post('/api/auth/send-otp', async (req, res) => {
     const expiresAt = Date.now() + 5 * 60 * 1000; // 5 mins validity
 
     otpStore.set(email.toLowerCase(), { otp, expiresAt });
-    console.log(`[PRODUCTION EMAIL DISPATCH] 📩 OTP generated for ${email}: ${otp}`);
+    console.log(`[REAL EMAIL DISPATCH] 📩 Sending 6-digit OTP code to ${email}...`);
 
-    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-      try {
-        await transporter.sendMail({
-          from: `"Evalnium Assessment Portal" <${process.env.SMTP_USER}>`,
-          to: email,
-          subject: `🔑 Your Verification Code: ${otp} - Evalnium Portal`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
-              <div style="text-align: center; margin-bottom: 20px;">
-                <h1 style="color: #0f172a; font-size: 22px; margin: 0;">Evalnium Official Examination Portal</h1>
-                <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Student Login Email Verification</p>
-              </div>
-              <p style="color: #334155; font-size: 14px; line-height: 1.6;">Hello,</p>
-              <p style="color: #334155; font-size: 14px; line-height: 1.6;">Your 6-digit security code for authenticating your candidate profile on Evalnium is:</p>
-              <div style="font-size: 36px; font-weight: 800; font-family: monospace; letter-spacing: 10px; color: #2563eb; background: #f8fafc; padding: 20px; text-align: center; border-radius: 12px; border: 1px solid #cbd5e1; margin: 24px 0;">
-                ${otp}
-              </div>
-              <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin-top: 20px;">This code is valid for 5 minutes. If you did not request this code, please ignore this email.</p>
-              <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-              <p style="color: #94a3b8; font-size: 11px; text-align: center;">Copyright © 2026 Arshad Abdul. All Rights Reserved.</p>
-            </div>
-          `,
-        });
-        console.log(`[SMTP DISPATCH SUCCESS] 📩 Real email sent to candidate inbox: ${email}`);
-      } catch (err) {
-        console.error('[SMTP DISPATCH ERROR] Failed to send email via SMTP:', err.message);
-      }
-    }
+    const transporter = createMailTransporter();
+    const senderEmail = process.env.SMTP_USER || 'arsnaz1234@gmail.com';
+
+    const info = await transporter.sendMail({
+      from: `"Evalnium Assessment Portal" <${senderEmail}>`,
+      to: email,
+      subject: `🔑 Your Verification Code: ${otp} - Evalnium Portal`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <h1 style="color: #0f172a; font-size: 22px; margin: 0;">Evalnium Official Examination Portal</h1>
+            <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Student Login Email Verification</p>
+          </div>
+          <p style="color: #334155; font-size: 14px; line-height: 1.6;">Hello,</p>
+          <p style="color: #334155; font-size: 14px; line-height: 1.6;">Your 6-digit security code for authenticating your candidate profile on Evalnium is:</p>
+          <div style="font-size: 36px; font-weight: 800; font-family: monospace; letter-spacing: 10px; color: #2563eb; background: #f8fafc; padding: 20px; text-align: center; border-radius: 12px; border: 1px solid #cbd5e1; margin: 24px 0;">
+            ${otp}
+          </div>
+          <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin-top: 20px;">This code is valid for 5 minutes. If you did not request this code, please ignore this email.</p>
+          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+          <p style="color: #94a3b8; font-size: 11px; text-align: center;">Copyright © 2026 Arshad Abdul. All Rights Reserved.</p>
+        </div>
+      `,
+    });
+
+    console.log(`[SMTP DISPATCH SUCCESS] ✅ Real Email delivered to ${email}! MessageID: ${info.messageId}`);
 
     res.json({
       success: true,
       message: 'Verification OTP code dispatched to candidate email address.',
     });
   } catch (err) {
-    console.error('Error sending OTP email:', err);
-    res.status(500).json({ error: 'Failed to send OTP email' });
+    console.error('❌ Error sending OTP email via Gmail SMTP:', err);
+    res.status(500).json({ error: `Gmail SMTP Error: ${err.message || 'Failed to send OTP'}` });
   }
 });
 
