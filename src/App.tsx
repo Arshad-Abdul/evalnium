@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Quiz, QuizAttemptResult } from './types/quiz';
+import type { Announcement } from './types/announcement';
 import { getStoredQuizzes, saveQuiz, deleteQuiz, getStoredResults, saveResult } from './utils/storage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
@@ -10,14 +11,38 @@ import { TopicCatalog } from './components/user/TopicCatalog';
 import { QuizInstructionsModal } from './components/user/QuizInstructionsModal';
 import { ExamRunner } from './components/user/ExamRunner';
 import { ExamResultView } from './components/user/ExamResultView';
+import { AnnouncementBanner } from './components/user/AnnouncementBanner';
+import { RevisionHubModal } from './components/user/RevisionHubModal';
+
+const ANNOUNCEMENTS_KEY = 'evalnium_announcements_v1';
+
+function getStoredAnnouncements(): Announcement[] {
+  try {
+    const data = localStorage.getItem(ANNOUNCEMENTS_KEY);
+    return data ? JSON.parse(data) : [
+      {
+        id: 'ann_default_1',
+        title: 'UGC NET 2026 Bilingual Mock Series Live Now!',
+        message: 'Practice 100+ LIS metric science questions with negative marking & instant explanations.',
+        scheduledDateTime: new Date().toISOString(),
+        isActive: true,
+        createdAt: new Date().toISOString()
+      }
+    ];
+  } catch {
+    return [];
+  }
+}
 
 function MainAppContent() {
   const { isAdminAuthenticated, logoutAdmin, currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'user' | 'leaderboard' | 'admin'>('user');
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [attemptsHistory, setAttemptsHistory] = useState<QuizAttemptResult[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   const [showAdminLockModal, setShowAdminLockModal] = useState<boolean>(false);
+  const [showRevisionHubModal, setShowRevisionHubModal] = useState<boolean>(false);
 
   // Exam Workflow State
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
@@ -28,6 +53,7 @@ function MainAppContent() {
   useEffect(() => {
     setQuizzes(getStoredQuizzes());
     setAttemptsHistory(getStoredResults());
+    setAnnouncements(getStoredAnnouncements());
   }, []);
 
   useEffect(() => {
@@ -76,10 +102,29 @@ function MainAppContent() {
     setQuizzes(updated);
   };
 
+  const handleSaveAnnouncement = (ann: Announcement) => {
+    const updated = [ann, ...announcements];
+    setAnnouncements(updated);
+    localStorage.setItem(ANNOUNCEMENTS_KEY, JSON.stringify(updated));
+  };
+
+  const handleDeleteAnnouncement = (id: string) => {
+    const updated = announcements.filter(a => a.id !== id);
+    setAnnouncements(updated);
+    localStorage.setItem(ANNOUNCEMENTS_KEY, JSON.stringify(updated));
+  };
+
   // Exam handlers
   const handleSelectQuiz = (quiz: Quiz) => {
     setSelectedQuiz(quiz);
     setExamPhase('instructions');
+  };
+
+  const handleSelectQuizById = (quizId: string) => {
+    const target = quizzes.find(q => q.id === quizId);
+    if (target) {
+      handleSelectQuiz(target);
+    }
   };
 
   const handleStartExam = (name: string) => {
@@ -115,6 +160,7 @@ function MainAppContent() {
         isAdminAuthenticated={isAdminAuthenticated}
         onAdminLogout={handleAdminLogout}
         totalQuizzesCount={quizzes.filter(q => q.isPublished).length}
+        onOpenRevisionHub={() => setShowRevisionHubModal(true)}
       />
 
       {/* Main Container View */}
@@ -122,9 +168,12 @@ function MainAppContent() {
         {activeTab === 'admin' && isAdminAuthenticated ? (
           <AdminDashboard
             quizzes={quizzes}
+            announcements={announcements}
             onSaveQuiz={handleSaveQuiz}
             onDeleteQuiz={handleDeleteQuiz}
             onTogglePublish={handleTogglePublish}
+            onSaveAnnouncement={handleSaveAnnouncement}
+            onDeleteAnnouncement={handleDeleteAnnouncement}
           />
         ) : activeTab === 'leaderboard' ? (
           <LeaderboardView />
@@ -132,11 +181,18 @@ function MainAppContent() {
           /* Candidate Exam Portal */
           <>
             {examPhase === 'catalog' && (
-              <TopicCatalog
-                quizzes={quizzes.filter((q) => q.isPublished)}
-                attemptsHistory={attemptsHistory}
-                onSelectQuiz={handleSelectQuiz}
-              />
+              <>
+                <AnnouncementBanner
+                  announcements={announcements}
+                  onSelectQuizById={handleSelectQuizById}
+                />
+
+                <TopicCatalog
+                  quizzes={quizzes.filter((q) => q.isPublished)}
+                  attemptsHistory={attemptsHistory}
+                  onSelectQuiz={handleSelectQuiz}
+                />
+              </>
             )}
 
             {examPhase === 'instructions' && selectedQuiz && (
@@ -176,6 +232,12 @@ function MainAppContent() {
           onCancel={() => setShowAdminLockModal(false)}
         />
       )}
+
+      {/* Revision Hub Modal */}
+      <RevisionHubModal
+        isOpen={showRevisionHubModal}
+        onClose={() => setShowRevisionHubModal(false)}
+      />
 
       {/* Global Footer */}
       <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500 font-medium">

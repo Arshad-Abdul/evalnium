@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, GraduationCap, Trophy, LogOut, LogIn, ChevronDown } from 'lucide-react';
+import { ShieldCheck, GraduationCap, Trophy, LogOut, LogIn, ChevronDown, Bookmark } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { AuthModal } from './auth/AuthModal';
 
@@ -9,6 +9,7 @@ interface NavbarProps {
   isAdminAuthenticated: boolean;
   onAdminLogout: () => void;
   totalQuizzesCount: number;
+  onOpenRevisionHub?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -17,6 +18,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   isAdminAuthenticated,
   onAdminLogout,
   totalQuizzesCount,
+  onOpenRevisionHub,
 }) => {
   const { currentUser, logoutCandidate } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -97,7 +99,18 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Right Action Controls */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
+            {onOpenRevisionHub && (
+              <button
+                onClick={onOpenRevisionHub}
+                className="px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold transition-all flex items-center space-x-1.5"
+                title="Open Saved Bookmarked Questions"
+              >
+                <Bookmark className="w-3.5 h-3.5 fill-amber-500 text-amber-600" />
+                <span className="hidden md:inline">Revision Hub</span>
+              </button>
+            )}
+
             {currentUser ? (
               <div className="relative">
                 <button
@@ -117,6 +130,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <p className="text-xs font-bold text-slate-900 truncate">{currentUser.name}</p>
                       <p className="text-[10px] text-slate-500 font-mono truncate">{currentUser.email}</p>
                     </div>
+
+                    {onOpenRevisionHub && (
+                      <button
+                        onClick={() => {
+                          onOpenRevisionHub();
+                          setShowUserDropdown(false);
+                        }}
+                        className="w-full p-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg flex items-center space-x-2"
+                      >
+                        <Bookmark className="w-3.5 h-3.5 text-amber-600" />
+                        <span>My Bookmarked Questions</span>
+                      </button>
+                    )}
+
                     <button
                       onClick={() => {
                         logoutCandidate();

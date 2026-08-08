@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import type { LeaderboardEntry } from '../../types/auth';
 import { getStoredResults } from '../../utils/storage';
-import { Trophy, Award, Medal, Search, Sparkles, Filter, Clock } from 'lucide-react';
+import { exportLeaderboardToCSV } from '../../utils/export';
+import { Trophy, Award, Medal, Search, Sparkles, Filter, Clock, Download } from 'lucide-react';
 
 export const LeaderboardView: React.FC = () => {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -74,11 +75,21 @@ export const LeaderboardView: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center space-x-3 bg-indigo-50/60 p-4 rounded-2xl border border-indigo-100">
-            <Sparkles className="w-8 h-8 text-indigo-600 flex-shrink-0" />
-            <div>
-              <span className="text-xl font-black font-mono text-indigo-950">{entries.length}</span>
-              <p className="text-[11px] text-indigo-700 font-bold uppercase">Total Exam Rankings Logged</p>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => exportLeaderboardToCSV(filteredEntries)}
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs flex items-center space-x-2 transition-all"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export Ranks to CSV</span>
+            </button>
+
+            <div className="flex items-center space-x-3 bg-indigo-50/60 p-4 rounded-2xl border border-indigo-100">
+              <Sparkles className="w-8 h-8 text-indigo-600 flex-shrink-0" />
+              <div>
+                <span className="text-xl font-black font-mono text-indigo-950">{entries.length}</span>
+                <p className="text-[11px] text-indigo-700 font-bold uppercase">Total Exam Rankings Logged</p>
+              </div>
             </div>
           </div>
         </div>

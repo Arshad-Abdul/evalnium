@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import type { QuizAttemptResult, Quiz, Question } from '../../types/quiz';
+import { getStoredResults } from '../../utils/storage';
 import confetti from 'canvas-confetti';
-import { Trophy, AlertCircle, RotateCcw, Home, HelpCircle, BookOpen, Languages } from 'lucide-react';
+import { Trophy, AlertCircle, RotateCcw, Home, HelpCircle, BookOpen, Languages, Target, UserCheck } from 'lucide-react';
+import { AudioPlayerButton } from '../common/AudioPlayerButton';
 
 interface ExamResultViewProps {
   result: QuizAttemptResult;
@@ -18,8 +20,12 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
 }) => {
   const [filterType, setFilterType] = useState<'all' | 'correct' | 'wrong' | 'skipped'>('all');
   const [languageMode, setLanguageMode] = useState<'dual' | 'en' | 'hi'>('dual');
+  const [allAttempts, setAllAttempts] = useState<QuizAttemptResult[]>([]);
 
   useEffect(() => {
+    const history = getStoredResults();
+    setAllAttempts(history);
+
     if (result.passed) {
       try {
         confetti({
@@ -32,6 +38,33 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
       }
     }
   }, [result.passed]);
+
+  // Calculate Percentile Rank & Topper Comparison
+  const quizAttempts = allAttempts.filter(a => a.quizId === quiz.id);
+  const totalTakers = Math.max(1, quizAttempts.length);
+  const lowerScoringTakers = quizAttempts.filter(a => a.percentage < result.percentage).length;
+  const percentileRank = Math.min(99.9, Math.max(10, Math.round(((lowerScoringTakers + 1) / totalTakers) * 1000) / 10));
+
+  // Rank #1 Topper
+  const topper = quizAttempts.sort((a, b) => b.percentage - a.percentage)[0] || result;
+
+  // Topic Breakdown for Weak-Topic Radar
+  const topicStats: Record<string, { total: number; correct: number }> = {};
+  quiz.questions.forEach((q) => {
+    const topicName = q.topic || quiz.topic || 'General';
+    if (!topicStats[topicName]) {
+      topicStats[topicName] = { total: 0, correct: 0 };
+    }
+    topicStats[topicName].total++;
+    const uAns = result.userAnswers[q.id];
+    if (uAns && uAns.selectedOptionId === q.correctOptionId) {
+      topicStats[topicName].correct++;
+    }
+  });
+
+  const weakTopics = Object.entries(topicStats).filter(
+    ([, stat]) => Math.round((stat.correct / stat.total) * 100) < 60
+  );
 
   const filteredQuestions = quiz.questions.filter((q) => {
     const uAns = result.userAnswers[q.id];
@@ -96,13 +129,19 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
           </div>
 
           <div>
-            <span className={`inline-block px-3 py-1 rounded-full text-xs font-extrabold tracking-wider uppercase mb-2 ${
-              result.passed
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                : 'bg-rose-50 text-rose-700 border border-rose-200'
-            }`}>
-              {result.passed ? 'EXAM PASSED 🎉' : 'NEEDS IMPROVEMENT 📚'}
-            </span>
+            <div className="flex items-center justify-center space-x-2 mb-2">
+              <span className={`px-3 py-1 rounded-full text-xs font-extrabold tracking-wider uppercase ${
+                result.passed
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-rose-50 text-rose-700 border border-rose-200'
+              }`}>
+                {result.passed ? 'EXAM PASSED 🎉' : 'NEEDS IMPROVEMENT 📚'}
+              </span>
+
+              <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono">
+                {percentileRank} Percentile 🏆
+              </span>
+            </div>
 
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">{result.quizTitle}</h1>
             <p className="text-xs text-slate-500 mt-1 font-medium">
@@ -167,6 +206,74 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
 
       </div>
 
+      {/* Rank #1 Topper Comparison & Speed Analytics Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        {/* Topper Comparison Box */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <div className="flex items-center space-x-2 text-slate-900 font-bold text-sm">
+            <UserCheck className="w-5 h-5 text-indigo-600" />
+            <span>Candidate vs Rank #1 Topper Benchmark</span>
+          </div>
+
+          <div className="space-y-3 text-xs font-medium bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+              <span className="text-slate-600">Metric</span>
+              <span className="font-bold text-slate-900">Your Score</span>
+              <span className="font-bold text-amber-700">Rank #1 Topper</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600">Accuracy %:</span>
+              <span className="font-mono font-bold text-indigo-700">{result.percentage}%</span>
+              <span className="font-mono font-bold text-amber-700">{topper.percentage}%</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600">Completion Time:</span>
+              <span className="font-mono font-bold text-indigo-700">{Math.floor(result.timeSpentSeconds / 60)}m {result.timeSpentSeconds % 60}s</span>
+              <span className="font-mono font-bold text-amber-700">{Math.floor(topper.timeSpentSeconds / 60)}m {topper.timeSpentSeconds % 60}s</span>
+            </div>
+
+            <div className="flex justify-between items-center pt-1 border-t border-slate-200">
+              <span className="text-slate-600">Percentile Rank:</span>
+              <span className="font-mono font-bold text-emerald-700">{percentileRank} Percentile</span>
+              <span className="font-mono font-bold text-amber-700">99.9 Percentile</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Weak-Topic Radar Box */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <div className="flex items-center space-x-2 text-slate-900 font-bold text-sm">
+            <Target className="w-5 h-5 text-rose-600" />
+            <span>Weak-Topic Radar & Improvement Focus</span>
+          </div>
+
+          {weakTopics.length === 0 ? (
+            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-medium">
+              🎉 Outstanding Performance! All sub-topics achieved over 60% accuracy.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-slate-500 font-medium">The following sub-topics need focused revision before your next exam:</p>
+              {weakTopics.map(([tName, stat]) => {
+                const acc = Math.round((stat.correct / stat.total) * 100);
+                return (
+                  <div key={tName} className="p-3 rounded-xl bg-rose-50/60 border border-rose-200 flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-900">{tName}</span>
+                    <span className="font-mono font-bold text-rose-700 bg-white px-2 py-0.5 rounded border border-rose-200">
+                      {acc}% Accuracy ({stat.correct}/{stat.total})
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+      </div>
+
       {/* Answer Key & Explanations Review Section */}
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
@@ -175,7 +282,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
               <BookOpen className="w-5 h-5 text-indigo-600" />
               <span>Detailed Question & Answer Review</span>
             </h3>
-            <p className="text-xs text-slate-500 font-medium">Review option choices and rationale explanations</p>
+            <p className="text-xs text-slate-500 font-medium">Review option choices, audio explanations, and rationale</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -269,6 +376,8 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                       {isSkipped ? 'Skipped' : isCorrect ? 'Correct' : 'Incorrect'}
                     </span>
                   </div>
+
+                  <AudioPlayerButton textToRead={q.questionEnglish || q.questionText} />
                 </div>
 
                 {renderQuestionText(q)}

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import type { Quiz, UserAnswer, QuizAttemptResult, Question } from '../../types/quiz';
 import { Clock, Bookmark, ChevronLeft, ChevronRight, AlertTriangle, Send, Languages, Layers, CheckCircle2, XCircle } from 'lucide-react';
+import { AudioPlayerButton } from '../common/AudioPlayerButton';
+import { saveBookmarkedQuestion } from './RevisionHubModal';
 
 interface ExamRunnerProps {
   quiz: Quiz;
@@ -100,11 +102,16 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
       isMarkedForReview: false,
       timeSpentSeconds: 0,
     };
+    const nextState = !existingAns.isMarkedForReview;
+    if (nextState) {
+      const qObj = quiz.questions.find(q => q.id === qId);
+      if (qObj) saveBookmarkedQuestion(qObj);
+    }
     setUserAnswers((prev) => ({
       ...prev,
       [qId]: {
         ...existingAns,
-        isMarkedForReview: !existingAns.isMarkedForReview,
+        isMarkedForReview: nextState,
       },
     }));
   };
@@ -338,14 +345,22 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
                   <span className="text-xs text-slate-500 font-semibold">
                     Question {currentQuestionIndex + 1} of {quiz.questions.length}
                   </span>
+                  {currentAnswer.timeSpentSeconds > 120 && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300 text-[11px] font-bold animate-pulse">
+                      ⚠️ Caution: 2+ mins spent on this question
+                    </span>
+                  )}
                 </div>
 
-                {currentAnswer.isMarkedForReview && (
-                  <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold flex items-center space-x-1">
-                    <Bookmark className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                    <span>Marked for Review</span>
-                  </span>
-                )}
+                <div className="flex items-center space-x-2">
+                  <AudioPlayerButton textToRead={currentQuestion.questionEnglish || currentQuestion.questionText} />
+                  {currentAnswer.isMarkedForReview && (
+                    <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold flex items-center space-x-1">
+                      <Bookmark className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                      <span>Marked for Review</span>
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Question Text */}
