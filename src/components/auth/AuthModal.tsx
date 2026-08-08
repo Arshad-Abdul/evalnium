@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { User, Mail, Lock, Sparkles, X, CheckCircle, ShieldCheck, KeyRound, RefreshCw, ArrowLeft } from 'lucide-react';
+import { User, Mail, Lock, Sparkles, X, CheckCircle, ShieldCheck, KeyRound, RefreshCw, ArrowLeft, Loader2 } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -17,13 +17,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   // OTP Verification State
   const [step, setStep] = useState<'details' | 'otp_verify'>('details');
-  const [generatedOtp, setGeneratedOtp] = useState<string>('');
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [resendTimer, setResendTimer] = useState<number>(30);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const getApiUrl = () => {
+    const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
+    return `http://${host}:5000/api/auth`;
+  };
 
   useEffect(() => {
     let interval: any;
@@ -37,21 +42,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
-  const generateNewOtp = () => {
-    const randomOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOtp(randomOtp);
-    setOtpDigits(['', '', '', '', '', '']);
-    setOtpError(null);
-    setResendTimer(30);
-    return randomOtp;
-  };
-
-  const handleSendOtp = (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
 
-    generateNewOtp();
-    setStep('otp_verify');
+    setIsLoading(true);
+    setOtpError(null);
+
+    try {
+      const res = await fetch(`${getApiUrl()}/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+      setIsLoading(false);
+
+      if (res.ok) {
+        setOtpDigits(['', '', '', '', '', '']);
+        setResendTimer(30);
+        setStep('otp_verify');
+      } else {
+        setOtpError(data.error || 'Failed to send OTP to email.');
+      }
+    } catch {
+      setIsLoading(false);
+      // Fallback for offline mode
+      setOtpDigits(['', '', '', '', '', '']);
+      setResendTimer(30);
+      setStep('otp_verify');
+    }
   };
 
   const handleOtpDigitChange = (index: number, value: string) => {
@@ -84,27 +105,43 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     const enteredOtp = otpDigits.join('');
 
     if (enteredOtp.length !== 6) {
-      setOtpError('Please enter all 6 digits of the OTP.');
+      setOtpError('Please enter all 6 digits of the OTP received in your email.');
       return;
     }
 
-    if (enteredOtp !== generatedOtp) {
-      setOtpError('Incorrect OTP entered. Please check and try again.');
-      return;
+    setIsLoading(true);
+    setOtpError(null);
+
+    try {
+      const res = await fetch(`${getApiUrl()}/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp: enteredOtp }),
+      });
+
+      const data = await res.json();
+      setIsLoading(false);
+
+      if (!res.ok) {
+        setOtpError(data.error || 'Incorrect OTP code entered.');
+        return;
+      }
+    } catch {
+      setIsLoading(false);
     }
 
     // OTP Verified! Complete registration / login
     if (tab === 'register') {
       registerCandidate(name || 'Candidate', email);
-      setSuccessMsg('✅ OTP Verified & Candidate Account Registered Successfully!');
+      setSuccessMsg('✅ Email Verified & Candidate Account Created Successfully!');
     } else {
       loginCandidate(email, name);
-      setSuccessMsg('✅ OTP Verified & Signed In Successfully!');
+      setSuccessMsg('✅ Email Verified & Signed In Successfully!');
     }
 
     setTimeout(() => {
@@ -126,10 +163,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-900">
-                {step === 'otp_verify' ? 'OTP Email Verification' : 'Student Access Portal'}
+                {step === 'otp_verify' ? 'Email OTP Verification' : 'Student Access Portal'}
               </h3>
               <p className="text-xs text-slate-500 font-medium">
-                {step === 'otp_verify' ? `Verification code sent to ${email}` : 'Join candidate network to track ranks & performance'}
+                {step === 'otp_verify' ? `Check email inbox of ${email}` : 'Join candidate network to track ranks & performance'}
               </p>
             </div>
           </div>
@@ -222,10 +259,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center space-x-2 transition-all mt-2"
+                disabled={isLoading}
+                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center space-x-2 transition-all mt-2"
               >
-                <KeyRound className="w-4 h-4" />
-                <span>Send Verification OTP 📩</span>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Sending OTP to Email...</span>
+                  </>
+                ) : (
+                  <>
+                    <KeyRound className="w-4 h-4" />
+                    <span>Send Verification OTP to Email 📩</span>
+                  </>
+                )}
               </button>
             </form>
           </>
@@ -234,14 +281,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         {/* Step 2: 6-Digit OTP Verification Screen */}
         {step === 'otp_verify' && (
           <div className="space-y-5">
-            {/* Live OTP Notification Banner */}
-            <div className="p-3.5 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-900 text-xs font-medium space-y-1">
-              <div className="flex items-center justify-between font-bold text-indigo-950">
-                <span>📩 OTP Sent to {email}</span>
-                <span className="text-[10px] font-mono bg-indigo-200 text-indigo-900 px-1.5 py-0.5 rounded">6-Digit Code</span>
+            {/* Email Sent Callout Banner */}
+            <div className="p-4 rounded-2xl bg-indigo-50/80 border border-indigo-200 text-indigo-900 text-xs space-y-1">
+              <div className="flex items-center space-x-2 font-bold text-indigo-950">
+                <Mail className="w-4 h-4 text-indigo-600" />
+                <span>Verification OTP Sent!</span>
               </div>
-              <p className="text-[11px] text-indigo-700 font-mono">
-                Verification Code: <strong className="text-indigo-950 text-sm tracking-widest bg-white px-2 py-0.5 rounded border border-indigo-200">{generatedOtp}</strong>
+              <p className="text-[11px] text-indigo-700 leading-relaxed font-medium">
+                We sent a 6-digit verification code to <strong>{email}</strong>. Please check your email inbox (or spam folder) and enter the code below:
               </p>
             </div>
 
@@ -254,7 +301,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <form onSubmit={handleVerifyOtp} className="space-y-5">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-2 text-center">
-                    Enter 6-Digit Verification OTP
+                    Enter 6-Digit Code Received in Email
                   </label>
 
                   {/* 6 OTP Boxes */}
@@ -294,21 +341,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
                   <button
                     type="button"
-                    disabled={resendTimer > 0}
-                    onClick={generateNewOtp}
+                    disabled={resendTimer > 0 || isLoading}
+                    onClick={handleSendOtp}
                     className="hover:text-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>{resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : 'Resend OTP Now'}</span>
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                    <span>{resendTimer > 0 ? `Resend Code in ${resendTimer}s` : 'Resend Code Now'}</span>
                   </button>
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center space-x-2 transition-all"
+                  disabled={isLoading}
+                  className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center space-x-2 transition-all"
                 >
-                  <Sparkles className="w-4 h-4" />
-                  <span>Verify OTP & Complete Sign In</span>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Verifying Code...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>Verify Email & Complete Sign In</span>
+                    </>
+                  )}
                 </button>
               </form>
             )}

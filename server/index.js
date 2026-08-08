@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import mysql from 'mysql2/promise';
+import nodemailer from 'nodemailer';
 
 const app = express();
 app.use(cors());
@@ -16,6 +17,20 @@ const DB_CONFIG = {
 const DB_NAME = 'evalnium_db';
 
 let pool;
+
+// In-Memory OTP Store: email -> { otp, expiresAt }
+const otpStore = new Map();
+
+// Transporter configuration: Uses SMTP env or fallback
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: parseInt(process.env.SMTP_PORT || '587', 10),
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+  },
+});
 
 async function initDatabase() {
   try {
@@ -136,6 +151,71 @@ async function initDatabase() {
 }
 
 initDatabase();
+
+// --- OTP AUTH ENDPOINTS ---
+app.post('/api/auth/send-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email address is required' });
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 mins validity
+
+    otpStore.set(email.toLowerCase(), { otp, expiresAt });
+    console.log(`[EMAIL DISPATCH] 📩 OTP generated for ${email}: ${otp}`);
+
+    // If SMTP credentials provided, send actual email
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+      await transporter.sendMail({
+        from: `"Evalnium Assessment Portal" <${process.env.SMTP_USER}>`,
+        to: email,
+        subject: `🔑 Your Verification Code: ${otp} - Evalnium`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px;">
+            <h2 style="color: #0f172a; margin-top: 0;">Evalnium Student Verification</h2>
+            <p style="color: #475569; font-size: 14px;">Your 6-digit login verification code is:</p>
+            <div style="font-size: 32px; font-weight: 800; font-family: monospace; letter-spacing: 8px; color: #2563eb; background: #f8fafc; padding: 16px; text-align: center; border-radius: 12px; border: 1px solid #cbd5e1; margin: 20px 0;">
+              ${otp}
+            </div>
+            <p style="color: #64748b; font-size: 12px;">This code will expire in 5 minutes. Do not share this OTP with anyone.</p>
+          </div>
+        `,
+      });
+    }
+
+    res.json({ success: true, message: 'OTP sent to candidate email inbox successfully.', devOtp: process.env.NODE_ENV === 'development' ? otp : undefined });
+  } catch (err) {
+    console.error('Error sending OTP email:', err);
+    res.status(500).json({ error: 'Failed to send OTP email' });
+  }
+});
+
+app.post('/api/auth/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
+
+    const record = otpStore.get(email.toLowerCase());
+    if (!record) {
+      return res.status(400).json({ error: 'No OTP found or expired. Please request a new code.' });
+    }
+
+    if (Date.now() > record.expiresAt) {
+      otpStore.delete(email.toLowerCase());
+      return res.status(400).json({ error: 'OTP expired. Please request a new code.' });
+    }
+
+    if (record.otp !== otp.trim()) {
+      return res.status(400).json({ error: 'Incorrect OTP code entered.' });
+    }
+
+    // OTP Verified successfully!
+    otpStore.delete(email.toLowerCase());
+    res.json({ success: true, message: 'OTP verified successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // API Endpoints
 
