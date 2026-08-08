@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import type { Quiz, QuizAttemptResult } from '../../types/quiz';
-import { Search, BookOpen, Clock, Play, History, Filter, X } from 'lucide-react';
+import { Search, BookOpen, Clock, Play, History, Filter, X, Lock } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { AuthModal } from '../auth/AuthModal';
 
 interface TopicCatalogProps {
   quizzes: Quiz[];
@@ -13,10 +15,20 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
   attemptsHistory,
   onSelectQuiz,
 }) => {
+  const { currentUser } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTopic, setSelectedTopic] = useState<string>('All');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('All');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  const handleStartExamAttempt = (quiz: Quiz) => {
+    if (!currentUser) {
+      setShowAuthModal(true);
+      return;
+    }
+    onSelectQuiz(quiz);
+  };
 
   const topics = ['All', ...Array.from(new Set(quizzes.map(q => q.topic)))];
   const publishedQuizzes = quizzes.filter(q => q.isPublished);
@@ -224,7 +236,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
 
                     return (
                       <button
-                        onClick={() => onSelectQuiz(quiz)}
+                        onClick={() => handleStartExamAttempt(quiz)}
                         className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20 flex items-center justify-center space-x-2 transition-all animate-pulse"
                       >
                         <Play className="w-3.5 h-3.5 fill-slate-950" />
@@ -235,11 +247,24 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
 
                   return (
                     <button
-                      onClick={() => onSelectQuiz(quiz)}
-                      className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs flex items-center justify-center space-x-2 transition-colors"
+                      onClick={() => handleStartExamAttempt(quiz)}
+                      className={`w-full py-2.5 rounded-lg font-bold text-xs shadow-xs flex items-center justify-center space-x-2 transition-colors ${
+                        currentUser
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                          : 'bg-slate-900 hover:bg-slate-800 text-white'
+                      }`}
                     >
-                      <Play className="w-3.5 h-3.5 fill-white" />
-                      <span>Start CBT Examination</span>
+                      {currentUser ? (
+                        <>
+                          <Play className="w-3.5 h-3.5 fill-white" />
+                          <span>Start CBT Examination</span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="w-3.5 h-3.5" />
+                          <span>Sign In to Start Exam</span>
+                        </>
+                      )}
                     </button>
                   );
                 })()}
@@ -248,6 +273,9 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
           ))}
         </div>
       )}
+
+      {/* Auth Modal Trigger for Guest Users */}
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
 
       {/* History Modal */}
       {showHistoryModal && (

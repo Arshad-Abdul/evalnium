@@ -6,6 +6,9 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   avatarUrl?: string;
+  targetExam?: string;
+  phone?: string;
+  institution?: string;
   totalExamsTaken?: number;
   createdAt: string;
 }

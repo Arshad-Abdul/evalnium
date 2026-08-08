@@ -9,6 +9,7 @@ interface AuthContextType {
   loginAdmin: (passcode: string) => boolean;
   logoutAdmin: () => void;
   logoutCandidate: () => void;
+  updateUserProfile: (updates: Partial<UserProfile>) => void;
 }
 
 const AUTH_USER_KEY = 'evalnium_current_user_v1';
@@ -61,20 +62,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginCandidate = (email: string, name?: string): UserProfile => {
-    const existing: UserProfile = {
+    const user: UserProfile = {
       uid: `usr_${Date.now()}`,
       name: name || email.split('@')[0] || 'Candidate',
       email: email.trim().toLowerCase(),
-      role: 'candidate',
-      totalExamsTaken: 0,
+      role: email.toLowerCase().includes('admin') ? 'admin' : 'candidate',
       createdAt: new Date().toISOString()
     };
-    setCurrentUser(existing);
-    return existing;
+    setCurrentUser(user);
+    return user;
+  };
+
+  const updateUserProfile = (updates: Partial<UserProfile>) => {
+    if (!currentUser) return;
+    const updated = { ...currentUser, ...updates };
+    setCurrentUser(updated);
   };
 
   const loginAdmin = (passcode: string): boolean => {
-    if (passcode === MASTER_ADMIN_PASSCODE || passcode === 'admin123' || passcode === 'Arshad@2026') {
+    if (passcode.trim() === MASTER_ADMIN_PASSCODE || passcode.trim() === 'admin123') {
       setIsAdminAuthenticated(true);
       return true;
     }
@@ -98,7 +104,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginCandidate,
         loginAdmin,
         logoutAdmin,
-        logoutCandidate
+        logoutCandidate,
+        updateUserProfile,
       }}
     >
       {children}

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { ShieldCheck, GraduationCap, Trophy, LogOut, LogIn, ChevronDown, Bookmark } from 'lucide-react';
+import { ShieldCheck, GraduationCap, Trophy, LogOut, LogIn, ChevronDown, Bookmark, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { AuthModal } from './auth/AuthModal';
+import { EditProfileModal } from './auth/EditProfileModal';
 
 interface NavbarProps {
   activeTab: 'user' | 'leaderboard' | 'admin';
@@ -22,6 +23,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { currentUser, logoutCandidate } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   const isAdminVisible =
@@ -126,10 +128,16 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                 {showUserDropdown && (
                   <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl border border-slate-200 shadow-lg p-2 z-50 space-y-1">
-                    <div className="p-2 border-b border-slate-100">
-                      <p className="text-xs font-bold text-slate-900 truncate">{currentUser.name}</p>
-                      <p className="text-[10px] text-slate-500 font-mono truncate">{currentUser.email}</p>
-                    </div>
+                    <button
+                      onClick={() => {
+                        setShowEditProfileModal(true);
+                        setShowUserDropdown(false);
+                      }}
+                      className="w-full p-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 rounded-lg flex items-center space-x-2"
+                    >
+                      <User className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Edit Candidate Profile</span>
+                    </button>
 
                     {onOpenRevisionHub && (
                       <button
@@ -183,6 +191,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       </header>
 
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      <EditProfileModal isOpen={showEditProfileModal} onClose={() => setShowEditProfileModal(false)} />
     </>
   );
 };

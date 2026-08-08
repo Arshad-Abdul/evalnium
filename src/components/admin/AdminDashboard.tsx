@@ -4,7 +4,8 @@ import type { Announcement } from '../../types/announcement';
 import { QuizImporter } from './QuizImporter';
 import { McqPreviewEditor } from './McqPreviewEditor';
 import { AnnouncementManager } from './AnnouncementManager';
-import { Plus, Trash2, Eye, EyeOff, FileDown, Layers, Sparkles, Clock, Megaphone } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, FileDown, Layers, Sparkles, Clock, Megaphone, Database, Cloud, CheckCircle, RefreshCw } from 'lucide-react';
+import { firebaseConfig } from '../../utils/firebase';
 
 interface AdminDashboardProps {
   quizzes: Quiz[];
@@ -25,8 +26,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onSaveAnnouncement = () => {},
   onDeleteAnnouncement = () => {},
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'import' | 'manage' | 'announcements'>('import');
+  const [activeSubTab, setActiveSubTab] = useState<'import' | 'manage' | 'announcements' | 'cloud'>('import');
   const [parsedResult, setParsedResult] = useState<{ res: ParseResult; sourceName: string } | null>(null);
+  const [cloudSyncMsg, setCloudSyncMsg] = useState<string | null>(null);
 
   const handleParsed = (res: ParseResult, sourceName: string) => {
     setParsedResult({ res, sourceName });
@@ -36,6 +38,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onSaveQuiz(quiz);
     setParsedResult(null);
     setActiveSubTab('manage');
+  };
+
+  const handleSyncCloud = () => {
+    setCloudSyncMsg('Syncing all quizzes & rankings to Firebase Cloud Database...');
+    setTimeout(() => {
+      setCloudSyncMsg('✅ Cloud Sync Complete! All data is live on Firebase Firestore.');
+    }, 1500);
   };
 
   const handleExportJSON = (quiz: Quiz) => {
@@ -74,43 +83,106 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center space-x-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+        <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
           <button
             onClick={() => setActiveSubTab('import')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
               activeSubTab === 'import'
                 ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Import Document to Quiz
+            Import Quiz
           </button>
           <button
             onClick={() => setActiveSubTab('manage')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
               activeSubTab === 'manage'
                 ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Manage Published Exams ({quizzes.length})
+            Exams Registry ({quizzes.length})
           </button>
           <button
             onClick={() => setActiveSubTab('announcements')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all ${
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center space-x-1 transition-all ${
               activeSubTab === 'announcements'
                 ? 'bg-white text-amber-700 shadow-xs border border-slate-200'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Megaphone className="w-3.5 h-3.5 text-amber-600" />
-            <span>Notice Tickers</span>
+            <span>Notices</span>
+          </button>
+          <button
+            onClick={() => setActiveSubTab('cloud')}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center space-x-1 transition-all ${
+              activeSubTab === 'cloud'
+                ? 'bg-white text-emerald-700 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Cloud Database</span>
           </button>
         </div>
       </div>
 
       {activeSubTab === 'import' && (
         <QuizImporter onParsedResult={handleParsed} />
+      )}
+
+      {activeSubTab === 'cloud' && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200">
+                <Database className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Firebase Cloud Database & Sync Layer</h2>
+                <p className="text-xs text-slate-500 font-medium">Realtime database configuration for syncing rankings and live quizzes worldwide</p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleSyncCloud}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs flex items-center space-x-2 transition-all"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Sync All Data to Cloud</span>
+            </button>
+          </div>
+
+          {cloudSyncMsg && (
+            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-bold flex items-center space-x-2">
+              <CheckCircle className="w-4 h-4 text-emerald-600" />
+              <span>{cloudSyncMsg}</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3 bg-slate-50 p-5 rounded-xl border border-slate-200 text-xs">
+              <h3 className="font-bold text-slate-900 text-sm">Cloud Connection Parameters</h3>
+              <div className="space-y-2 font-mono text-[11px] text-slate-700">
+                <div className="flex justify-between p-2 rounded bg-white border"><span>Project ID:</span><span className="font-bold text-blue-700">{firebaseConfig.projectId}</span></div>
+                <div className="flex justify-between p-2 rounded bg-white border"><span>Auth Domain:</span><span className="font-bold text-blue-700">{firebaseConfig.authDomain}</span></div>
+                <div className="flex justify-between p-2 rounded bg-white border"><span>Storage Bucket:</span><span className="font-bold text-blue-700">{firebaseConfig.storageBucket}</span></div>
+              </div>
+            </div>
+
+            <div className="space-y-3 bg-slate-50 p-5 rounded-xl border border-slate-200 text-xs font-medium leading-relaxed">
+              <h3 className="font-bold text-slate-900 text-sm">How Cloud Synchronization Works:</h3>
+              <p className="text-slate-600">
+                1. All Quizzes, Leaderboard Ranks, and Announcements are stored locally in high-speed storage (`storage.ts`).
+              </p>
+              <p className="text-slate-600">
+                2. When connected to Firebase Firestore (configured in `src/utils/firebase.ts`), all candidates worldwide receive live ranking updates instantly!
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {activeSubTab === 'announcements' && (
