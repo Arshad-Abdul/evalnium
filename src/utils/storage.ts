@@ -9,9 +9,9 @@ const ANNOUNCEMENTS_KEY = 'evalnium_announcements_v1';
 const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
     const host = window.location.hostname || 'localhost';
-    return `http://${host}:5000/api`;
+    return `http://${host}:5050/api`;
   }
-  return 'http://localhost:5000/api';
+  return 'http://localhost:5050/api';
 };
 
 // --- QUIZZES CLOUD & LOCAL SYNC ---

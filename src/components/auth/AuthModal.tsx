@@ -27,7 +27,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   const getApiUrl = () => {
     const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-    return `http://${host}:5000/api/auth`;
+    return `http://${host}:5050/api/auth`;
   };
 
   useEffect(() => {
