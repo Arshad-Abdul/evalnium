@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { LeaderboardEntry } from '../../types/auth';
-import { getStoredResults } from '../../utils/storage';
+import { getStoredResults, getStoredQuizzes } from '../../utils/storage';
 import { exportLeaderboardToCSV } from '../../utils/export';
 import { Trophy, Award, Medal, Search, Sparkles, Filter, Clock, Download } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -13,8 +13,16 @@ export const LeaderboardView: React.FC = () => {
   const [selectedTopic, setSelectedTopic] = useState('All Topics');
 
   useEffect(() => {
+    const activeQuizzes = getStoredQuizzes();
     const results = getStoredResults();
-    const formatted: LeaderboardEntry[] = results.map((r) => ({
+    
+    // Filter out deleted quizzes (Live/Published and Drafted quizzes remain!)
+    const validResults = results.filter(r => {
+      if (!r.quizId && !r.quizTitle) return false;
+      return activeQuizzes.some(q => q.id === r.quizId || q.title === r.quizTitle);
+    });
+
+    const formatted: LeaderboardEntry[] = validResults.map((r) => ({
       id: r.id,
       candidateId: `cand_${r.candidateName}`,
       candidateName: r.candidateName || 'Candidate',

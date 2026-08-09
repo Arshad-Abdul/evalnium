@@ -27,13 +27,53 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
   const [languageMode, setLanguageMode] = useState<'dual' | 'en' | 'hi'>('dual');
   const [examViewMode, setExamViewMode] = useState<'single' | 'all'>('single');
 
-  const currentQuestion = quiz.questions[currentQuestionIndex];
-  const currentAnswer = userAnswers[currentQuestion.id] || {
-    questionId: currentQuestion.id,
+  const [activeQuestions] = useState(() => {
+    let prepared = quiz.questions.map(q => {
+      if (quiz.shuffleOptions && q.options.length > 0) {
+        return { ...q, options: [...q.options].sort(() => Math.random() - 0.5) };
+      }
+      return q;
+    });
+
+    if (quiz.shuffleQuestions && prepared.length > 0) {
+      prepared = [...prepared].sort(() => Math.random() - 0.5);
+    }
+
+    return prepared;
+  });
+
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const [showAntiCheatWarning, setShowAntiCheatWarning] = useState(false);
+
+  const currentQuestion = activeQuestions[currentQuestionIndex] || activeQuestions[0];
+  const currentAnswer = userAnswers[currentQuestion?.id] || {
+    questionId: currentQuestion?.id,
     selectedOptionId: null,
     isMarkedForReview: false,
     timeSpentSeconds: 0,
   };
+
+  // Anti-cheating tab switch listener
+  useEffect(() => {
+    if (!quiz.enableAntiCheating) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setTabSwitchCount((prev) => {
+          const nextCount = prev + 1;
+          setShowAntiCheatWarning(true);
+          if (nextCount >= 3) {
+            alert('🚨 ANTI-CHEATING VIOLATION: 3 Tab Switch violations detected. Exam is being automatically submitted now.');
+            handleForceSubmit();
+          }
+          return nextCount;
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [quiz.enableAntiCheating]);
 
   // Main countdown timer
   useEffect(() => {
@@ -148,7 +188,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     };
     const nextState = !existingAns.isMarkedForReview;
     if (nextState) {
-      const qObj = quiz.questions.find(q => q.id === qId);
+      const qObj = activeQuestions.find(q => q.id === qId);
       if (qObj) saveBookmarkedQuestion(qObj);
     }
     setUserAnswers((prev) => ({
@@ -166,7 +206,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     let wrongAnswers = 0;
     let skippedQuestions = 0;
 
-    quiz.questions.forEach((q) => {
+    activeQuestions.forEach((q) => {
       const uAns = userAnswers[q.id];
       const selectedOpt = uAns ? uAns.selectedOptionId : null;
 
@@ -184,16 +224,16 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     });
 
     const finalScore = Math.max(0, Math.round(score * 100) / 100);
-    const maxScore = quiz.questions.reduce((acc, q) => acc + (q.marks || 1), 0);
+    const maxScore = activeQuestions.reduce((acc, q) => acc + (q.marks || 1), 0);
     const percentage = Math.round((finalScore / maxScore) * 100);
     const passed = percentage >= quiz.passingPercentage;
     const timeSpentSeconds = quiz.timeLimitMinutes * 60 - timeRemainingSeconds;
 
     return {
-      id: `attempt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      id: `res_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       quizId: quiz.id,
       quizTitle: quiz.title,
-      candidateName,
+      candidateName: candidateName || currentUser?.name || 'Candidate',
       candidateEmail: currentUser?.email,
       topic: quiz.topic,
       score: finalScore,
@@ -206,7 +246,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
       correctAnswers,
       wrongAnswers,
       skippedQuestions,
-      totalQuestions: quiz.questions.length,
+      totalQuestions: activeQuestions.length,
       attemptedQuestions: correctAnswers + wrongAnswers,
     };
   };
@@ -240,6 +280,24 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         onOpenSubmitModal={() => setShowSubmitModal(true)}
       />
 
+      {/* Anti-Cheating Tab Switch Warning Banner */}
+      {showAntiCheatWarning && (
+        <div className="bg-rose-600 text-white p-3 rounded-2xl flex items-center justify-between text-xs font-bold shadow-lg animate-bounce">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="w-5 h-5 text-yellow-300 flex-shrink-0" />
+            <span>
+              ⚠️ ANTI-CHEATING WARNING ({tabSwitchCount}/3): Tab/Window switch detected! Exam will auto-submit after 3 violations.
+            </span>
+          </div>
+          <button
+            onClick={() => setShowAntiCheatWarning(false)}
+            className="px-2.5 py-1 rounded bg-white text-rose-800 text-[11px] font-extrabold uppercase cursor-pointer"
+          >
+            I Understand
+          </button>
+        </div>
+      )}
+
       {/* Section Tabs Bar */}
       {quiz.sectionalConfig && quiz.sectionalConfig.length > 0 && (
         <div className="flex items-center space-x-2 bg-slate-900 text-white p-2.5 rounded-2xl border border-slate-800 overflow-x-auto">
@@ -248,10 +306,10 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
             <button
               key={sec.id || idx}
               onClick={() => {
-                const firstQIndex = idx * Math.floor(quiz.questions.length / quiz.sectionalConfig!.length);
-                setCurrentQuestionIndex(Math.min(firstQIndex, quiz.questions.length - 1));
+                const firstQIndex = idx * Math.floor(activeQuestions.length / quiz.sectionalConfig!.length);
+                setCurrentQuestionIndex(Math.min(firstQIndex, activeQuestions.length - 1));
               }}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md border border-indigo-400/40 flex-shrink-0"
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md border border-indigo-400/40 flex-shrink-0 cursor-pointer"
             >
               {sec.sectionName} ({sec.timeLimitMinutes} Mins)
             </button>
@@ -267,7 +325,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
             <QuestionCard
               question={currentQuestion}
               questionIndex={currentQuestionIndex}
-              totalQuestions={quiz.questions.length}
+              totalQuestions={activeQuestions.length}
               userAnswer={currentAnswer}
               languageMode={languageMode}
               onSelectOption={handleSelectOption}

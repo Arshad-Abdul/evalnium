@@ -79,6 +79,11 @@ export function deleteQuiz(id: string): Quiz[] {
   const updated = quizzes.filter(q => q.id !== id);
   localStorage.setItem(QUIZZES_KEY, JSON.stringify(updated));
 
+  // Clean up results for deleted quiz
+  const results = getStoredResults();
+  const cleanedResults = results.filter(r => r.quizId !== id);
+  localStorage.setItem(RESULTS_KEY, JSON.stringify(cleanedResults));
+
   fetch(`${getApiBaseUrl()}/quizzes/${id}`, {
     method: 'DELETE',
   }).catch(() => {});
@@ -115,7 +120,30 @@ export function getStoredResults(): QuizAttemptResult[] {
 
 export function saveResult(result: QuizAttemptResult): QuizAttemptResult[] {
   const results = getStoredResults();
-  const updated = [result, ...results];
+  
+  // Check if same candidate has already attempted this quiz (by quizId or title)
+  const existingIdx = results.findIndex(
+    r => (r.quizId === result.quizId || (r.quizTitle && r.quizTitle === result.quizTitle)) &&
+         (r.candidateName.toLowerCase().trim() === result.candidateName.toLowerCase().trim())
+  );
+
+  let updated: QuizAttemptResult[];
+  if (existingIdx >= 0) {
+    const existing = results[existingIdx];
+    const newAttemptCount = (existing.attemptsCount || 1) + 1;
+    const updatedEntry: QuizAttemptResult = {
+      ...result,
+      id: existing.id || result.id,
+      attemptsCount: newAttemptCount,
+      bestScore: Math.max(existing.bestScore || existing.score || 0, result.score),
+      bestPercentage: Math.max(existing.bestPercentage || existing.percentage || 0, result.percentage),
+    };
+    updated = [...results];
+    updated[existingIdx] = updatedEntry;
+  } else {
+    updated = [{ ...result, attemptsCount: 1, bestScore: result.score, bestPercentage: result.percentage }, ...results];
+  }
+
   try {
     localStorage.setItem(RESULTS_KEY, JSON.stringify(updated));
   } catch (e) {

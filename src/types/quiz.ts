@@ -91,6 +91,9 @@ export interface QuizAttemptResult {
   skippedQuestions: number;
   totalQuestions?: number;
   attemptedQuestions?: number;
+  attemptsCount?: number;
+  bestScore?: number;
+  bestPercentage?: number;
 }
 
 export interface ParseResult {
