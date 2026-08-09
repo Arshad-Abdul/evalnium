@@ -238,7 +238,7 @@ export function parseCSV(csvContent: string): ParseResult {
   const parsedHeader = Papa.parse<Record<string, string>>(cleanCSVContent, {
     header: true,
     skipEmptyLines: 'greedy',
-    delimitersToGuess: [',', '\t', ';', '|'],
+    delimiter: '',
     transformHeader: (h) => h.replace(/^\uFEFF/, '').replace(/^["']|["']$/g, '').trim(),
   });
 
@@ -347,7 +347,7 @@ export function parseCSV(csvContent: string): ParseResult {
     const parsedRows = Papa.parse<string[]>(cleanCSVContent, {
       header: false,
       skipEmptyLines: 'greedy',
-      delimitersToGuess: [',', '\t', ';', '|'],
+      delimiter: '',
     });
 
     if (parsedRows.data && parsedRows.data.length > 0) {
