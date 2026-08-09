@@ -225,11 +225,10 @@ export function parseCSV(csvContent: string): ParseResult {
     parsed.errors.forEach(err => errors.push(`CSV Row ${err.row}: ${err.message}`));
   }
 
-  // Exact normalized header matcher prevents Question_Number matching Option_B and Question_Hindi matching Option_D
   const getValueByHeader = (row: Record<string, string>, candidateHeaders: string[]): string => {
-    const normalizedCandidates = candidateHeaders.map(h => h.toLowerCase().replace(/[\s\_\-]/g, ''));
+    const normalizedCandidates = candidateHeaders.map(h => h.toLowerCase().replace(/[\s\_\-\.]/g, ''));
     for (const key of Object.keys(row)) {
-      const normKey = key.trim().toLowerCase().replace(/[\s\_\-]/g, '');
+      const normKey = key.trim().toLowerCase().replace(/[\s\_\-\.]/g, '');
       if (normalizedCandidates.includes(normKey)) {
         return fixMojibake((row[key] || '').trim());
       }
@@ -238,15 +237,29 @@ export function parseCSV(csvContent: string): ParseResult {
   };
 
   parsed.data.forEach((row, idx) => {
-    const questionEnglish = getValueByHeader(row, ['question_english', 'questionenglish', 'english_question', 'english']);
-    const questionHindi = getValueByHeader(row, ['question_hindi', 'questionhindi', 'hindi_question', 'hindi']);
-    let questionText = getValueByHeader(row, ['question', 'question_text', 'questiontext', 'prompt']);
+    const questionEnglish = getValueByHeader(row, ['question_english', 'questionenglish', 'english_question', 'english', 'eng_question', 'q_english']);
+    const questionHindi = getValueByHeader(row, ['question_hindi', 'questionhindi', 'hindi_question', 'hindi', 'hin_question', 'q_hindi']);
+    let questionText = getValueByHeader(row, [
+      'question', 'question_text', 'questiontext', 'prompt', 'question_statement', 'questionstatement', 'statement', 'question_title', 'questiontitle', 'q_text', 'qtext', 'stem', 'problem', 'questions', 'q', 'ques', 'mcq', 'item', 'query'
+    ]);
+
+    const rowValues = Object.values(row).map(v => fixMojibake((v || '').trim())).filter(Boolean);
+
+    // If header matching missed, use positional column 0 or 1
+    if (!questionText && rowValues.length >= 3) {
+      // If column 0 is a number like "1", question text is column 1
+      if (/^\d+$/.test(rowValues[0]) && rowValues.length >= 4) {
+        questionText = rowValues[1];
+      } else {
+        questionText = rowValues[0];
+      }
+    }
 
     if (questionEnglish && questionHindi) {
       questionText = `English: ${questionEnglish}\n\nहिन्दी: ${questionHindi}`;
-    } else if (questionEnglish) {
+    } else if (questionEnglish && !questionText) {
       questionText = questionEnglish;
-    } else if (questionHindi) {
+    } else if (questionHindi && !questionText) {
       questionText = questionHindi;
     }
 
@@ -256,13 +269,15 @@ export function parseCSV(csvContent: string): ParseResult {
     const optD = getValueByHeader(row, ['option_d', 'optiond', 'optd', 'option4', 'option_4', 'choice_d', 'choiced', 'choice4', 'opt4', 'ans_d', 'ansd', 'd', '4']);
 
     // Fallback: Check positional columns if named headers missed
-    const rowValues = Object.values(row).map(v => (v || '').trim()).filter(Boolean);
-    const finalOptA = optA || (rowValues.length >= 5 ? rowValues[1] : '');
-    const finalOptB = optB || (rowValues.length >= 5 ? rowValues[2] : '');
-    const finalOptC = optC || (rowValues.length >= 5 ? rowValues[3] : '');
-    const finalOptD = optD || (rowValues.length >= 5 ? rowValues[4] : '');
+    let startOptIdx = 1;
+    if (rowValues.length >= 5 && /^\d+$/.test(rowValues[0])) startOptIdx = 2;
+
+    const finalOptA = optA || (rowValues.length > startOptIdx ? rowValues[startOptIdx] : '');
+    const finalOptB = optB || (rowValues.length > startOptIdx + 1 ? rowValues[startOptIdx + 1] : '');
+    const finalOptC = optC || (rowValues.length > startOptIdx + 2 ? rowValues[startOptIdx + 2] : '');
+    const finalOptD = optD || (rowValues.length > startOptIdx + 3 ? rowValues[startOptIdx + 3] : '');
     
-    let answer = getValueByHeader(row, ['correct_answer', 'correctanswer', 'answer', 'correct_option', 'correctoption', 'key', 'ans']).toUpperCase();
+    let answer = getValueByHeader(row, ['correct_answer', 'correctanswer', 'answer', 'correct_option', 'correctoption', 'key', 'ans', 'correct', 'correct_key', 'answer_key']).toUpperCase();
     if (answer.startsWith('OPTION ')) answer = answer.replace('OPTION ', '').trim();
     if (['1', '2', '3', '4'].includes(answer)) {
       answer = String.fromCharCode(64 + parseInt(answer, 10));
@@ -273,13 +288,13 @@ export function parseCSV(csvContent: string): ParseResult {
 
     const explanationEnglish = getValueByHeader(row, ['explanation_english', 'explanationenglish']);
     const explanationHindi = getValueByHeader(row, ['explanation_hindi', 'explanationhindi']);
-    let explanation = getValueByHeader(row, ['explanation', 'exp', 'reason']);
+    let explanation = getValueByHeader(row, ['explanation', 'exp', 'reason', 'rationale', 'solution', 'comment']);
 
     if (explanationEnglish && explanationHindi) {
       explanation = `English: ${explanationEnglish}\n\nहिन्दी: ${explanationHindi}`;
-    } else if (explanationEnglish) {
+    } else if (explanationEnglish && !explanation) {
       explanation = explanationEnglish;
-    } else if (explanationHindi) {
+    } else if (explanationHindi && !explanation) {
       explanation = explanationHindi;
     }
 
@@ -296,30 +311,18 @@ export function parseCSV(csvContent: string): ParseResult {
 
     const finalExplanation = explanation || defaultExp;
     const isValid = Boolean(questionText && options.length >= 2);
-    const lineNum = idx + 2; // +1 for 0-index, +1 for CSV header line
 
-    if (!questionText) {
-      errors.push(`Row ${lineNum}: Missing Question Text`);
-    } else if (options.length < 2) {
-      errors.push(`Row ${lineNum}: Question has fewer than 2 valid options`);
-    }
-
-    if (questionText || options.length > 0) {
+    if (questionText && options.length >= 2) {
       questions.push({
         tempId: `csv_${idx}_${Date.now()}`,
-        questionText: questionText || `Question ${idx + 1}`,
+        questionText: questionText,
         questionEnglish: questionEnglish || (questionText && !questionHindi ? questionText : undefined),
         questionHindi: questionHindi || undefined,
-        options: options.length >= 2 ? options : [
-          { id: 'A', text: 'Option A' },
-          { id: 'B', text: 'Option B' }
-        ],
+        options: options,
         correctOptionId: answer,
         explanation: finalExplanation,
-        explanationEnglish: explanationEnglish || (explanation && !explanationHindi ? explanation : undefined),
-        explanationHindi: explanationHindi || undefined,
         isValid,
-        validationError: !isValid ? `Row ${lineNum}: Requires question title and at least 2 options` : undefined
+        validationError: !isValid ? `Row ${idx + 2}: Requires question title and at least 2 options` : undefined
       });
     }
   });
