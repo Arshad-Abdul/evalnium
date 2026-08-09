@@ -98,6 +98,10 @@ async function initDatabase() {
       `ALTER TABLE quizzes ADD COLUMN prevent_early_next_section TINYINT(1) DEFAULT 0;`,
       `ALTER TABLE quizzes ADD COLUMN prevent_prev_question TINYINT(1) DEFAULT 0;`,
       `ALTER TABLE quizzes ADD COLUMN prevent_early_next_question TINYINT(1) DEFAULT 0;`,
+      `ALTER TABLE quizzes ADD COLUMN shuffle_questions TINYINT(1) DEFAULT 1;`,
+      `ALTER TABLE quizzes ADD COLUMN shuffle_options TINYINT(1) DEFAULT 1;`,
+      `ALTER TABLE quizzes ADD COLUMN enable_practice_mode TINYINT(1) DEFAULT 0;`,
+      `ALTER TABLE quizzes ADD COLUMN default_language_mode VARCHAR(20) DEFAULT 'en';`,
       `ALTER TABLE questions ADD COLUMN question_type VARCHAR(50) DEFAULT 'mcq';`,
       `ALTER TABLE questions ADD COLUMN image_url LONGTEXT;`,
       `ALTER TABLE questions ADD COLUMN list_i_json LONGTEXT;`,
@@ -364,6 +368,10 @@ app.get('/api/quizzes', async (req, res) => {
         preventEarlyNextSection: Boolean(q.prevent_early_next_section),
         preventPreviousQuestionReturn: Boolean(q.prevent_prev_question),
         preventEarlyNextQuestion: Boolean(q.prevent_early_next_question),
+        shuffleQuestions: q.shuffle_questions !== undefined ? Boolean(q.shuffle_questions) : true,
+        shuffleOptions: q.shuffle_options !== undefined ? Boolean(q.shuffle_options) : true,
+        enablePracticeMode: Boolean(q.enable_practice_mode),
+        defaultLanguageMode: q.default_language_mode || 'en',
         questions,
       });
     }
@@ -380,17 +388,21 @@ app.post('/api/quizzes', async (req, res) => {
     await pool.query(
       `INSERT INTO quizzes (
         id, title, description, topic, category, difficulty, time_limit_minutes, passing_percentage, negative_marks, quiz_type, scheduled_start_datetime, scheduled_end_datetime, is_published, created_at, updated_at, author,
-        enable_certificate, enable_anti_cheating, timing_mode, sectional_config_json, question_time_limit_seconds, prevent_prev_section, prevent_early_next_section, prevent_prev_question, prevent_early_next_question
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        enable_certificate, enable_anti_cheating, timing_mode, sectional_config_json, question_time_limit_seconds, prevent_prev_section, prevent_early_next_section, prevent_prev_question, prevent_early_next_question,
+        shuffle_questions, shuffle_options, enable_practice_mode, default_language_mode
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
         title=?, description=?, topic=?, time_limit_minutes=?, passing_percentage=?, negative_marks=?, quiz_type=?, is_published=?, updated_at=?,
-        enable_certificate=?, enable_anti_cheating=?, timing_mode=?, sectional_config_json=?, question_time_limit_seconds=?, prevent_prev_section=?, prevent_early_next_section=?, prevent_prev_question=?, prevent_early_next_question=?`,
+        enable_certificate=?, enable_anti_cheating=?, timing_mode=?, sectional_config_json=?, question_time_limit_seconds=?, prevent_prev_section=?, prevent_early_next_section=?, prevent_prev_question=?, prevent_early_next_question=?,
+        shuffle_questions=?, shuffle_options=?, enable_practice_mode=?, default_language_mode=?`,
       [
         q.id, q.title, q.description, q.topic, q.category, q.difficulty, q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.scheduledStartDateTime, q.scheduledEndDateTime, q.isPublished ? 1 : 0, q.createdAt, q.updatedAt, q.author,
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
+        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en',
         
         q.title, q.description, q.topic, q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.isPublished ? 1 : 0, q.updatedAt,
-        q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0
+        q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
+        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en'
       ]
     );
 
@@ -439,14 +451,17 @@ app.get('/api/results', async (req, res) => {
     const offset = (page - 1) * limit;
 
     const [rows] = await pool.query(
-      'SELECT * FROM results ORDER BY percentage DESC, time_spent_seconds ASC LIMIT ? OFFSET ?',
+      `SELECT r.*, COALESCE(q.title, r.quiz_title) AS current_quiz_title 
+       FROM results r 
+       LEFT JOIN quizzes q ON r.quiz_id = q.id 
+       ORDER BY r.percentage DESC, r.time_spent_seconds ASC LIMIT ? OFFSET ?`,
       [limit, offset]
     );
 
     const results = rows.map(r => ({
       id: r.id,
       quizId: r.quiz_id,
-      quizTitle: r.quiz_title,
+      quizTitle: r.current_quiz_title || r.quiz_title,
       candidateName: r.candidate_name,
       topic: r.topic,
       score: r.score,

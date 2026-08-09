@@ -212,6 +212,14 @@ export function parsePlainText(text: string): ParseResult {
 /**
  * CSV Parser using PapaParse — Exact Header Matching for Single & Bilingual Column Schemas
  */
+const safePapaParse = (content: string, options: any) => {
+  const parser = (Papa as any)?.default?.parse || Papa?.parse || (window as any)?.Papa?.parse;
+  if (typeof parser !== 'function') {
+    throw new Error('CSV Parser engine unavailable');
+  }
+  return parser(content, options);
+};
+
 export function parseCSV(csvContent: string): ParseResult {
   const errors: string[] = [];
   const questions: ParsedQuestion[] = [];
@@ -235,15 +243,15 @@ export function parseCSV(csvContent: string): ParseResult {
   };
 
   // PASS 1: Try Header-Based Parsing
-  const parsedHeader = Papa.parse<Record<string, string>>(cleanCSVContent, {
+  const parsedHeader = safePapaParse(cleanCSVContent, {
     header: true,
     skipEmptyLines: 'greedy',
     delimiter: '',
-    transformHeader: (h) => h.replace(/^\uFEFF/, '').replace(/^["']|["']$/g, '').trim(),
+    transformHeader: (h: string) => h.replace(/^\uFEFF/, '').replace(/^["']|["']$/g, '').trim(),
   });
 
   if (parsedHeader.data && parsedHeader.data.length > 0) {
-    parsedHeader.data.forEach((row, idx) => {
+    parsedHeader.data.forEach((row: any, idx: number) => {
       const questionEnglish = getValueByHeader(row, ['question_english', 'questionenglish', 'english_question', 'english', 'eng_question', 'q_english']);
       const questionHindi = getValueByHeader(row, ['question_hindi', 'questionhindi', 'hindi_question', 'hindi', 'hin_question', 'q_hindi']);
       let questionText = getValueByHeader(row, [
@@ -256,7 +264,7 @@ export function parseCSV(csvContent: string): ParseResult {
       const optD = getValueByHeader(row, ['option_d', 'optiond', 'optd', 'option4', 'option_4', 'choice_d', 'choiced', 'choice4', 'opt4', 'ans_d', 'ansd', 'd']);
 
       // Positional Column Fallback if named headers missed (preserve cell positions)
-      const rawCells = Object.values(row).map(v => fixMojibake((v || '').trim()));
+      const rawCells = Object.values(row).map((v: any) => fixMojibake(String(v || '').trim()));
       const filledCells = rawCells.filter(Boolean);
 
       if (!questionText && filledCells.length >= 3) {
@@ -344,7 +352,7 @@ export function parseCSV(csvContent: string): ParseResult {
 
   // PASS 2: Positional Array Parsing Fallback (For Headerless CSVs)
   if (questions.length === 0) {
-    const parsedRows = Papa.parse<string[]>(cleanCSVContent, {
+    const parsedRows = safePapaParse(cleanCSVContent, {
       header: false,
       skipEmptyLines: 'greedy',
       delimiter: '',
@@ -359,7 +367,7 @@ export function parseCSV(csvContent: string): ParseResult {
       }
 
       for (let i = startIndex; i < parsedRows.data.length; i++) {
-        const row = parsedRows.data[i].map(v => fixMojibake((v || '').trim())).filter(Boolean);
+        const row = (parsedRows.data[i] as any[]).map((v: any) => fixMojibake(String(v || '').trim())).filter(Boolean);
         if (row.length < 3) continue;
 
         let qText = row[0];
