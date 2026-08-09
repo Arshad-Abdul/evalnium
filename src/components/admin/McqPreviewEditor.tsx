@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { ParsedQuestion, ParseResult, Quiz, DifficultyLevel } from '../../types/quiz';
-import { Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert } from 'lucide-react';
+import { Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X } from 'lucide-react';
 
 interface McqPreviewEditorProps {
   parseResult: ParseResult;
@@ -72,6 +72,23 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       return {
         ...q,
         options: [...q.options, { id: nextChar, text: '' }],
+      };
+    }));
+  };
+
+  const handleDeleteOptionFromQuestion = (qId: string, optId: string) => {
+    setQuestions(prev => prev.map(q => {
+      if (q.tempId !== qId) return q;
+      if (q.options.length <= 2) return q; // Minimum 2 options required
+      const filtered = q.options.filter(o => o.id !== optId);
+      const reindexed = filtered.map((o, idx) => ({
+        ...o,
+        id: String.fromCharCode(65 + idx),
+      }));
+      return {
+        ...q,
+        options: reindexed,
+        correctOptionId: reindexed.some(o => o.id === q.correctOptionId) ? q.correctOptionId : reindexed[0].id,
       };
     }));
   };
@@ -760,6 +777,17 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                     placeholder={`Option ${opt.id} text...`}
                     className="flex-1 bg-transparent text-sm text-slate-900 font-semibold focus:outline-none"
                   />
+
+                  {q.options.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteOptionFromQuestion(q.tempId || '', opt.id)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                      title="Delete this option"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
