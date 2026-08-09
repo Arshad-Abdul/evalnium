@@ -122,7 +122,26 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   };
 
   const handleSetCorrectOption = (qId: string, correctOptionId: string) => {
-    setQuestions(prev => prev.map(q => q.tempId === qId ? { ...q, correctOptionId } : q));
+    setQuestions(prev => prev.map(q => q.tempId === qId ? { ...q, correctOptionId, correctOptionIds: [correctOptionId] } : q));
+  };
+
+  const handleToggleCorrectOptionMultiple = (qId: string, optId: string) => {
+    setQuestions(prev => prev.map(q => {
+      if (q.tempId !== qId) return q;
+      const currentIds = q.correctOptionIds || [q.correctOptionId || 'A'];
+      let updatedIds: string[];
+      if (currentIds.includes(optId)) {
+        updatedIds = currentIds.filter(id => id !== optId);
+        if (updatedIds.length === 0) updatedIds = [optId];
+      } else {
+        updatedIds = [...currentIds, optId].sort();
+      }
+      return {
+        ...q,
+        correctOptionIds: updatedIds,
+        correctOptionId: updatedIds.join(', '),
+      };
+    }));
   };
 
   const handleUpdateExplanation = (qId: string, exp: string) => {
@@ -819,50 +838,63 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
 
             {/* Options List */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-              {q.options.map((opt) => (
-                <div
-                  key={opt.id}
-                  className={`p-2.5 rounded-xl border flex items-center space-x-3 transition-all ${
-                    q.correctOptionId === opt.id
-                      ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-bold'
-                      : 'bg-slate-50 border-slate-200 text-slate-700'
-                  }`}
-                >
-                  <label className="cursor-pointer flex items-center space-x-2 flex-shrink-0">
+              {q.options.map((opt) => {
+                const isMSQ = q.questionType === 'multiple_select';
+                const isCorrect = isMSQ
+                  ? (q.correctOptionIds || [q.correctOptionId]).includes(opt.id)
+                  : q.correctOptionId === opt.id;
+
+                return (
+                  <div
+                    key={opt.id}
+                    className={`p-2.5 rounded-xl border flex items-center space-x-3 transition-all ${
+                      isCorrect
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-bold shadow-2xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <label className="cursor-pointer flex items-center space-x-2 flex-shrink-0">
+                      <input
+                        type={isMSQ ? "checkbox" : "radio"}
+                        name={`correct_${q.tempId}`}
+                        checked={isCorrect}
+                        onChange={() => {
+                          if (isMSQ) {
+                            handleToggleCorrectOptionMultiple(q.tempId || '', opt.id);
+                          } else {
+                            handleSetCorrectOption(q.tempId || '', opt.id);
+                          }
+                        }}
+                        className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 bg-white border-slate-300 rounded"
+                      />
+                      <span className={`w-6 h-6 rounded-md font-bold text-xs flex items-center justify-center ${
+                        isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'
+                      }`}>
+                        {opt.id}
+                      </span>
+                    </label>
+
                     <input
-                      type="radio"
-                      name={`correct_${q.tempId}`}
-                      checked={q.correctOptionId === opt.id}
-                      onChange={() => handleSetCorrectOption(q.tempId || '', opt.id)}
-                      className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 bg-white border-slate-300"
+                      type="text"
+                      value={opt.text}
+                      onChange={(e) => handleUpdateOptionText(q.tempId || '', opt.id, e.target.value)}
+                      placeholder={`Option ${opt.id} text...`}
+                      className="flex-1 bg-transparent text-sm text-slate-900 font-semibold focus:outline-none"
                     />
-                    <span className={`w-6 h-6 rounded-md font-bold text-xs flex items-center justify-center ${
-                      q.correctOptionId === opt.id ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'
-                    }`}>
-                      {opt.id}
-                    </span>
-                  </label>
 
-                  <input
-                    type="text"
-                    value={opt.text}
-                    onChange={(e) => handleUpdateOptionText(q.tempId || '', opt.id, e.target.value)}
-                    placeholder={`Option ${opt.id} text...`}
-                    className="flex-1 bg-transparent text-sm text-slate-900 font-semibold focus:outline-none"
-                  />
-
-                  {q.options.length > 2 && (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteOptionFromQuestion(q.tempId || '', opt.id)}
-                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
-                      title="Delete this option"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              ))}
+                    {q.options.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteOptionFromQuestion(q.tempId || '', opt.id)}
+                        className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                        title="Delete this option"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             <div className="flex items-center justify-between pt-1">
