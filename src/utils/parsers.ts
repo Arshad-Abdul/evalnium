@@ -242,10 +242,17 @@ export function parseCSV(csvContent: string): ParseResult {
       questionText = questionHindi;
     }
 
-    const optA = getValueByHeader(row, ['option_a', 'optiona', 'opta']);
-    const optB = getValueByHeader(row, ['option_b', 'optionb', 'optb']);
-    const optC = getValueByHeader(row, ['option_c', 'optionc', 'optc']);
-    const optD = getValueByHeader(row, ['option_d', 'optiond', 'optd']);
+    const optA = getValueByHeader(row, ['option_a', 'optiona', 'opta', 'option1', 'option_1', 'choice_a', 'choicea', 'choice1', 'opt1', 'ans_a', 'ansa', 'a', '1']);
+    const optB = getValueByHeader(row, ['option_b', 'optionb', 'optb', 'option2', 'option_2', 'choice_b', 'choiceb', 'choice2', 'opt2', 'ans_b', 'ansb', 'b', '2']);
+    const optC = getValueByHeader(row, ['option_c', 'optionc', 'optc', 'option3', 'option_3', 'choice_c', 'choicec', 'choice3', 'opt3', 'ans_c', 'ansc', 'c', '3']);
+    const optD = getValueByHeader(row, ['option_d', 'optiond', 'optd', 'option4', 'option_4', 'choice_d', 'choiced', 'choice4', 'opt4', 'ans_d', 'ansd', 'd', '4']);
+
+    // Fallback: Check positional columns if named headers missed
+    const rowValues = Object.values(row).map(v => (v || '').trim()).filter(Boolean);
+    const finalOptA = optA || (rowValues.length >= 5 ? rowValues[1] : '');
+    const finalOptB = optB || (rowValues.length >= 5 ? rowValues[2] : '');
+    const finalOptC = optC || (rowValues.length >= 5 ? rowValues[3] : '');
+    const finalOptD = optD || (rowValues.length >= 5 ? rowValues[4] : '');
     
     let answer = getValueByHeader(row, ['correct_answer', 'correctanswer', 'answer', 'correct_option', 'correctoption', 'key', 'ans']).toUpperCase();
     if (answer.startsWith('OPTION ')) answer = answer.replace('OPTION ', '').trim();
@@ -269,10 +276,10 @@ export function parseCSV(csvContent: string): ParseResult {
     }
 
     const options: { id: string; text: string }[] = [];
-    if (optA) options.push({ id: 'A', text: cleanOptionText(optA) });
-    if (optB) options.push({ id: 'B', text: cleanOptionText(optB) });
-    if (optC) options.push({ id: 'C', text: cleanOptionText(optC) });
-    if (optD) options.push({ id: 'D', text: cleanOptionText(optD) });
+    if (finalOptA) options.push({ id: 'A', text: cleanOptionText(finalOptA) });
+    if (finalOptB) options.push({ id: 'B', text: cleanOptionText(finalOptB) });
+    if (finalOptC) options.push({ id: 'C', text: cleanOptionText(finalOptC) });
+    if (finalOptD) options.push({ id: 'D', text: cleanOptionText(finalOptD) });
 
     const correctOpt = options.find(o => o.id === answer);
     const defaultExp = correctOpt
