@@ -159,7 +159,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <div className="text-left hidden md:block">
                     <p className="text-xs font-bold text-white leading-none">{currentUser.name}</p>
                     <span className="text-[9px] font-mono text-indigo-300 font-bold uppercase tracking-wider">
-                      {currentUser.role === 'admin' ? 'SYSTEM ADMIN' : 'CANDIDATE'}
+                      {currentUser.role === 'admin' && isAdminAuthenticated ? 'SYSTEM ADMIN' : 'CANDIDATE'}
                     </span>
                   </div>
                   <ChevronDown className="w-3.5 h-3.5 text-slate-400" />

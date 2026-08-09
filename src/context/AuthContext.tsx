@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       uid: `usr_${Date.now()}`,
       name: name || email.split('@')[0] || 'Candidate',
       email: email.trim().toLowerCase(),
-      role: email.toLowerCase().includes('admin') ? 'admin' : 'candidate',
+      role: 'candidate',
       createdAt: new Date().toISOString()
     };
     setCurrentUser(user);
@@ -82,6 +82,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginAdmin = (passcode: string): boolean => {
     if (passcode.trim() === MASTER_ADMIN_PASSCODE || passcode.trim() === 'admin123') {
       setIsAdminAuthenticated(true);
+      if (currentUser) {
+        setCurrentUser({ ...currentUser, role: 'admin' });
+      }
       return true;
     }
     return false;
@@ -89,6 +92,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logoutAdmin = () => {
     setIsAdminAuthenticated(false);
+    if (currentUser) {
+      setCurrentUser({ ...currentUser, role: 'candidate' });
+    }
   };
 
   const logoutCandidate = () => {
