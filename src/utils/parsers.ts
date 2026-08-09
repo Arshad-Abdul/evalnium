@@ -246,22 +246,20 @@ export function parseCSV(csvContent: string): ParseResult {
         'question', 'question_text', 'questiontext', 'prompt', 'question_statement', 'questionstatement', 'statement', 'question_title', 'questiontitle', 'q_text', 'qtext', 'stem', 'problem', 'questions', 'mcq', 'item', 'query'
       ]);
 
-      const optA = getValueByHeader(row, ['option_a', 'optiona', 'opta', 'option1', 'option_1', 'choice_a', 'choicea', 'choice1', 'opt1', 'ans_a', 'ansa']);
-      const optB = getValueByHeader(row, ['option_b', 'optionb', 'optb', 'option2', 'option_2', 'choice_b', 'choiceb', 'choice2', 'opt2', 'ans_b', 'ansb']);
-      const optC = getValueByHeader(row, ['option_c', 'optionc', 'optc', 'option3', 'option_3', 'choice_c', 'choicec', 'choice3', 'opt3', 'ans_c', 'ansc']);
-      const optD = getValueByHeader(row, ['option_d', 'optiond', 'optd', 'option4', 'option_4', 'choice_d', 'choiced', 'choice4', 'opt4', 'ans_d', 'ansd']);
+      const optA = getValueByHeader(row, ['option_a', 'optiona', 'opta', 'option1', 'option_1', 'choice_a', 'choicea', 'choice1', 'opt1', 'ans_a', 'ansa', 'a']);
+      const optB = getValueByHeader(row, ['option_b', 'optionb', 'optb', 'option2', 'option_2', 'choice_b', 'choiceb', 'choice2', 'opt2', 'ans_b', 'ansb', 'b']);
+      const optC = getValueByHeader(row, ['option_c', 'optionc', 'optc', 'option3', 'option_3', 'choice_c', 'choicec', 'choice3', 'opt3', 'ans_c', 'ansc', 'c']);
+      const optD = getValueByHeader(row, ['option_d', 'optiond', 'optd', 'option4', 'option_4', 'choice_d', 'choiced', 'choice4', 'opt4', 'ans_d', 'ansd', 'd']);
 
-      // Positional Column Fallback if named headers missed
-      const rowValues = Object.entries(row)
-        .filter(([k]) => k && !/^_\d+$/.test(k.trim()))
-        .map(([, v]) => fixMojibake((v || '').trim()))
-        .filter(Boolean);
+      // Positional Column Fallback if named headers missed (preserve cell positions)
+      const rawCells = Object.values(row).map(v => fixMojibake((v || '').trim()));
+      const filledCells = rawCells.filter(Boolean);
 
-      if (!questionText && rowValues.length >= 3) {
-        if (/^\d+$/.test(rowValues[0]) && rowValues.length >= 4) {
-          questionText = rowValues[1];
+      if (!questionText && filledCells.length >= 3) {
+        if (/^\d+$/.test(filledCells[0]) && filledCells.length >= 4) {
+          questionText = filledCells[1];
         } else {
-          questionText = rowValues[0];
+          questionText = filledCells[0];
         }
       }
 
@@ -274,12 +272,12 @@ export function parseCSV(csvContent: string): ParseResult {
       }
 
       let startOptIdx = 1;
-      if (rowValues.length >= 5 && /^\d+$/.test(rowValues[0])) startOptIdx = 2;
+      if (rawCells.length >= 5 && /^\d+$/.test(rawCells[0])) startOptIdx = 2;
 
-      const finalOptA = optA || (rowValues.length > startOptIdx ? rowValues[startOptIdx] : '');
-      const finalOptB = optB || (rowValues.length > startOptIdx + 1 ? rowValues[startOptIdx + 1] : '');
-      const finalOptC = optC || (rowValues.length > startOptIdx + 2 ? rowValues[startOptIdx + 2] : '');
-      const finalOptD = optD || (rowValues.length > startOptIdx + 3 ? rowValues[startOptIdx + 3] : '');
+      const finalOptA = optA || rawCells[startOptIdx] || (filledCells.length > startOptIdx ? filledCells[startOptIdx] : '');
+      const finalOptB = optB || rawCells[startOptIdx + 1] || (filledCells.length > startOptIdx + 1 ? filledCells[startOptIdx + 1] : '');
+      const finalOptC = optC || rawCells[startOptIdx + 2] || (filledCells.length > startOptIdx + 2 ? filledCells[startOptIdx + 2] : '');
+      const finalOptD = optD || rawCells[startOptIdx + 3] || (filledCells.length > startOptIdx + 3 ? filledCells[startOptIdx + 3] : '');
       
       let answer = getValueByHeader(row, ['correct_answer', 'correctanswer', 'answer', 'correct_option', 'correctoption', 'key', 'ans', 'correct', 'correct_key', 'answer_key']).toUpperCase();
       if (answer.startsWith('OPTION ')) answer = answer.replace('OPTION ', '').trim();
