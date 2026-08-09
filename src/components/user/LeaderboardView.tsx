@@ -81,10 +81,10 @@ export const LeaderboardView: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-3">
-            {(isAdminAuthenticated || currentUser?.role === 'admin') && (
+            {isAdminAuthenticated && currentUser?.role === 'admin' && (
               <button
                 onClick={() => exportLeaderboardToCSV(filteredEntries)}
-                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs flex items-center space-x-2 transition-all"
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs flex items-center space-x-2 transition-all cursor-pointer"
               >
                 <Download className="w-4 h-4" />
                 <span>Export Ranks to CSV</span>
