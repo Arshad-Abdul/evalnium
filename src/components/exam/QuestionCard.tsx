@@ -28,28 +28,47 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const isMarked = userAnswer?.isMarkedForReview || false;
   const timeSpent = userAnswer?.timeSpentSeconds || 0;
 
+  const [autoHindiText, setAutoHindiText] = React.useState<string>('');
+
+  React.useEffect(() => {
+    let isMounted = true;
+    if ((languageMode === 'hi' || languageMode === 'dual') && !question.questionHindi) {
+      const srcText = question.questionEnglish || question.questionText;
+      if (srcText) {
+        import('../../utils/translator').then(({ translateToHindi }) => {
+          translateToHindi(srcText).then((res) => {
+            if (isMounted) setAutoHindiText(res);
+          });
+        });
+      }
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [question.id, question.questionHindi, question.questionEnglish, question.questionText, languageMode]);
+
   const renderQuestionText = () => {
-    if (languageMode === 'en' && question.questionEnglish) {
-      return <div className="text-base sm:text-lg font-bold text-slate-900 leading-snug">{question.questionEnglish}</div>;
+    if (languageMode === 'en') {
+      return <div className="text-base sm:text-lg font-bold text-slate-900 leading-snug">{question.questionEnglish || question.questionText}</div>;
     }
-    if (languageMode === 'hi' && question.questionHindi) {
-      return <div className="text-base sm:text-lg font-bold text-slate-900 leading-snug">{question.questionHindi}</div>;
+    if (languageMode === 'hi') {
+      return (
+        <div className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
+          {question.questionHindi || autoHindiText || question.questionText}
+        </div>
+      );
     }
-    if (languageMode === 'dual' && (question.questionEnglish || question.questionHindi)) {
+    if (languageMode === 'dual') {
       return (
         <div className="space-y-2">
-          {question.questionEnglish && (
-            <div className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
-              <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded mr-2">EN</span>
-              {question.questionEnglish}
-            </div>
-          )}
-          {question.questionHindi && (
-            <div className="text-base sm:text-lg font-bold text-slate-800 leading-snug pt-1">
-              <span className="text-xs font-mono font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded mr-2">HI</span>
-              {question.questionHindi}
-            </div>
-          )}
+          <div className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
+            <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded mr-2">EN</span>
+            {question.questionEnglish || question.questionText}
+          </div>
+          <div className="text-base sm:text-lg font-bold text-slate-800 leading-snug pt-1">
+            <span className="text-xs font-mono font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded mr-2">HI</span>
+            {question.questionHindi || autoHindiText || 'हिन्दी रूपान्तरण उपलब्ध हो रहा है...'}
+          </div>
         </div>
       );
     }

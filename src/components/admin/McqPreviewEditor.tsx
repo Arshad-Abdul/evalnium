@@ -225,6 +225,11 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
           { id: 'B', text: 'False' }
         ],
         correctOptionId: q.correctOptionId || 'A',
+        correctOptionIds: q.correctOptionIds,
+        questionType: q.questionType || 'mcq',
+        imageUrl: q.imageUrl,
+        listI: q.listI,
+        listII: q.listII,
         explanation: q.explanation,
         explanationEnglish: q.explanationEnglish,
         explanationHindi: q.explanationHindi,
