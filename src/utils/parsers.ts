@@ -22,6 +22,8 @@ function fixMojibake(str: string): string {
   }
 
   return clean
+    .replace(/^\uFEFF/, '')
+    .replace(/\uFEFF/g, '')
     .replace(/[\uFFFD\u25FF\u25FE]/g, ' ')
     .replace(/\uFFFD/g, ' ')
     .replace(/[\u201C\u201D]/g, '"')
@@ -214,17 +216,17 @@ export function parseCSV(csvContent: string): ParseResult {
   const errors: string[] = [];
   const questions: ParsedQuestion[] = [];
 
-  const cleanCSVContent = fixMojibake(csvContent);
+  const cleanCSVContent = fixMojibake(csvContent).replace(/^\uFEFF/, '').replace(/\uFEFF/g, '');
 
   // Helper to safely fetch value by column header name
   const getValueByHeader = (row: Record<string, string>, candidateHeaders: string[]): string => {
-    const normalizedCandidates = candidateHeaders.map(h => h.toLowerCase().replace(/[\s\_\-\.]/g, ''));
+    const normalizedCandidates = candidateHeaders.map(h => h.toLowerCase().replace(/[\uFEFF\s\_\-\.]/g, ''));
     for (const key of Object.keys(row)) {
-      const trimmedKey = key.trim();
+      const trimmedKey = key.replace(/^\uFEFF/, '').replace(/^["']|["']$/g, '').trim();
       // Skip PapaParse auto-renamed duplicate blank headers like "_1", "_2", "_3"
       if (!trimmedKey || /^_\d+$/.test(trimmedKey) || trimmedKey.startsWith('__parsed_extra')) continue;
 
-      const normKey = trimmedKey.toLowerCase().replace(/[\s\_\-\.]/g, '');
+      const normKey = trimmedKey.toLowerCase().replace(/[\uFEFF\s\_\-\.]/g, '');
       if (normalizedCandidates.includes(normKey)) {
         return fixMojibake((row[key] || '').trim());
       }
@@ -236,6 +238,8 @@ export function parseCSV(csvContent: string): ParseResult {
   const parsedHeader = Papa.parse<Record<string, string>>(cleanCSVContent, {
     header: true,
     skipEmptyLines: 'greedy',
+    delimitersToGuess: [',', '\t', ';', '|'],
+    transformHeader: (h) => h.replace(/^\uFEFF/, '').replace(/^["']|["']$/g, '').trim(),
   });
 
   if (parsedHeader.data && parsedHeader.data.length > 0) {
@@ -334,6 +338,7 @@ export function parseCSV(csvContent: string): ParseResult {
     const parsedRows = Papa.parse<string[]>(cleanCSVContent, {
       header: false,
       skipEmptyLines: 'greedy',
+      delimitersToGuess: [',', '\t', ';', '|'],
     });
 
     if (parsedRows.data && parsedRows.data.length > 0) {
