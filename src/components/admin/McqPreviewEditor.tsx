@@ -148,6 +148,16 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
     setQuestions(prev => prev.map(q => q.tempId === qId ? { ...q, explanation: exp } : q));
   };
 
+  const handleImageFileUpload = (qId: string, file: File) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      setQuestions(prev => prev.map(item => item.tempId === qId ? { ...item, imageUrl: dataUrl } : item));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleDeleteQuestion = (id: string) => {
     setQuestions(prev => prev.filter(q => q.tempId !== id));
   };
@@ -773,10 +783,11 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                 className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-semibold text-sm focus:border-indigo-500 focus:bg-white focus:outline-none"
               />
 
-              <div className="flex items-center space-x-2">
+              <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2">
                 <span className="text-[11px] font-bold text-slate-500 flex items-center space-x-1 flex-shrink-0">
-                  <span>📷 Image URL / Diagram:</span>
+                  <span>📷 Diagram / Image:</span>
                 </span>
+                
                 <input
                   type="text"
                   value={q.imageUrl || ''}
@@ -784,10 +795,46 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                     const val = e.target.value;
                     setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, imageUrl: val } : item));
                   }}
-                  placeholder="https://example.com/diagram.png (Optional)"
+                  placeholder="Paste Image URL (https://...) OR click Upload File..."
                   className="flex-1 p-2 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium focus:outline-none focus:border-indigo-500"
                 />
+
+                <label className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5 flex-shrink-0 justify-center">
+                  <span>📁 Upload Image</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageFileUpload(q.tempId || '', file);
+                    }}
+                  />
+                </label>
+
+                {q.imageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, imageUrl: '' } : item));
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-bold transition-all cursor-pointer flex-shrink-0"
+                  >
+                    ❌ Remove Image
+                  </button>
+                )}
               </div>
+
+              {/* Image Preview Box if imageUrl present */}
+              {q.imageUrl && (
+                <div className="mt-2 p-2 rounded-xl bg-slate-100 border border-slate-200 flex items-center space-x-3">
+                  <img src={q.imageUrl} alt="Uploaded Diagram" className="w-16 h-16 object-contain rounded-lg bg-white border border-slate-200 flex-shrink-0" />
+                  <div className="text-xs">
+                    <span className="font-bold text-slate-800 block">Image Attached Successfully!</span>
+                    <span className="text-slate-500 font-mono text-[10px]">Will be displayed to candidates during live exam.</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Match the Following List I & List II Builder */}
