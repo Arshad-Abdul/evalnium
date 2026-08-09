@@ -23,43 +23,49 @@ export const QuizImporter: React.FC<QuizImporterProps> = ({ onParsedResult }) =>
     setErrorMsg(null);
     try {
       const extension = file.name.split('.').pop()?.toLowerCase();
-      let parseRes: ParseResult;
+      let parseRes: ParseResult = { questions: [], errors: [] };
 
-      if (extension === 'csv') {
-        const text = await file.text();
-        parseRes = parseCSV(text);
-      } else if (extension === 'md' || extension === 'markdown') {
-        const text = await file.text();
-        parseRes = parseMarkdown(text);
-      } else if (extension === 'docx') {
+      if (extension === 'docx') {
         parseRes = await parseDOCX(file);
-      } else if (extension === 'json') {
-        const text = await file.text();
-        try {
-          const jsonObj = JSON.parse(text);
-          if (Array.isArray(jsonObj.questions)) {
-            parseRes = {
-              title: jsonObj.title,
-              topic: jsonObj.topic,
-              questions: jsonObj.questions.map((q: any, i: number) => ({
-                tempId: `json_${i}`,
-                questionText: q.questionText || q.question || '',
-                options: Array.isArray(q.options) ? q.options : [],
-                correctOptionId: q.correctOptionId || q.answer || 'A',
-                explanation: q.explanation,
-                isValid: Boolean(q.questionText || q.question)
-              })),
-              errors: []
-            };
-          } else {
-            parseRes = parsePlainText(text);
-          }
-        } catch {
-          parseRes = parsePlainText(text);
-        }
       } else {
         const text = await file.text();
-        parseRes = parsePlainText(text);
+        if (extension === 'csv') {
+          parseRes = parseCSV(text);
+        } else if (extension === 'md' || extension === 'markdown') {
+          parseRes = parseMarkdown(text);
+        } else if (extension === 'json') {
+          try {
+            const jsonObj = JSON.parse(text);
+            if (Array.isArray(jsonObj.questions)) {
+              parseRes = {
+                title: jsonObj.title,
+                topic: jsonObj.topic,
+                questions: jsonObj.questions.map((q: any, i: number) => ({
+                  tempId: `json_${i}`,
+                  questionText: q.questionText || q.question || '',
+                  options: Array.isArray(q.options) ? q.options : [],
+                  correctOptionId: q.correctOptionId || q.answer || 'A',
+                  explanation: q.explanation,
+                  isValid: Boolean(q.questionText || q.question)
+                })),
+                errors: []
+              };
+            }
+          } catch {
+            // Fallthrough to cascading text parsers
+          }
+        }
+
+        // Multi-Parser Cascading Fallback Strategy: If primary parser yields 0 questions, try other parsers!
+        if (!parseRes.questions || parseRes.questions.length === 0) {
+          parseRes = parseCSV(text);
+        }
+        if (!parseRes.questions || parseRes.questions.length === 0) {
+          parseRes = parsePlainText(text);
+        }
+        if (!parseRes.questions || parseRes.questions.length === 0) {
+          parseRes = parseMarkdown(text);
+        }
       }
 
       if (!parseRes.questions || parseRes.questions.length === 0) {
