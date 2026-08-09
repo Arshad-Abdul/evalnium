@@ -329,7 +329,13 @@ Explanation: Paul Otlet used 'bibliométrie' in Traité de Documentation (1934).
             ref={fileInputRef}
             type="file"
             accept=".csv, .md, .markdown, .docx, .txt, .json"
-            onChange={(e) => e.target.files?.[0] && handleFileChange(e.target.files[0])}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                handleFileChange(file);
+                e.target.value = '';
+              }
+            }}
             className="hidden"
           />
 
