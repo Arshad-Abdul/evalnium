@@ -29,23 +29,36 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const timeSpent = userAnswer?.timeSpentSeconds || 0;
 
   const [autoHindiText, setAutoHindiText] = React.useState<string>('');
+  const [autoHindiOptions, setAutoHindiOptions] = React.useState<Record<string, string>>({});
 
   React.useEffect(() => {
     let isMounted = true;
-    if ((languageMode === 'hi' || languageMode === 'dual') && !question.questionHindi) {
+    if (languageMode === 'hi' || languageMode === 'dual') {
       const srcText = question.questionEnglish || question.questionText;
-      if (srcText) {
+      if (srcText && !question.questionHindi) {
         import('../../utils/translator').then(({ translateToHindi }) => {
           translateToHindi(srcText).then((res) => {
             if (isMounted) setAutoHindiText(res);
           });
         });
       }
+
+      import('../../utils/translator').then(({ translateToHindi }) => {
+        question.options.forEach((opt) => {
+          if (opt.text && opt.text.trim()) {
+            translateToHindi(opt.text).then((translated) => {
+              if (isMounted && translated) {
+                setAutoHindiOptions((prev) => ({ ...prev, [opt.id]: translated }));
+              }
+            });
+          }
+        });
+      });
     }
     return () => {
       isMounted = false;
     };
-  }, [question.id, question.questionHindi, question.questionEnglish, question.questionText, languageMode]);
+  }, [question.id, question.questionHindi, question.questionEnglish, question.questionText, question.options, languageMode]);
 
   const renderQuestionText = () => {
     if (languageMode === 'en') {
@@ -172,9 +185,16 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                   {opt.id}
                 </span>
 
-                <span className={`text-sm font-semibold ${isSelected ? 'text-blue-900 font-bold' : 'text-slate-800'}`}>
-                  {opt.text}
-                </span>
+                <div className="flex flex-col text-left">
+                  <span className={`text-sm font-semibold ${isSelected ? 'text-blue-900 font-bold' : 'text-slate-800'}`}>
+                    {languageMode === 'hi' && autoHindiOptions[opt.id] ? autoHindiOptions[opt.id] : opt.text}
+                  </span>
+                  {languageMode === 'dual' && autoHindiOptions[opt.id] && autoHindiOptions[opt.id] !== opt.text && (
+                    <span className="text-xs font-semibold text-amber-800 pt-0.5">
+                      {autoHindiOptions[opt.id]}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Selection Checkmark / Checkbox Indicator */}
