@@ -7,19 +7,27 @@ import type { ParsedQuestion, ParseResult } from '../types/quiz';
  */
 function fixMojibake(str: string): string {
   if (!str) return str;
-  if (/[\u00C0-\u00FF]/.test(str)) {
+  let clean = str;
+  if (/[\u00C0-\u00FF]/.test(clean)) {
     try {
-      const bytes = new Uint8Array([...str].map(c => c.charCodeAt(0) & 0xFF));
+      const bytes = new Uint8Array([...clean].map(c => c.charCodeAt(0) & 0xFF));
       const decoder = new TextDecoder('utf-8');
       const repaired = decoder.decode(bytes);
       if (repaired && !repaired.includes('')) {
-        return repaired;
+        clean = repaired;
       }
     } catch {
       // ignore if repair fails
     }
   }
-  return str;
+
+  return clean
+    .replace(/[\uFFFD\u25FF\u25FE]/g, ' ')
+    .replace(/\uFFFD/g, ' ')
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/\s+/g, ' ');
 }
 
 /**

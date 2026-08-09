@@ -340,7 +340,7 @@ app.get('/api/quizzes', async (req, res) => {
         createdAt: q.created_at,
         updatedAt: q.updated_at,
         author: q.author,
-        enableCertificate: q.enable_certificate !== 0,
+        enableCertificate: Boolean(q.enable_certificate),
         enableAntiCheating: Boolean(q.enable_anti_cheating),
         timingMode: q.timing_mode || 'quiz',
         sectionalConfig: JSON.parse(q.sectional_config_json || '[]'),

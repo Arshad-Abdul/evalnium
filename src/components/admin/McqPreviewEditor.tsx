@@ -32,7 +32,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [defaultLanguageMode, setDefaultLanguageMode] = useState<'en' | 'hi' | 'dual'>(parseResult.defaultLanguageMode || 'en');
 
   // --- Granular Admin Settings & Rules ---
-  const [enableCertificate, setEnableCertificate] = useState(parseResult.enableCertificate ?? true);
+  const [enableCertificate, setEnableCertificate] = useState(typeof parseResult.enableCertificate === 'boolean' ? parseResult.enableCertificate : true);
   const [enableAntiCheating, setEnableAntiCheating] = useState(parseResult.enableAntiCheating ?? false);
   const [timingMode, setTimingMode] = useState<'quiz' | 'sectional' | 'question'>(parseResult.timingMode || 'quiz');
   const [questionTimeLimitSeconds, setQuestionTimeLimitSeconds] = useState(parseResult.questionTimeLimitSeconds ?? 60);
