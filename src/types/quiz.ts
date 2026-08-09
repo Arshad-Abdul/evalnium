@@ -94,6 +94,7 @@ export interface QuizAttemptResult {
 }
 
 export interface ParseResult {
+  existingQuizId?: string;
   title?: string;
   topic?: string;
   questions: ParsedQuestion[];

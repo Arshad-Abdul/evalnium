@@ -186,7 +186,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
     }
 
     const finalQuiz: Quiz = {
-      id: `quiz_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      id: parseResult.existingQuizId || `quiz_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       title: title.trim() || 'Untitled Quiz',
       description: description.trim(),
       topic: topic.trim() || 'General Knowledge',

@@ -73,6 +73,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleEditQuizClick = (quiz: Quiz) => {
     const parseRes: ParseResult = {
+      existingQuizId: quiz.id,
       title: quiz.title,
       topic: quiz.topic,
       questions: quiz.questions.map((q, idx) => ({
