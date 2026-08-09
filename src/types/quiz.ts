@@ -40,6 +40,22 @@ export interface Quiz {
   createdAt: string;
   updatedAt: string;
   author?: string;
+
+  // --- Granular Admin Settings & Rules ---
+  enableCertificate?: boolean;
+  enableAntiCheating?: boolean;
+  timingMode?: 'quiz' | 'sectional' | 'question';
+  sectionalConfig?: {
+    id: string;
+    sectionName: string;
+    questionIds: string[];
+    timeLimitMinutes: number;
+  }[];
+  questionTimeLimitSeconds?: number;
+  preventPreviousSectionReturn?: boolean;
+  preventEarlyNextSection?: boolean;
+  preventPreviousQuestionReturn?: boolean;
+  preventEarlyNextQuestion?: boolean;
 }
 
 export interface UserAnswer {

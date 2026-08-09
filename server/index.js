@@ -22,6 +22,8 @@ let pool;
 
 // In-Memory OTP Store: email -> { otp, expiresAt }
 const otpStore = new Map();
+// Rate Limiter Store: email -> { count, windowStart }
+const otpRateLimitStore = new Map();
 
 function createMailTransporter() {
   const user = process.env.SMTP_USER || 'arsnaz1234@gmail.com';
@@ -72,9 +74,39 @@ async function initDatabase() {
         is_published TINYINT(1) DEFAULT 1,
         created_at VARCHAR(100),
         updated_at VARCHAR(100),
-        author VARCHAR(100)
+        author VARCHAR(100),
+        enable_certificate TINYINT(1) DEFAULT 1,
+        enable_anti_cheating TINYINT(1) DEFAULT 0,
+        timing_mode VARCHAR(50) DEFAULT 'quiz',
+        sectional_config_json LONGTEXT,
+        question_time_limit_seconds INT DEFAULT 60,
+        prevent_prev_section TINYINT(1) DEFAULT 0,
+        prevent_early_next_section TINYINT(1) DEFAULT 0,
+        prevent_prev_question TINYINT(1) DEFAULT 0,
+        prevent_early_next_question TINYINT(1) DEFAULT 0
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
+
+    // Auto-migrate columns if missing
+    const columnsToAdd = [
+      `ALTER TABLE quizzes ADD COLUMN enable_certificate TINYINT(1) DEFAULT 1;`,
+      `ALTER TABLE quizzes ADD COLUMN enable_anti_cheating TINYINT(1) DEFAULT 0;`,
+      `ALTER TABLE quizzes ADD COLUMN timing_mode VARCHAR(50) DEFAULT 'quiz';`,
+      `ALTER TABLE quizzes ADD COLUMN sectional_config_json LONGTEXT;`,
+      `ALTER TABLE quizzes ADD COLUMN question_time_limit_seconds INT DEFAULT 60;`,
+      `ALTER TABLE quizzes ADD COLUMN prevent_prev_section TINYINT(1) DEFAULT 0;`,
+      `ALTER TABLE quizzes ADD COLUMN prevent_early_next_section TINYINT(1) DEFAULT 0;`,
+      `ALTER TABLE quizzes ADD COLUMN prevent_prev_question TINYINT(1) DEFAULT 0;`,
+      `ALTER TABLE quizzes ADD COLUMN prevent_early_next_question TINYINT(1) DEFAULT 0;`,
+    ];
+
+    for (const alterSql of columnsToAdd) {
+      try {
+        await pool.query(alterSql);
+      } catch (err) {
+        // Ignore column already exists errors
+      }
+    }
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS questions (
@@ -144,11 +176,23 @@ async function initDatabase() {
         target_exam VARCHAR(150),
         phone VARCHAR(50),
         institution VARCHAR(200),
+        password_hash VARCHAR(255),
+        auth_provider VARCHAR(50) DEFAULT 'local',
+        is_verified TINYINT(1) DEFAULT 1,
         created_at VARCHAR(100)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    console.log(`✅ All MySQL Database Tables Verified & Ready!`);
+    // Performance Indexing
+    try {
+      await pool.query(`CREATE INDEX idx_results_quiz_id ON results(quiz_id);`);
+      await pool.query(`CREATE INDEX idx_results_candidate_name ON results(candidate_name);`);
+      await pool.query(`CREATE INDEX idx_quizzes_category ON quizzes(category);`);
+    } catch {
+      // Indexes already exist
+    }
+
+    console.log(`✅ All MySQL Database Tables & Indexes Verified & Ready!`);
   } catch (err) {
     console.error('❌ Failed to initialize MySQL Database:', err);
   }
@@ -156,16 +200,35 @@ async function initDatabase() {
 
 initDatabase();
 
-// --- OTP AUTH ENDPOINTS ---
+// --- OTP AUTH ENDPOINTS WITH RATE LIMITING ---
 app.post('/api/auth/send-otp', async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email address is required' });
 
+    const key = email.toLowerCase();
+    const now = Date.now();
+    const rateData = otpRateLimitStore.get(key) || { count: 0, windowStart: now };
+
+    if (now - rateData.windowStart > 5 * 60 * 1000) {
+      rateData.count = 0;
+      rateData.windowStart = now;
+    }
+
+    if (rateData.count >= 3) {
+      const waitSeconds = Math.ceil((rateData.windowStart + 5 * 60 * 1000 - now) / 1000);
+      return res.status(429).json({
+        error: `Too many OTP requests. For security, please wait ${waitSeconds} seconds before trying again.`
+      });
+    }
+
+    rateData.count += 1;
+    otpRateLimitStore.set(key, rateData);
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = Date.now() + 5 * 60 * 1000; // 5 mins validity
 
-    otpStore.set(email.toLowerCase(), { otp, expiresAt });
+    otpStore.set(key, { otp, expiresAt });
     console.log(`[REAL EMAIL DISPATCH] 📩 Sending 6-digit OTP code to ${email}...`);
 
     const transporter = createMailTransporter();
@@ -234,7 +297,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 
 // API Endpoints
 
-// 1. Quizzes
+// 1. Quizzes (with Granular Admin Settings & Rules)
 app.get('/api/quizzes', async (req, res) => {
   try {
     const [quizRows] = await pool.query('SELECT * FROM quizzes ORDER BY created_at DESC');
@@ -277,6 +340,15 @@ app.get('/api/quizzes', async (req, res) => {
         createdAt: q.created_at,
         updatedAt: q.updated_at,
         author: q.author,
+        enableCertificate: q.enable_certificate !== 0,
+        enableAntiCheating: Boolean(q.enable_anti_cheating),
+        timingMode: q.timing_mode || 'quiz',
+        sectionalConfig: JSON.parse(q.sectional_config_json || '[]'),
+        questionTimeLimitSeconds: q.question_time_limit_seconds || 60,
+        preventPreviousSectionReturn: Boolean(q.prevent_prev_section),
+        preventEarlyNextSection: Boolean(q.prevent_early_next_section),
+        preventPreviousQuestionReturn: Boolean(q.prevent_prev_question),
+        preventEarlyNextQuestion: Boolean(q.prevent_early_next_question),
         questions,
       });
     }
@@ -291,12 +363,19 @@ app.post('/api/quizzes', async (req, res) => {
   try {
     const q = req.body;
     await pool.query(
-      `INSERT INTO quizzes (id, title, description, topic, category, difficulty, time_limit_minutes, passing_percentage, negative_marks, quiz_type, scheduled_start_datetime, scheduled_end_datetime, is_published, created_at, updated_at, author)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE title=?, description=?, topic=?, time_limit_minutes=?, passing_percentage=?, negative_marks=?, quiz_type=?, is_published=?, updated_at=?`,
+      `INSERT INTO quizzes (
+        id, title, description, topic, category, difficulty, time_limit_minutes, passing_percentage, negative_marks, quiz_type, scheduled_start_datetime, scheduled_end_datetime, is_published, created_at, updated_at, author,
+        enable_certificate, enable_anti_cheating, timing_mode, sectional_config_json, question_time_limit_seconds, prevent_prev_section, prevent_early_next_section, prevent_prev_question, prevent_early_next_question
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+        title=?, description=?, topic=?, time_limit_minutes=?, passing_percentage=?, negative_marks=?, quiz_type=?, is_published=?, updated_at=?,
+        enable_certificate=?, enable_anti_cheating=?, timing_mode=?, sectional_config_json=?, question_time_limit_seconds=?, prevent_prev_section=?, prevent_early_next_section=?, prevent_prev_question=?, prevent_early_next_question=?`,
       [
         q.id, q.title, q.description, q.topic, q.category, q.difficulty, q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.scheduledStartDateTime, q.scheduledEndDateTime, q.isPublished ? 1 : 0, q.createdAt, q.updatedAt, q.author,
-        q.title, q.description, q.topic, q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.isPublished ? 1 : 0, q.updatedAt
+        q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
+        
+        q.title, q.description, q.topic, q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.isPublished ? 1 : 0, q.updatedAt,
+        q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0
       ]
     );
 
@@ -332,10 +411,18 @@ app.delete('/api/quizzes/:id', async (req, res) => {
   }
 });
 
-// 2. Results / Leaderboard
+// 2. Results / Leaderboard (with Pagination support)
 app.get('/api/results', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM results ORDER BY percentage DESC, time_spent_seconds ASC');
+    const page = parseInt(req.query.page || '1', 10);
+    const limit = parseInt(req.query.limit || '100', 10);
+    const offset = (page - 1) * limit;
+
+    const [rows] = await pool.query(
+      'SELECT * FROM results ORDER BY percentage DESC, time_spent_seconds ASC LIMIT ? OFFSET ?',
+      [limit, offset]
+    );
+
     const results = rows.map(r => ({
       id: r.id,
       quizId: r.quiz_id,
@@ -353,6 +440,7 @@ app.get('/api/results', async (req, res) => {
       attemptedAt: r.attempted_at,
       userAnswers: JSON.parse(r.user_answers_json || '{}'),
     }));
+
     res.json(results);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -375,7 +463,39 @@ app.post('/api/results', async (req, res) => {
   }
 });
 
-// 3. Announcements
+// 3. Admin Executive Stats Endpoint
+app.get('/api/admin/stats', async (req, res) => {
+  try {
+    const [[{ totalUsers }]] = await pool.query('SELECT COUNT(*) as totalUsers FROM users');
+    const [[{ totalQuizzes }]] = await pool.query('SELECT COUNT(*) as totalQuizzes FROM quizzes');
+    const [[{ totalAttempts }]] = await pool.query('SELECT COUNT(*) as totalAttempts FROM results');
+    const [[{ avgScore }]] = await pool.query('SELECT IFNULL(AVG(percentage), 0) as avgScore FROM results');
+    const [[{ passedAttempts }]] = await pool.query('SELECT COUNT(*) as passedAttempts FROM results WHERE passed = 1');
+    const [recentResults] = await pool.query('SELECT * FROM results ORDER BY attempted_at DESC LIMIT 10');
+
+    res.json({
+      totalUsers,
+      totalQuizzes,
+      totalAttempts,
+      avgScore: Math.round(avgScore * 10) / 10,
+      passRate: totalAttempts > 0 ? Math.round((passedAttempts / totalAttempts) * 100) : 0,
+      recentResults: recentResults.map(r => ({
+        id: r.id,
+        quizTitle: r.quiz_title,
+        candidateName: r.candidate_name,
+        score: r.score,
+        maxScore: r.max_score,
+        percentage: r.percentage,
+        passed: Boolean(r.passed),
+        attemptedAt: r.attempted_at,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 4. Announcements
 app.get('/api/announcements', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM announcements ORDER BY created_at DESC');

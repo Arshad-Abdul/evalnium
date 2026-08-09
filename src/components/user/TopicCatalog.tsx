@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import type { Quiz, QuizAttemptResult } from '../../types/quiz';
-import { Search, BookOpen, Clock, Play, History, Filter, X, Lock } from 'lucide-react';
+import { Search, BookOpen, Clock, Play, History, Filter, X, Lock, Award } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { AuthModal } from '../auth/AuthModal';
+import { PDFCertificateModal } from './PDFCertificateModal';
 
 interface TopicCatalogProps {
   quizzes: Quiz[];
@@ -21,6 +22,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('All');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [selectedCertAttempt, setSelectedCertAttempt] = useState<QuizAttemptResult | null>(null);
 
   const handleStartExamAttempt = (quiz: Quiz) => {
     if (!currentUser) {
@@ -322,13 +324,23 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                       </p>
                     </div>
 
-                    <div className="text-right">
+                    <div className="text-right flex flex-col items-end">
                       <span className={`px-2.5 py-0.5 rounded font-mono font-bold text-xs ${
                         attempt.passed ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
                       }`}>
                         {attempt.percentage}% ({attempt.passed ? 'PASSED' : 'NEEDS IMPROVEMENT'})
                       </span>
                       <p className="text-[11px] font-mono text-slate-500 mt-1">Score: {attempt.score}/{attempt.maxScore}</p>
+                      
+                      {attempt.passed && (
+                        <button
+                          onClick={() => setSelectedCertAttempt(attempt)}
+                          className="mt-2 text-[11px] text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 px-2.5 py-1 rounded-lg font-bold flex items-center space-x-1 transition-all shadow-xs"
+                        >
+                          <Award className="w-3.5 h-3.5 text-amber-600" />
+                          <span>PDF Merit Certificate 📜</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))
@@ -345,6 +357,22 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* PDF Certificate Download Modal */}
+      {selectedCertAttempt && (
+        <PDFCertificateModal
+          isOpen={Boolean(selectedCertAttempt)}
+          onClose={() => setSelectedCertAttempt(null)}
+          candidateName={selectedCertAttempt.candidateName}
+          quizTitle={selectedCertAttempt.quizTitle}
+          topic={selectedCertAttempt.topic || 'Assessment'}
+          score={selectedCertAttempt.score}
+          maxScore={selectedCertAttempt.maxScore}
+          percentage={selectedCertAttempt.percentage}
+          date={selectedCertAttempt.attemptedAt}
+          attemptId={selectedCertAttempt.id}
+        />
       )}
     </div>
   );

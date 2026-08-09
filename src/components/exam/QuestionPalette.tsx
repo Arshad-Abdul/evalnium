@@ -34,8 +34,8 @@ export const QuestionPalette: React.FC<QuestionPaletteProps> = ({
             <span>Answered ({answeredCount})</span>
           </div>
           <div className="flex items-center space-x-1.5">
-            <span className="w-3 h-3 rounded-full bg-amber-500 inline-block" />
-            <span>Review ({reviewCount})</span>
+            <span className="w-3 h-3 rounded-full bg-purple-600 inline-block" />
+            <span>Marked Review ({reviewCount})</span>
           </div>
           <div className="flex items-center space-x-1.5">
             <span className="w-3 h-3 rounded-full bg-slate-300 inline-block" />
@@ -60,7 +60,7 @@ export const QuestionPalette: React.FC<QuestionPaletteProps> = ({
             if (isCurrent) {
               btnStyle = 'bg-blue-600 text-white font-bold ring-2 ring-blue-600/30';
             } else if (isReview) {
-              btnStyle = 'bg-amber-500 text-white font-bold border-amber-600';
+              btnStyle = 'bg-purple-600 text-white font-bold border-purple-700 shadow-xs shadow-purple-600/30';
             } else if (isAnswered) {
               btnStyle = 'bg-emerald-600 text-white font-bold border-emerald-700';
             }

@@ -30,6 +30,16 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [scheduledStartDateTime, setScheduledStartDateTime] = useState<string>('');
   const [scheduledEndDateTime, setScheduledEndDateTime] = useState<string>('');
 
+  // --- Granular Admin Settings & Rules ---
+  const [enableCertificate, setEnableCertificate] = useState(true);
+  const [enableAntiCheating, setEnableAntiCheating] = useState(false);
+  const [timingMode, setTimingMode] = useState<'quiz' | 'sectional' | 'question'>('quiz');
+  const [questionTimeLimitSeconds, setQuestionTimeLimitSeconds] = useState(60);
+  const [preventPreviousSectionReturn, setPreventPreviousSectionReturn] = useState(false);
+  const [preventEarlyNextSection, setPreventEarlyNextSection] = useState(false);
+  const [preventPreviousQuestionReturn, setPreventPreviousQuestionReturn] = useState(false);
+  const [preventEarlyNextQuestion, setPreventEarlyNextQuestion] = useState(false);
+
   const [questions, setQuestions] = useState<ParsedQuestion[]>(parseResult.questions);
 
   const handleUpdateQuestionText = (id: string, text: string) => {
@@ -99,6 +109,16 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       author: 'Admin Importer',
+
+      // Granular Admin Controls
+      enableCertificate,
+      enableAntiCheating,
+      timingMode,
+      questionTimeLimitSeconds,
+      preventPreviousSectionReturn,
+      preventEarlyNextSection,
+      preventPreviousQuestionReturn,
+      preventEarlyNextQuestion,
       questions: questions.map((q, idx) => ({
         id: `q_${idx + 1}_${Date.now()}`,
         questionText: q.questionText,
@@ -339,6 +359,145 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               <option value="Hard">Hard</option>
             </select>
           </div>
+        </div>
+
+        {/* --- Granular Security & Timing Control Panel --- */}
+        <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+          <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center space-x-2">
+            <ShieldAlert className="w-4 h-4 text-indigo-600" />
+            <span>Granular Anti-Cheating & Exam Timing Rules</span>
+          </h4>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Certificate Switch */}
+            <label className="p-3 rounded-xl bg-white border border-slate-200 flex items-center justify-between cursor-pointer hover:border-slate-300">
+              <div>
+                <span className="text-xs font-bold text-slate-900 block">📜 Merit Certificate Download</span>
+                <span className="text-[11px] text-slate-500 font-medium block">Allow candidate to download PDF Certificate on passing</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={enableCertificate}
+                onChange={(e) => setEnableCertificate(e.target.checked)}
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+              />
+            </label>
+
+            {/* Anti Cheating Switch */}
+            <label className="p-3 rounded-xl bg-white border border-slate-200 flex items-center justify-between cursor-pointer hover:border-slate-300">
+              <div>
+                <span className="text-xs font-bold text-slate-900 block">⚠️ Tab-Switch Anti-Cheating Warning</span>
+                <span className="text-[11px] text-slate-500 font-medium block">Auto-submit exam after 2 tab-switching warnings</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={enableAntiCheating}
+                onChange={(e) => setEnableAntiCheating(e.target.checked)}
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+              />
+            </label>
+          </div>
+
+          {/* Timing Mode Radio Selector */}
+          <div className="pt-2">
+            <label className="block text-xs font-bold text-slate-800 mb-2">Exam Timing Control Mode</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => setTimingMode('quiz')}
+                className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${
+                  timingMode === 'quiz' ? 'bg-indigo-50 border-indigo-600 text-indigo-900' : 'bg-white border-slate-200 text-slate-700'
+                }`}
+              >
+                ⏱️ Standard Quiz Time ({timeLimitMinutes} Mins)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTimingMode('sectional')}
+                className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${
+                  timingMode === 'sectional' ? 'bg-indigo-50 border-indigo-600 text-indigo-900' : 'bg-white border-slate-200 text-slate-700'
+                }`}
+              >
+                📊 Sectional Timed Mode
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTimingMode('question')}
+                className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${
+                  timingMode === 'question' ? 'bg-indigo-50 border-indigo-600 text-indigo-900' : 'bg-white border-slate-200 text-slate-700'
+                }`}
+              >
+                ⚡ Question-Wise Timer
+              </button>
+            </div>
+          </div>
+
+          {/* Sectional Controls */}
+          {timingMode === 'sectional' && (
+            <div className="p-3 rounded-xl bg-white border border-slate-200 space-y-2 text-xs">
+              <label className="flex items-center space-x-2 font-bold text-slate-800">
+                <input
+                  type="checkbox"
+                  checked={preventPreviousSectionReturn}
+                  onChange={(e) => setPreventPreviousSectionReturn(e.target.checked)}
+                  className="rounded text-indigo-600"
+                />
+                <span>Prevent candidate from returning to previous sections</span>
+              </label>
+
+              <label className="flex items-center space-x-2 font-bold text-slate-800">
+                <input
+                  type="checkbox"
+                  checked={preventEarlyNextSection}
+                  onChange={(e) => setPreventEarlyNextSection(e.target.checked)}
+                  className="rounded text-indigo-600"
+                />
+                <span>Prevent candidate from moving to next section until section time ends</span>
+              </label>
+            </div>
+          )}
+
+          {/* Question Controls */}
+          {timingMode === 'question' && (
+            <div className="p-3 rounded-xl bg-white border border-slate-200 space-y-3 text-xs">
+              <div className="flex items-center space-x-3">
+                <label className="font-bold text-slate-800">Time Limit per Question (Seconds):</label>
+                <input
+                  type="number"
+                  min={10}
+                  max={600}
+                  value={questionTimeLimitSeconds}
+                  onChange={(e) => setQuestionTimeLimitSeconds(parseInt(e.target.value) || 60)}
+                  className="w-24 p-1.5 rounded-lg border border-slate-300 font-mono font-bold"
+                />
+              </div>
+
+              <div className="space-y-1.5 pt-1 border-t border-slate-100">
+                <label className="flex items-center space-x-2 font-bold text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={preventPreviousQuestionReturn}
+                    onChange={(e) => setPreventPreviousQuestionReturn(e.target.checked)}
+                    className="rounded text-indigo-600"
+                  />
+                  <span>Prevent candidate from returning to previous questions</span>
+                </label>
+
+                <label className="flex items-center space-x-2 font-bold text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={preventEarlyNextQuestion}
+                    onChange={(e) => setPreventEarlyNextQuestion(e.target.checked)}
+                    className="rounded text-indigo-600"
+                  />
+                  <span>Prevent candidate from advancing until current question timer ends</span>
+                </label>
+              </div>
+            </div>
+          )}
+
         </div>
 
         {/* Shuffling & Practice Toggles */}

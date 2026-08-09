@@ -136,12 +136,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           onClick={onToggleBookmark}
           className={`px-3 py-1.5 rounded-lg text-xs font-bold border flex items-center space-x-1.5 transition-all ${
             isMarked
-              ? 'bg-amber-500 text-white border-amber-600'
-              : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+              ? 'bg-purple-600 text-white border-purple-700 shadow-xs shadow-purple-600/30'
+              : 'bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200'
           }`}
         >
           <Bookmark className={`w-3.5 h-3.5 ${isMarked ? 'fill-white' : ''}`} />
-          <span>{isMarked ? 'Bookmarked for Review' : 'Mark for Review'}</span>
+          <span>{isMarked ? '📌 Marked for Review' : 'Mark for Review'}</span>
         </button>
       </div>
     </div>
