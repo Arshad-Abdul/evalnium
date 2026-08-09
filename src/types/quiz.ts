@@ -100,7 +100,36 @@ export interface QuizAttemptResult {
 export interface ParseResult {
   existingQuizId?: string;
   title?: string;
+  description?: string;
   topic?: string;
+  difficulty?: DifficultyLevel;
+  timeLimitMinutes?: number;
+  passingPercentage?: number;
+  negativeMarks?: number;
+  shuffleQuestions?: boolean;
+  shuffleOptions?: boolean;
+  enablePracticeMode?: boolean;
+  quizType?: 'practice' | 'live_contest';
+  scheduledStartDateTime?: string;
+  scheduledEndDateTime?: string;
+  defaultLanguageMode?: 'en' | 'hi' | 'dual';
+
+  // Granular Admin Controls
+  enableCertificate?: boolean;
+  enableAntiCheating?: boolean;
+  timingMode?: 'quiz' | 'sectional' | 'question';
+  questionTimeLimitSeconds?: number;
+  preventPreviousSectionReturn?: boolean;
+  preventEarlyNextSection?: boolean;
+  preventPreviousQuestionReturn?: boolean;
+  preventEarlyNextQuestion?: boolean;
+  sectionalConfig?: Array<{
+    id: string;
+    sectionName: string;
+    questionCount: number;
+    timeLimitMinutes: number;
+  }>;
+
   questions: ParsedQuestion[];
   errors: string[];
   rawText?: string;

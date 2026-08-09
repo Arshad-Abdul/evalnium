@@ -193,6 +193,13 @@ function MainAppContent() {
     setExamPhase('catalog');
   };
 
+  const handleCandidateLogout = () => {
+    setSelectedQuiz(null);
+    setLastResult(null);
+    setExamPhase('catalog');
+    setActiveTab('user');
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
       {/* App Navbar */}
@@ -201,6 +208,7 @@ function MainAppContent() {
         setActiveTab={handleTabChange}
         isAdminAuthenticated={isAdminAuthenticated}
         onAdminLogout={handleAdminLogout}
+        onCandidateLogout={handleCandidateLogout}
         totalQuizzesCount={quizzes.filter(q => q.isPublished).length}
         onOpenRevisionHub={() => setShowRevisionHubModal(true)}
       />

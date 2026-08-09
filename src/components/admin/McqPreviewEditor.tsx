@@ -18,34 +18,34 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [title, setTitle] = useState(parseResult.title || sourceFileName.replace(/\.[^/.]+$/, ''));
   const [topic, setTopic] = useState(parseResult.topic || 'General Knowledge');
   const [category] = useState('General');
-  const [description, setDescription] = useState(`Comprehensive assessment covering ${parseResult.questions.length} MCQs.`);
-  const [difficulty, setDifficulty] = useState<DifficultyLevel>('Medium');
-  const [timeLimitMinutes, setTimeLimitMinutes] = useState(15);
-  const [passingPercentage, setPassingPercentage] = useState(60);
-  const [negativeMarks, setNegativeMarks] = useState<number>(0.25);
-  const [shuffleQuestions, setShuffleQuestions] = useState(true);
-  const [shuffleOptions, setShuffleOptions] = useState(true);
-  const [enablePracticeMode, setEnablePracticeMode] = useState(false);
-  const [quizType, setQuizType] = useState<'practice' | 'live_contest'>('practice');
-  const [scheduledStartDateTime, setScheduledStartDateTime] = useState<string>('');
-  const [scheduledEndDateTime, setScheduledEndDateTime] = useState<string>('');
-  const [defaultLanguageMode, setDefaultLanguageMode] = useState<'en' | 'hi' | 'dual'>('en');
+  const [description, setDescription] = useState(parseResult.description || `Comprehensive assessment covering ${parseResult.questions.length} MCQs.`);
+  const [difficulty, setDifficulty] = useState<DifficultyLevel>(parseResult.difficulty || 'Medium');
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState(parseResult.timeLimitMinutes ?? 15);
+  const [passingPercentage, setPassingPercentage] = useState(parseResult.passingPercentage ?? 60);
+  const [negativeMarks, setNegativeMarks] = useState<number>(parseResult.negativeMarks ?? 0.25);
+  const [shuffleQuestions, setShuffleQuestions] = useState(parseResult.shuffleQuestions ?? true);
+  const [shuffleOptions, setShuffleOptions] = useState(parseResult.shuffleOptions ?? true);
+  const [enablePracticeMode, setEnablePracticeMode] = useState(parseResult.enablePracticeMode ?? false);
+  const [quizType, setQuizType] = useState<'practice' | 'live_contest'>(parseResult.quizType || 'practice');
+  const [scheduledStartDateTime, setScheduledStartDateTime] = useState<string>(parseResult.scheduledStartDateTime || '');
+  const [scheduledEndDateTime, setScheduledEndDateTime] = useState<string>(parseResult.scheduledEndDateTime || '');
+  const [defaultLanguageMode, setDefaultLanguageMode] = useState<'en' | 'hi' | 'dual'>(parseResult.defaultLanguageMode || 'en');
 
   // --- Granular Admin Settings & Rules ---
-  const [enableCertificate, setEnableCertificate] = useState(true);
-  const [enableAntiCheating, setEnableAntiCheating] = useState(false);
-  const [timingMode, setTimingMode] = useState<'quiz' | 'sectional' | 'question'>('quiz');
-  const [questionTimeLimitSeconds, setQuestionTimeLimitSeconds] = useState(60);
-  const [preventPreviousSectionReturn, setPreventPreviousSectionReturn] = useState(false);
-  const [preventEarlyNextSection, setPreventEarlyNextSection] = useState(false);
-  const [preventPreviousQuestionReturn, setPreventPreviousQuestionReturn] = useState(false);
-  const [preventEarlyNextQuestion, setPreventEarlyNextQuestion] = useState(false);
+  const [enableCertificate, setEnableCertificate] = useState(parseResult.enableCertificate ?? true);
+  const [enableAntiCheating, setEnableAntiCheating] = useState(parseResult.enableAntiCheating ?? false);
+  const [timingMode, setTimingMode] = useState<'quiz' | 'sectional' | 'question'>(parseResult.timingMode || 'quiz');
+  const [questionTimeLimitSeconds, setQuestionTimeLimitSeconds] = useState(parseResult.questionTimeLimitSeconds ?? 60);
+  const [preventPreviousSectionReturn, setPreventPreviousSectionReturn] = useState(parseResult.preventPreviousSectionReturn ?? false);
+  const [preventEarlyNextSection, setPreventEarlyNextSection] = useState(parseResult.preventEarlyNextSection ?? false);
+  const [preventPreviousQuestionReturn, setPreventPreviousQuestionReturn] = useState(parseResult.preventPreviousQuestionReturn ?? false);
+  const [preventEarlyNextQuestion, setPreventEarlyNextQuestion] = useState(parseResult.preventEarlyNextQuestion ?? false);
   const [sections, setSections] = useState<Array<{
     id: string;
     sectionName: string;
     questionCount: number;
     timeLimitMinutes: number;
-  }>>([
+  }>>(parseResult.sectionalConfig || [
     { id: 'sec_1', sectionName: 'Section 1: General Aptitude', questionCount: Math.ceil(parseResult.questions.length / 2), timeLimitMinutes: 10 },
     { id: 'sec_2', sectionName: 'Section 2: Technical Domain', questionCount: Math.floor(parseResult.questions.length / 2), timeLimitMinutes: 20 },
   ]);

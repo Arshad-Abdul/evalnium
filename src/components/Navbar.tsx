@@ -9,6 +9,7 @@ interface NavbarProps {
   setActiveTab: (tab: 'user' | 'dashboard' | 'leaderboard' | 'admin') => void;
   isAdminAuthenticated: boolean;
   onAdminLogout: () => void;
+  onCandidateLogout?: () => void;
   totalQuizzesCount: number;
   onOpenRevisionHub?: () => void;
 }
@@ -18,6 +19,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveTab,
   isAdminAuthenticated,
   onAdminLogout,
+  onCandidateLogout,
   totalQuizzesCount,
   onOpenRevisionHub,
 }) => {
@@ -189,6 +191,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         setShowUserDropdown(false);
                         onAdminLogout();
                         logoutCandidate();
+                        onCandidateLogout?.();
                       }}
                       className="w-full px-3 py-2 rounded-xl text-left text-xs font-bold text-rose-400 hover:bg-rose-500/10 flex items-center space-x-2"
                     >
