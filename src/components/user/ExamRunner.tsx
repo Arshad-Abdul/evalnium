@@ -27,20 +27,30 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
   const [languageMode, setLanguageMode] = useState<'dual' | 'en' | 'hi'>(quiz.defaultLanguageMode || 'en');
   const [examViewMode, setExamViewMode] = useState<'single' | 'all'>('single');
 
-  const [activeQuestions] = useState(() => {
+  const activeQuestions = React.useMemo(() => {
     let prepared = quiz.questions.map(q => {
       if (quiz.shuffleOptions && q.options.length > 0) {
-        return { ...q, options: [...q.options].sort(() => Math.random() - 0.5) };
+        const shuffled = [...q.options];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return { ...q, options: shuffled };
       }
       return q;
     });
 
     if (quiz.shuffleQuestions && prepared.length > 0) {
-      prepared = [...prepared].sort(() => Math.random() - 0.5);
+      const shuffledQs = [...prepared];
+      for (let i = shuffledQs.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledQs[i], shuffledQs[j]] = [shuffledQs[j], shuffledQs[i]];
+      }
+      prepared = shuffledQs;
     }
 
     return prepared;
-  });
+  }, [quiz.id, quiz.questions, quiz.shuffleQuestions, quiz.shuffleOptions]);
 
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [showAntiCheatWarning, setShowAntiCheatWarning] = useState(false);
@@ -328,6 +338,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
               totalQuestions={activeQuestions.length}
               userAnswer={currentAnswer}
               languageMode={languageMode}
+              enablePracticeMode={quiz.enablePracticeMode}
               onSelectOption={handleSelectOption}
               onClearChoice={() => handleClearChoice(currentQuestion.id)}
               onToggleBookmark={() => handleToggleMarkForReview(currentQuestion.id)}

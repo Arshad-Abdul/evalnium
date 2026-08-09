@@ -9,6 +9,7 @@ interface QuestionCardProps {
   totalQuestions: number;
   userAnswer: UserAnswer;
   languageMode: 'dual' | 'en' | 'hi';
+  enablePracticeMode?: boolean;
   onSelectOption: (optionId: string) => void;
   onClearChoice: () => void;
   onToggleBookmark: () => void;
@@ -20,6 +21,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   totalQuestions,
   userAnswer,
   languageMode,
+  enablePracticeMode,
   onSelectOption,
   onClearChoice,
   onToggleBookmark,
@@ -224,6 +226,32 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       </div>
     );
   })()}
+
+      {/* Instant Practice Mode Explanation Box */}
+      {enablePracticeMode && selectedOptionId && (
+        <div className={`p-4 rounded-2xl border-2 space-y-2 animate-fadeIn ${
+          selectedOptionId === question.correctOptionId
+            ? 'bg-emerald-50/90 border-emerald-500 text-emerald-950'
+            : 'bg-rose-50/90 border-rose-500 text-rose-950'
+        }`}>
+          <div className="flex items-center space-x-2 font-bold text-xs">
+            {selectedOptionId === question.correctOptionId ? (
+              <span className="px-2 py-0.5 rounded bg-emerald-600 text-white font-extrabold uppercase">
+                ✅ Correct Answer Choice!
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded bg-rose-600 text-white font-extrabold uppercase">
+                ❌ Incorrect Choice (Correct Answer: Option {question.correctOptionId})
+              </span>
+            )}
+          </div>
+          {question.explanation && (
+            <p className="text-xs font-medium leading-relaxed pt-1 border-t border-slate-200/60">
+              💡 <span className="font-bold">Answer Rationale:</span> {question.explanation}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Clear & Bookmark Actions */}
       <div className="flex items-center justify-between pt-2 border-t border-slate-100">
