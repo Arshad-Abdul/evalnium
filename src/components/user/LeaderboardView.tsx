@@ -6,7 +6,7 @@ import { Trophy, Award, Medal, Search, Sparkles, Filter, Clock, Download } from 
 import { useAuth } from '../../context/AuthContext';
 
 export const LeaderboardView: React.FC = () => {
-  const { isAdminAuthenticated, currentUser } = useAuth();
+  const { isAdminAuthenticated } = useAuth();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [selectedQuizTitle, setSelectedQuizTitle] = useState('All Exams (Overall Cumulative)');
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,7 +81,7 @@ export const LeaderboardView: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-3">
-            {isAdminAuthenticated && currentUser?.role === 'admin' && (
+            {isAdminAuthenticated && (
               <button
                 onClick={() => exportLeaderboardToCSV(filteredEntries)}
                 className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs flex items-center space-x-2 transition-all cursor-pointer"
