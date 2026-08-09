@@ -1,8 +1,10 @@
+export type QuestionType = 'mcq' | 'multiple_select' | 'match_following';
 export type DifficultyLevel = 'Easy' | 'Medium' | 'Hard';
 
 export interface Option {
   id: string; // e.g., 'A', 'B', 'C', 'D'
   text: string;
+  imageUrl?: string;
 }
 
 export interface Question {
@@ -12,6 +14,11 @@ export interface Question {
   questionHindi?: string;
   options: Option[];
   correctOptionId: string; // 'A', 'B', 'C', 'D'
+  correctOptionIds?: string[]; // For Multiple Select Questions (MSQ)
+  questionType?: QuestionType;
+  imageUrl?: string;
+  listI?: string[]; // Match the Following List I items
+  listII?: string[]; // Match the Following List II items
   explanation?: string;
   explanationEnglish?: string;
   explanationHindi?: string;
@@ -101,6 +108,11 @@ export interface ParsedQuestion {
   questionHindi?: string;
   options: Option[];
   correctOptionId: string;
+  correctOptionIds?: string[];
+  questionType?: QuestionType;
+  imageUrl?: string;
+  listI?: string[];
+  listII?: string[];
   explanation?: string;
   explanationEnglish?: string;
   explanationHindi?: string;

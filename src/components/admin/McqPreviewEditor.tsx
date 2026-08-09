@@ -719,9 +719,20 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                 <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center justify-center text-xs font-bold font-mono">
                   {qIndex + 1}
                 </span>
-                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">
-                  Multiple Choice Question
-                </span>
+                
+                {/* Question Type Selector */}
+                <select
+                  value={q.questionType || 'mcq'}
+                  onChange={(e) => {
+                    const newType = e.target.value as any;
+                    setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, questionType: newType } : item));
+                  }}
+                  className="p-1.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none"
+                >
+                  <option value="mcq">🔘 Single Choice MCQ</option>
+                  <option value="multiple_select">☑️ Multiple Select (MSQ)</option>
+                  <option value="match_following">🧩 Match the Following</option>
+                </select>
               </div>
 
               <button
@@ -733,8 +744,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               </button>
             </div>
 
-            {/* Question Text Field */}
-            <div>
+            {/* Question Text Field & Image Attachment URL */}
+            <div className="space-y-2">
               <textarea
                 rows={2}
                 value={q.questionText}
@@ -742,7 +753,69 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                 placeholder="Enter Question Text..."
                 className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-semibold text-sm focus:border-indigo-500 focus:bg-white focus:outline-none"
               />
+
+              <div className="flex items-center space-x-2">
+                <span className="text-[11px] font-bold text-slate-500 flex items-center space-x-1 flex-shrink-0">
+                  <span>📷 Image URL / Diagram:</span>
+                </span>
+                <input
+                  type="text"
+                  value={q.imageUrl || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, imageUrl: val } : item));
+                  }}
+                  placeholder="https://example.com/diagram.png (Optional)"
+                  className="flex-1 p-2 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium focus:outline-none focus:border-indigo-500"
+                />
+              </div>
             </div>
+
+            {/* Match the Following List I & List II Builder */}
+            {q.questionType === 'match_following' && (
+              <div className="p-4 rounded-xl bg-indigo-50/60 border border-indigo-200 space-y-3">
+                <h5 className="text-xs font-extrabold text-indigo-950 flex items-center space-x-1">
+                  <span>🧩 Match the Following List Columns</span>
+                </h5>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-bold">
+                  <div className="space-y-1.5">
+                    <span className="text-indigo-900 block">List I (Items 1, 2, 3, 4):</span>
+                    {[0, 1, 2, 3].map(i => (
+                      <input
+                        key={i}
+                        type="text"
+                        value={q.listI?.[i] || ''}
+                        onChange={(e) => {
+                          const newListI = [...(q.listI || ['', '', '', ''])];
+                          newListI[i] = e.target.value;
+                          setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, listI: newListI } : item));
+                        }}
+                        placeholder={`1. Item ${i + 1}...`}
+                        className="w-full p-2 rounded-lg bg-white border border-indigo-200 text-xs font-medium"
+                      />
+                    ))}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span className="text-indigo-900 block">List II (Items A, B, C, D):</span>
+                    {[0, 1, 2, 3].map(i => (
+                      <input
+                        key={i}
+                        type="text"
+                        value={q.listII?.[i] || ''}
+                        onChange={(e) => {
+                          const newListII = [...(q.listII || ['', '', '', ''])];
+                          newListII[i] = e.target.value;
+                          setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, listII: newListII } : item));
+                        }}
+                        placeholder={`${String.fromCharCode(65 + i)}. Item ${String.fromCharCode(65 + i)}...`}
+                        className="w-full p-2 rounded-lg bg-white border border-indigo-200 text-xs font-medium"
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Options List */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">

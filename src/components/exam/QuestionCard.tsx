@@ -89,33 +89,84 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       {/* Question Text */}
       <div>{renderQuestionText()}</div>
 
+      {/* Question Image / Diagram */}
+      {question.imageUrl && (
+        <div className="my-3 rounded-2xl overflow-hidden border border-slate-200 shadow-sm max-w-lg bg-slate-50 p-2">
+          <img src={question.imageUrl} alt="Question Diagram" className="w-full object-contain max-h-72 rounded-xl" />
+        </div>
+      )}
+
+      {/* Match the Following List I vs List II Box */}
+      {question.questionType === 'match_following' && (question.listI || question.listII) && (
+        <div className="my-3 p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200 shadow-xs">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            {question.listI && question.listI.some(Boolean) && (
+              <div className="space-y-1.5">
+                <span className="text-indigo-950 font-extrabold block border-b border-indigo-200 pb-1 uppercase tracking-wider">
+                  List I
+                </span>
+                {question.listI.map((item, idx) => item ? (
+                  <div key={idx} className="p-2 rounded-xl bg-white border border-indigo-100 font-bold text-slate-800 shadow-2xs">
+                    {item}
+                  </div>
+                ) : null)}
+              </div>
+            )}
+
+            {question.listII && question.listII.some(Boolean) && (
+              <div className="space-y-1.5">
+                <span className="text-indigo-950 font-extrabold block border-b border-indigo-200 pb-1 uppercase tracking-wider">
+                  List II
+                </span>
+                {question.listII.map((item, idx) => item ? (
+                  <div key={idx} className="p-2 rounded-xl bg-white border border-indigo-100 font-bold text-slate-800 shadow-2xs">
+                    {item}
+                  </div>
+                ) : null)}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Options Choices Grid */}
       <div className="grid grid-cols-1 gap-3 pt-2">
         {question.options.map((opt) => {
           const isSelected = selectedOptionId === opt.id;
+          const isMSQ = question.questionType === 'multiple_select';
           return (
             <div
               key={opt.id}
               onClick={() => onSelectOption(opt.id)}
               className={`p-4 rounded-xl border-2 cursor-pointer flex items-center justify-between transition-all ${
                 isSelected
-                  ? 'bg-blue-50/80 border-blue-600 text-blue-950 font-bold shadow-xs'
-                  : 'bg-white border-slate-200 hover:border-slate-300 text-slate-800'
+                  ? 'bg-blue-50/80 border-blue-600 shadow-xs'
+                  : 'bg-white border-slate-200 hover:border-slate-300'
               }`}
             >
               <div className="flex items-center space-x-3">
-                <span className={`w-7 h-7 rounded-lg font-mono text-xs font-bold flex items-center justify-center transition-colors ${
-                  isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 border border-slate-200'
-                }`}>
+                <span
+                  className={`w-7 h-7 rounded-lg font-mono font-bold text-xs flex items-center justify-center transition-colors ${
+                    isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'
+                  }`}
+                >
                   {opt.id}
                 </span>
-                <span className="text-sm font-semibold">{opt.text}</span>
+
+                <span className={`text-sm font-semibold ${isSelected ? 'text-blue-900 font-bold' : 'text-slate-800'}`}>
+                  {opt.text}
+                </span>
               </div>
 
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                isSelected ? 'border-blue-600 bg-blue-600' : 'border-slate-300'
-              }`}>
-                {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
+              {/* Selection Checkmark / Checkbox Indicator */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type={isMSQ ? "checkbox" : "radio"}
+                  name={`q_${question.id}`}
+                  checked={isSelected}
+                  onChange={() => {}}
+                  className="w-4 h-4 text-blue-600 focus:ring-blue-500 rounded cursor-pointer"
+                />
               </div>
             </div>
           );
