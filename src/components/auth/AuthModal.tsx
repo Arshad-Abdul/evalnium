@@ -209,7 +209,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               </button>
             </div>
 
-            <form onSubmit={handleSendOtp} className="space-y-4">
+            <form
+              onSubmit={(e) => {
+                if (tab === 'signin') {
+                  e.preventDefault();
+                  if (!email) return;
+                  loginCandidate(email, name);
+                  setSuccessMsg(`Welcome Back! Instant Sign-In Successful.`);
+                  setTimeout(() => {
+                    onClose();
+                  }, 1000);
+                } else {
+                  handleSendOtp(e);
+                }
+              }}
+              className="space-y-4"
+            >
               {tab === 'register' && (
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-slate-700">Full Candidate Name</label>
@@ -266,6 +281,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span>Sending OTP to Email...</span>
+                  </>
+                ) : tab === 'signin' ? (
+                  <>
+                    <KeyRound className="w-4 h-4" />
+                    <span>Instant Candidate Sign In 🚀</span>
                   </>
                 ) : (
                   <>
