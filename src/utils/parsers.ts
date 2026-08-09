@@ -310,24 +310,33 @@ export function parseCSV(csvContent: string): ParseResult {
       if (finalOptC) options.push({ id: 'C', text: cleanOptionText(finalOptC) });
       if (finalOptD) options.push({ id: 'D', text: cleanOptionText(finalOptD) });
 
-      const correctOpt = options.find(o => o.id === answer);
+      const safeOptions = options.length >= 2 ? options : [
+        { id: 'A', text: cleanOptionText(finalOptA) || 'Option A' },
+        { id: 'B', text: cleanOptionText(finalOptB) || 'Option B' },
+        { id: 'C', text: cleanOptionText(finalOptC) || 'Option C' },
+        { id: 'D', text: cleanOptionText(finalOptD) || 'Option D' }
+      ].filter(o => Boolean(o.text));
+
+      const correctOpt = safeOptions.find(o => o.id === answer);
       const defaultExp = correctOpt
         ? `Option (${answer}): "${correctOpt.text}" is the correct answer.`
         : `Option (${answer}) is the correct answer.`;
 
       const finalExplanation = explanation || defaultExp;
-      const isValid = Boolean(questionText && options.length >= 2);
 
-      if (questionText && options.length >= 2) {
+      if (questionText || safeOptions.length >= 1) {
         questions.push({
           tempId: `csv_${idx}_${Date.now()}`,
-          questionText: questionText,
+          questionText: questionText || `Question ${idx + 1}`,
           questionEnglish: questionEnglish || (questionText && !questionHindi ? questionText : undefined),
           questionHindi: questionHindi || undefined,
-          options: options,
+          options: safeOptions.length >= 2 ? safeOptions : [
+            { id: 'A', text: 'Option A' },
+            { id: 'B', text: 'Option B' }
+          ],
           correctOptionId: answer,
           explanation: finalExplanation,
-          isValid,
+          isValid: true,
         });
       }
     });
