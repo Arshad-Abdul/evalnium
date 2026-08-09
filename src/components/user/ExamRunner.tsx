@@ -20,9 +20,35 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
   onFinishExam,
 }) => {
   const { currentUser } = useAuth();
+  const sessionKey = `evalnium_live_exam_${currentUser?.email || candidateName || 'guest'}_${quiz.id}`;
+
+  const [examStartTime] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem(sessionKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.startTime) return parsed.startTime;
+      }
+    } catch {}
+    const now = Date.now();
+    try {
+      localStorage.setItem(sessionKey, JSON.stringify({ startTime: now, userAnswers: {} }));
+    } catch {}
+    return now;
+  });
+
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [timeRemainingSeconds, setTimeRemainingSeconds] = useState(quiz.timeLimitMinutes * 60);
-  const [userAnswers, setUserAnswers] = useState<Record<string, UserAnswer>>({});
+  const [userAnswers, setUserAnswers] = useState<Record<string, UserAnswer>>(() => {
+    try {
+      const saved = localStorage.getItem(sessionKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.userAnswers) return parsed.userAnswers;
+      }
+    } catch {}
+    return {};
+  });
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [languageMode, setLanguageMode] = useState<'dual' | 'en' | 'hi'>(quiz.defaultLanguageMode || 'en');
   const [examViewMode, setExamViewMode] = useState<'single' | 'all'>('single');
@@ -85,21 +111,34 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [quiz.enableAntiCheating]);
 
-  // Main countdown timer
+  // Save progress & userAnswers to LocalStorage on state update
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeRemainingSeconds((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          handleForceSubmit();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    try {
+      localStorage.setItem(sessionKey, JSON.stringify({
+        startTime: examStartTime,
+        userAnswers,
+      }));
+    } catch {}
+  }, [userAnswers, examStartTime, sessionKey]);
+
+  // Real-world countdown timer (calculates accurate remaining time across logouts/reloads)
+  useEffect(() => {
+    const updateTimer = () => {
+      const elapsedSeconds = Math.floor((Date.now() - examStartTime) / 1000);
+      const totalLimitSeconds = quiz.timeLimitMinutes * 60;
+      const remaining = Math.max(0, totalLimitSeconds - elapsedSeconds);
+      setTimeRemainingSeconds(remaining);
+
+      if (remaining <= 0) {
+        handleForceSubmit();
+      }
+    };
+
+    updateTimer();
+    const timer = setInterval(updateTimer, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [examStartTime, quiz.timeLimitMinutes]);
 
   // Per-question timer
   useEffect(() => {
@@ -261,12 +300,20 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     };
   };
 
+  const clearSession = () => {
+    try {
+      localStorage.removeItem(sessionKey);
+    } catch {}
+  };
+
   const handleForceSubmit = () => {
+    clearSession();
     const result = calculateResults();
     onFinishExam(result);
   };
 
   const handleConfirmSubmit = () => {
+    clearSession();
     setShowSubmitModal(false);
     const result = calculateResults();
     onFinishExam(result);
