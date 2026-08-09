@@ -216,19 +216,15 @@ export function parseCSV(csvContent: string): ParseResult {
 
   const cleanCSVContent = fixMojibake(csvContent);
 
-  const parsed = Papa.parse<Record<string, string>>(cleanCSVContent, {
-    header: true,
-    skipEmptyLines: true,
-  });
-
-  if (parsed.errors && parsed.errors.length > 0) {
-    parsed.errors.forEach(err => errors.push(`CSV Row ${err.row}: ${err.message}`));
-  }
-
+  // Helper to safely fetch value by column header name
   const getValueByHeader = (row: Record<string, string>, candidateHeaders: string[]): string => {
     const normalizedCandidates = candidateHeaders.map(h => h.toLowerCase().replace(/[\s\_\-\.]/g, ''));
     for (const key of Object.keys(row)) {
-      const normKey = key.trim().toLowerCase().replace(/[\s\_\-\.]/g, '');
+      const trimmedKey = key.trim();
+      // Skip PapaParse auto-renamed duplicate blank headers like "_1", "_2", "_3"
+      if (!trimmedKey || /^_\d+$/.test(trimmedKey) || trimmedKey.startsWith('__parsed_extra')) continue;
+
+      const normKey = trimmedKey.toLowerCase().replace(/[\s\_\-\.]/g, '');
       if (normalizedCandidates.includes(normKey)) {
         return fixMojibake((row[key] || '').trim());
       }
@@ -236,96 +232,173 @@ export function parseCSV(csvContent: string): ParseResult {
     return '';
   };
 
-  parsed.data.forEach((row, idx) => {
-    const questionEnglish = getValueByHeader(row, ['question_english', 'questionenglish', 'english_question', 'english', 'eng_question', 'q_english']);
-    const questionHindi = getValueByHeader(row, ['question_hindi', 'questionhindi', 'hindi_question', 'hindi', 'hin_question', 'q_hindi']);
-    let questionText = getValueByHeader(row, [
-      'question', 'question_text', 'questiontext', 'prompt', 'question_statement', 'questionstatement', 'statement', 'question_title', 'questiontitle', 'q_text', 'qtext', 'stem', 'problem', 'questions', 'q', 'ques', 'mcq', 'item', 'query'
-    ]);
+  // PASS 1: Try Header-Based Parsing
+  const parsedHeader = Papa.parse<Record<string, string>>(cleanCSVContent, {
+    header: true,
+    skipEmptyLines: 'greedy',
+  });
 
-    const rowValues = Object.values(row).map(v => fixMojibake((v || '').trim())).filter(Boolean);
+  if (parsedHeader.data && parsedHeader.data.length > 0) {
+    parsedHeader.data.forEach((row, idx) => {
+      const questionEnglish = getValueByHeader(row, ['question_english', 'questionenglish', 'english_question', 'english', 'eng_question', 'q_english']);
+      const questionHindi = getValueByHeader(row, ['question_hindi', 'questionhindi', 'hindi_question', 'hindi', 'hin_question', 'q_hindi']);
+      let questionText = getValueByHeader(row, [
+        'question', 'question_text', 'questiontext', 'prompt', 'question_statement', 'questionstatement', 'statement', 'question_title', 'questiontitle', 'q_text', 'qtext', 'stem', 'problem', 'questions', 'mcq', 'item', 'query'
+      ]);
 
-    // If header matching missed, use positional column 0 or 1
-    if (!questionText && rowValues.length >= 3) {
-      // If column 0 is a number like "1", question text is column 1
-      if (/^\d+$/.test(rowValues[0]) && rowValues.length >= 4) {
-        questionText = rowValues[1];
-      } else {
-        questionText = rowValues[0];
+      const optA = getValueByHeader(row, ['option_a', 'optiona', 'opta', 'option1', 'option_1', 'choice_a', 'choicea', 'choice1', 'opt1', 'ans_a', 'ansa']);
+      const optB = getValueByHeader(row, ['option_b', 'optionb', 'optb', 'option2', 'option_2', 'choice_b', 'choiceb', 'choice2', 'opt2', 'ans_b', 'ansb']);
+      const optC = getValueByHeader(row, ['option_c', 'optionc', 'optc', 'option3', 'option_3', 'choice_c', 'choicec', 'choice3', 'opt3', 'ans_c', 'ansc']);
+      const optD = getValueByHeader(row, ['option_d', 'optiond', 'optd', 'option4', 'option_4', 'choice_d', 'choiced', 'choice4', 'opt4', 'ans_d', 'ansd']);
+
+      // Positional Column Fallback if named headers missed
+      const rowValues = Object.entries(row)
+        .filter(([k]) => k && !/^_\d+$/.test(k.trim()))
+        .map(([, v]) => fixMojibake((v || '').trim()))
+        .filter(Boolean);
+
+      if (!questionText && rowValues.length >= 3) {
+        if (/^\d+$/.test(rowValues[0]) && rowValues.length >= 4) {
+          questionText = rowValues[1];
+        } else {
+          questionText = rowValues[0];
+        }
+      }
+
+      if (questionEnglish && questionHindi) {
+        questionText = `English: ${questionEnglish}\n\nहिन्दी: ${questionHindi}`;
+      } else if (questionEnglish && !questionText) {
+        questionText = questionEnglish;
+      } else if (questionHindi && !questionText) {
+        questionText = questionHindi;
+      }
+
+      let startOptIdx = 1;
+      if (rowValues.length >= 5 && /^\d+$/.test(rowValues[0])) startOptIdx = 2;
+
+      const finalOptA = optA || (rowValues.length > startOptIdx ? rowValues[startOptIdx] : '');
+      const finalOptB = optB || (rowValues.length > startOptIdx + 1 ? rowValues[startOptIdx + 1] : '');
+      const finalOptC = optC || (rowValues.length > startOptIdx + 2 ? rowValues[startOptIdx + 2] : '');
+      const finalOptD = optD || (rowValues.length > startOptIdx + 3 ? rowValues[startOptIdx + 3] : '');
+      
+      let answer = getValueByHeader(row, ['correct_answer', 'correctanswer', 'answer', 'correct_option', 'correctoption', 'key', 'ans', 'correct', 'correct_key', 'answer_key']).toUpperCase();
+      if (answer.startsWith('OPTION ')) answer = answer.replace('OPTION ', '').trim();
+      if (['1', '2', '3', '4'].includes(answer)) {
+        answer = String.fromCharCode(64 + parseInt(answer, 10));
+      }
+      if (!['A', 'B', 'C', 'D'].includes(answer)) {
+        answer = 'A';
+      }
+
+      const explanationEnglish = getValueByHeader(row, ['explanation_english', 'explanationenglish']);
+      const explanationHindi = getValueByHeader(row, ['explanation_hindi', 'explanationhindi']);
+      let explanation = getValueByHeader(row, ['explanation', 'exp', 'reason', 'rationale', 'solution', 'comment']);
+
+      if (explanationEnglish && explanationHindi) {
+        explanation = `English: ${explanationEnglish}\n\nहिन्दी: ${explanationHindi}`;
+      } else if (explanationEnglish && !explanation) {
+        explanation = explanationEnglish;
+      } else if (explanationHindi && !explanation) {
+        explanation = explanationHindi;
+      }
+
+      const options: { id: string; text: string }[] = [];
+      if (finalOptA) options.push({ id: 'A', text: cleanOptionText(finalOptA) });
+      if (finalOptB) options.push({ id: 'B', text: cleanOptionText(finalOptB) });
+      if (finalOptC) options.push({ id: 'C', text: cleanOptionText(finalOptC) });
+      if (finalOptD) options.push({ id: 'D', text: cleanOptionText(finalOptD) });
+
+      const correctOpt = options.find(o => o.id === answer);
+      const defaultExp = correctOpt
+        ? `Option (${answer}): "${correctOpt.text}" is the correct answer.`
+        : `Option (${answer}) is the correct answer.`;
+
+      const finalExplanation = explanation || defaultExp;
+      const isValid = Boolean(questionText && options.length >= 2);
+
+      if (questionText && options.length >= 2) {
+        questions.push({
+          tempId: `csv_${idx}_${Date.now()}`,
+          questionText: questionText,
+          questionEnglish: questionEnglish || (questionText && !questionHindi ? questionText : undefined),
+          questionHindi: questionHindi || undefined,
+          options: options,
+          correctOptionId: answer,
+          explanation: finalExplanation,
+          isValid,
+        });
+      }
+    });
+  }
+
+  // PASS 2: Positional Array Parsing Fallback (For Headerless CSVs)
+  if (questions.length === 0) {
+    const parsedRows = Papa.parse<string[]>(cleanCSVContent, {
+      header: false,
+      skipEmptyLines: 'greedy',
+    });
+
+    if (parsedRows.data && parsedRows.data.length > 0) {
+      let startIndex = 0;
+      // Skip header row if line 0 contains words like "Question" or "Option"
+      const firstRowStr = (parsedRows.data[0] || []).join(' ').toLowerCase();
+      if (firstRowStr.includes('question') || firstRowStr.includes('option') || firstRowStr.includes('answer')) {
+        startIndex = 1;
+      }
+
+      for (let i = startIndex; i < parsedRows.data.length; i++) {
+        const row = parsedRows.data[i].map(v => fixMojibake((v || '').trim())).filter(Boolean);
+        if (row.length < 3) continue;
+
+        let qText = row[0];
+        let optStart = 1;
+
+        // If Col 0 is Question Number e.g. "1"
+        if (/^\d+$/.test(row[0]) && row.length >= 4) {
+          qText = row[1];
+          optStart = 2;
+        }
+
+        const opts: { id: string; text: string }[] = [];
+        let optLetter = 65; // 'A'
+        for (let j = optStart; j < row.length && opts.length < 4; j++) {
+          const val = row[j];
+          // Check if last cell is single letter answer e.g. "A" or "1"
+          if (j === row.length - 1 && /^[A-D1-4]$/i.test(val) && opts.length >= 2) {
+            break;
+          }
+          opts.push({ id: String.fromCharCode(optLetter++), text: cleanOptionText(val) });
+        }
+
+        let ansKey = 'A';
+        const lastVal = row[row.length - 1]?.toUpperCase();
+        if (lastVal && ['A', 'B', 'C', 'D'].includes(lastVal)) {
+          ansKey = lastVal;
+        } else if (lastVal && ['1', '2', '3', '4'].includes(lastVal)) {
+          ansKey = String.fromCharCode(64 + parseInt(lastVal, 10));
+        }
+
+        if (qText && opts.length >= 2) {
+          questions.push({
+            tempId: `csv_pos_${i}_${Date.now()}`,
+            questionText: qText,
+            options: opts,
+            correctOptionId: ansKey,
+            explanation: `Option (${ansKey}) is the correct answer.`,
+            isValid: true,
+          });
+        }
       }
     }
+  }
 
-    if (questionEnglish && questionHindi) {
-      questionText = `English: ${questionEnglish}\n\nहिन्दी: ${questionHindi}`;
-    } else if (questionEnglish && !questionText) {
-      questionText = questionEnglish;
-    } else if (questionHindi && !questionText) {
-      questionText = questionHindi;
+  // PASS 3: Ultimate Plain Text Fallback
+  if (questions.length === 0) {
+    const plainRes = parsePlainText(csvContent);
+    if (plainRes.questions && plainRes.questions.length > 0) {
+      return plainRes;
     }
-
-    const optA = getValueByHeader(row, ['option_a', 'optiona', 'opta', 'option1', 'option_1', 'choice_a', 'choicea', 'choice1', 'opt1', 'ans_a', 'ansa', 'a', '1']);
-    const optB = getValueByHeader(row, ['option_b', 'optionb', 'optb', 'option2', 'option_2', 'choice_b', 'choiceb', 'choice2', 'opt2', 'ans_b', 'ansb', 'b', '2']);
-    const optC = getValueByHeader(row, ['option_c', 'optionc', 'optc', 'option3', 'option_3', 'choice_c', 'choicec', 'choice3', 'opt3', 'ans_c', 'ansc', 'c', '3']);
-    const optD = getValueByHeader(row, ['option_d', 'optiond', 'optd', 'option4', 'option_4', 'choice_d', 'choiced', 'choice4', 'opt4', 'ans_d', 'ansd', 'd', '4']);
-
-    // Fallback: Check positional columns if named headers missed
-    let startOptIdx = 1;
-    if (rowValues.length >= 5 && /^\d+$/.test(rowValues[0])) startOptIdx = 2;
-
-    const finalOptA = optA || (rowValues.length > startOptIdx ? rowValues[startOptIdx] : '');
-    const finalOptB = optB || (rowValues.length > startOptIdx + 1 ? rowValues[startOptIdx + 1] : '');
-    const finalOptC = optC || (rowValues.length > startOptIdx + 2 ? rowValues[startOptIdx + 2] : '');
-    const finalOptD = optD || (rowValues.length > startOptIdx + 3 ? rowValues[startOptIdx + 3] : '');
-    
-    let answer = getValueByHeader(row, ['correct_answer', 'correctanswer', 'answer', 'correct_option', 'correctoption', 'key', 'ans', 'correct', 'correct_key', 'answer_key']).toUpperCase();
-    if (answer.startsWith('OPTION ')) answer = answer.replace('OPTION ', '').trim();
-    if (['1', '2', '3', '4'].includes(answer)) {
-      answer = String.fromCharCode(64 + parseInt(answer, 10));
-    }
-    if (!['A', 'B', 'C', 'D'].includes(answer)) {
-      answer = 'A';
-    }
-
-    const explanationEnglish = getValueByHeader(row, ['explanation_english', 'explanationenglish']);
-    const explanationHindi = getValueByHeader(row, ['explanation_hindi', 'explanationhindi']);
-    let explanation = getValueByHeader(row, ['explanation', 'exp', 'reason', 'rationale', 'solution', 'comment']);
-
-    if (explanationEnglish && explanationHindi) {
-      explanation = `English: ${explanationEnglish}\n\nहिन्दी: ${explanationHindi}`;
-    } else if (explanationEnglish && !explanation) {
-      explanation = explanationEnglish;
-    } else if (explanationHindi && !explanation) {
-      explanation = explanationHindi;
-    }
-
-    const options: { id: string; text: string }[] = [];
-    if (finalOptA) options.push({ id: 'A', text: cleanOptionText(finalOptA) });
-    if (finalOptB) options.push({ id: 'B', text: cleanOptionText(finalOptB) });
-    if (finalOptC) options.push({ id: 'C', text: cleanOptionText(finalOptC) });
-    if (finalOptD) options.push({ id: 'D', text: cleanOptionText(finalOptD) });
-
-    const correctOpt = options.find(o => o.id === answer);
-    const defaultExp = correctOpt
-      ? `Option (${answer}): "${correctOpt.text}" is the correct answer.`
-      : `Option (${answer}) is the correct answer.`;
-
-    const finalExplanation = explanation || defaultExp;
-    const isValid = Boolean(questionText && options.length >= 2);
-
-    if (questionText && options.length >= 2) {
-      questions.push({
-        tempId: `csv_${idx}_${Date.now()}`,
-        questionText: questionText,
-        questionEnglish: questionEnglish || (questionText && !questionHindi ? questionText : undefined),
-        questionHindi: questionHindi || undefined,
-        options: options,
-        correctOptionId: answer,
-        explanation: finalExplanation,
-        isValid,
-        validationError: !isValid ? `Row ${idx + 2}: Requires question title and at least 2 options` : undefined
-      });
-    }
-  });
+  }
 
   return { questions, errors };
 }
