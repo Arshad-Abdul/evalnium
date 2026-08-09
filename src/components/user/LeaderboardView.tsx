@@ -8,8 +8,9 @@ import { useAuth } from '../../context/AuthContext';
 export const LeaderboardView: React.FC = () => {
   const { isAdminAuthenticated, currentUser } = useAuth();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [selectedQuizTitle, setSelectedQuizTitle] = useState('All Exams (Overall Cumulative)');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTopic, setSelectedTopic] = useState('All');
+  const [selectedTopic, setSelectedTopic] = useState('All Topics');
 
   useEffect(() => {
     const results = getStoredResults();
@@ -38,14 +39,16 @@ export const LeaderboardView: React.FC = () => {
     setEntries(sorted);
   }, []);
 
-  const topics = ['All', ...Array.from(new Set(entries.map((e) => e.topic)))];
+  const quizTitles = ['All Exams (Overall Cumulative)', ...Array.from(new Set(entries.map((e) => e.quizTitle)))];
+  const topics = ['All Topics', ...Array.from(new Set(entries.map((e) => e.topic)))];
 
   const filteredEntries = entries.filter((e) => {
     const matchesSearch =
       e.candidateName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       e.quizTitle.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTopic = selectedTopic === 'All' || e.topic === selectedTopic;
-    return matchesSearch && matchesTopic;
+    const matchesTopic = selectedTopic === 'All Topics' || selectedTopic === 'All' || e.topic === selectedTopic;
+    const matchesQuiz = selectedQuizTitle === 'All Exams (Overall Cumulative)' || e.quizTitle === selectedQuizTitle;
+    return matchesSearch && matchesTopic && matchesQuiz;
   });
 
   const top1 = filteredEntries[0];
@@ -164,15 +167,30 @@ export const LeaderboardView: React.FC = () => {
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           
-          <div className="relative w-full md:w-80">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search candidate name or exam..."
-              className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-            />
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search candidate name..."
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+
+            {/* Quiz Paper Filter Dropdown */}
+            <div className="w-full sm:w-64">
+              <select
+                value={selectedQuizTitle}
+                onChange={(e) => setSelectedQuizTitle(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-bold text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+              >
+                {quizTitles.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="flex items-center space-x-2 w-full md:w-auto overflow-x-auto">

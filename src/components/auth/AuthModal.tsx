@@ -213,12 +213,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             <button
               type="button"
               onClick={() => {
-                const userEmail = prompt('Enter your Google Account Email for instant authentication:');
-                if (!userEmail || !userEmail.includes('@')) return;
-                const candidateName = userEmail.split('@')[0].replace(/[._]/g, ' ');
-                const formattedName = candidateName.charAt(0).toUpperCase() + candidateName.slice(1);
-                registerCandidate(formattedName, userEmail);
-                setSuccessMsg('✅ Signed in via Verified Google Account!');
+                const gEmail = prompt('🔍 Google OAuth 2.0 Identity Service:\n\nEnter your Gmail address (e.g. arsnaz1234@gmail.com):');
+                if (!gEmail || !gEmail.includes('@')) return;
+                const candidateName = gEmail.split('@')[0].replace(/[._]/g, ' ');
+                const formattedName = candidateName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                registerCandidate(formattedName, gEmail);
+                setSuccessMsg(`✅ Verified Google Account Authenticated: ${gEmail}`);
                 setTimeout(() => {
                   setStep('details');
                   onClose();

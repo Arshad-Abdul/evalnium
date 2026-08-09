@@ -39,6 +39,15 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [preventEarlyNextSection, setPreventEarlyNextSection] = useState(false);
   const [preventPreviousQuestionReturn, setPreventPreviousQuestionReturn] = useState(false);
   const [preventEarlyNextQuestion, setPreventEarlyNextQuestion] = useState(false);
+  const [sections, setSections] = useState<Array<{
+    id: string;
+    sectionName: string;
+    questionCount: number;
+    timeLimitMinutes: number;
+  }>>([
+    { id: 'sec_1', sectionName: 'Section 1: General Aptitude', questionCount: Math.ceil(parseResult.questions.length / 2), timeLimitMinutes: 10 },
+    { id: 'sec_2', sectionName: 'Section 2: Technical Domain', questionCount: Math.floor(parseResult.questions.length / 2), timeLimitMinutes: 20 },
+  ]);
 
   const [questions, setQuestions] = useState<ParsedQuestion[]>(parseResult.questions);
 
@@ -434,28 +443,103 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
             </div>
           </div>
 
-          {/* Sectional Controls */}
+          {/* Interactive Sectional Builder */}
           {timingMode === 'sectional' && (
-            <div className="p-3 rounded-xl bg-white border border-slate-200 space-y-2 text-xs">
-              <label className="flex items-center space-x-2 font-bold text-slate-800">
-                <input
-                  type="checkbox"
-                  checked={preventPreviousSectionReturn}
-                  onChange={(e) => setPreventPreviousSectionReturn(e.target.checked)}
-                  className="rounded text-indigo-600"
-                />
-                <span>Prevent candidate from returning to previous sections</span>
-              </label>
+            <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <div>
+                  <h5 className="text-xs font-extrabold text-slate-900 flex items-center space-x-1">
+                    <span>📊 Sectional Exam Breakdown</span>
+                  </h5>
+                  <p className="text-[11px] text-slate-500">Configure paper sections, question allocation, and section timers.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newSec = {
+                      id: `sec_${sections.length + 1}`,
+                      sectionName: `Section ${sections.length + 1}: Subject Domain`,
+                      questionCount: 5,
+                      timeLimitMinutes: 10,
+                    };
+                    setSections([...sections, newSec]);
+                  }}
+                  className="px-3 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-bold"
+                >
+                  + Add Section
+                </button>
+              </div>
 
-              <label className="flex items-center space-x-2 font-bold text-slate-800">
-                <input
-                  type="checkbox"
-                  checked={preventEarlyNextSection}
-                  onChange={(e) => setPreventEarlyNextSection(e.target.checked)}
-                  className="rounded text-indigo-600"
-                />
-                <span>Prevent candidate from moving to next section until section time ends</span>
-              </label>
+              <div className="space-y-3">
+                {sections.map((sec) => (
+                  <div key={sec.id} className="p-3 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Section Name</label>
+                      <input
+                        type="text"
+                        value={sec.sectionName}
+                        onChange={(e) => {
+                          const updated = sections.map(s => s.id === sec.id ? { ...s, sectionName: e.target.value } : s);
+                          setSections(updated);
+                        }}
+                        className="w-full p-2 rounded-lg border border-slate-300 text-xs font-bold bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Questions Count</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={questions.length}
+                        value={sec.questionCount}
+                        onChange={(e) => {
+                          const updated = sections.map(s => s.id === sec.id ? { ...s, questionCount: parseInt(e.target.value) || 1 } : s);
+                          setSections(updated);
+                        }}
+                        className="w-full p-2 rounded-lg border border-slate-300 text-xs font-bold bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Time Limit (Mins)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={180}
+                        value={sec.timeLimitMinutes}
+                        onChange={(e) => {
+                          const updated = sections.map(s => s.id === sec.id ? { ...s, timeLimitMinutes: parseInt(e.target.value) || 5 } : s);
+                          setSections(updated);
+                        }}
+                        className="w-full p-2 rounded-lg border border-slate-300 text-xs font-bold bg-white"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2 pt-2 border-t border-slate-100 text-xs font-bold text-slate-800">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={preventPreviousSectionReturn}
+                    onChange={(e) => setPreventPreviousSectionReturn(e.target.checked)}
+                    className="rounded text-indigo-600"
+                  />
+                  <span>Prevent candidate from returning to previous sections</span>
+                </label>
+
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={preventEarlyNextSection}
+                    onChange={(e) => setPreventEarlyNextSection(e.target.checked)}
+                    className="rounded text-indigo-600"
+                  />
+                  <span>Prevent candidate from moving to next section until current section time ends</span>
+                </label>
+              </div>
             </div>
           )}
 

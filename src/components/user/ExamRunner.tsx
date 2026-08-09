@@ -240,6 +240,25 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         onOpenSubmitModal={() => setShowSubmitModal(true)}
       />
 
+      {/* Section Tabs Bar */}
+      {quiz.sectionalConfig && quiz.sectionalConfig.length > 0 && (
+        <div className="flex items-center space-x-2 bg-slate-900 text-white p-2.5 rounded-2xl border border-slate-800 overflow-x-auto">
+          <span className="text-xs font-bold text-slate-400 px-2 uppercase font-mono flex-shrink-0">Paper Sections:</span>
+          {quiz.sectionalConfig.map((sec, idx) => (
+            <button
+              key={sec.id || idx}
+              onClick={() => {
+                const firstQIndex = idx * Math.floor(quiz.questions.length / quiz.sectionalConfig!.length);
+                setCurrentQuestionIndex(Math.min(firstQIndex, quiz.questions.length - 1));
+              }}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md border border-indigo-400/40 flex-shrink-0"
+            >
+              {sec.sectionName} ({sec.timeLimitMinutes} Mins)
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Main Examination Layout */}
       {examViewMode === 'single' ? (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1">
