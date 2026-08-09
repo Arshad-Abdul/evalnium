@@ -102,6 +102,10 @@ function MainAppContent() {
       } else {
         setActiveTab('admin');
       }
+    } else if (tab === 'user') {
+      setActiveTab('user');
+      setExamPhase('catalog');
+      setSelectedQuiz(null);
     } else {
       setActiveTab(tab);
     }
