@@ -24,7 +24,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
   const [timeRemainingSeconds, setTimeRemainingSeconds] = useState(quiz.timeLimitMinutes * 60);
   const [userAnswers, setUserAnswers] = useState<Record<string, UserAnswer>>({});
   const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [languageMode, setLanguageMode] = useState<'dual' | 'en' | 'hi'>('dual');
+  const [languageMode, setLanguageMode] = useState<'dual' | 'en' | 'hi'>(quiz.defaultLanguageMode || 'en');
   const [examViewMode, setExamViewMode] = useState<'single' | 'all'>('single');
 
   const [activeQuestions] = useState(() => {

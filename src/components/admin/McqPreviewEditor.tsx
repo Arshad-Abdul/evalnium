@@ -29,6 +29,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [quizType, setQuizType] = useState<'practice' | 'live_contest'>('practice');
   const [scheduledStartDateTime, setScheduledStartDateTime] = useState<string>('');
   const [scheduledEndDateTime, setScheduledEndDateTime] = useState<string>('');
+  const [defaultLanguageMode, setDefaultLanguageMode] = useState<'en' | 'hi' | 'dual'>('en');
 
   // --- Granular Admin Settings & Rules ---
   const [enableCertificate, setEnableCertificate] = useState(true);
@@ -201,6 +202,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       quizType,
       scheduledStartDateTime: scheduledStartDateTime || undefined,
       scheduledEndDateTime: scheduledEndDateTime || undefined,
+      defaultLanguageMode,
       isPublished: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -725,6 +727,22 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               <span className="text-[10px] text-slate-500">Show instant answer explanation on selection</span>
             </div>
           </label>
+        </div>
+
+        {/* Default Language Selector */}
+        <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+          <label className="text-xs font-bold text-slate-700 flex items-center space-x-2">
+            <span>🌐 Default Exam Starting Language Mode for Candidates:</span>
+          </label>
+          <select
+            value={defaultLanguageMode}
+            onChange={(e) => setDefaultLanguageMode(e.target.value as any)}
+            className="p-2 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none"
+          >
+            <option value="en">🇬🇧 English Only (Default)</option>
+            <option value="hi">🇮🇳 Hindi Only (हिन्दी)</option>
+            <option value="dual">🌐 Dual Mode (English + Hindi)</option>
+          </select>
         </div>
 
       </div>
