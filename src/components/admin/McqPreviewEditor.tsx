@@ -218,13 +218,15 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       preventPreviousQuestionReturn,
       preventEarlyNextQuestion,
       questions: questions.map((q, idx) => ({
-        id: `q_${idx + 1}_${Date.now()}`,
+        id: q.tempId || `q_${idx + 1}_${Date.now()}`,
         questionText: q.questionText,
         questionEnglish: q.questionEnglish,
         questionHindi: q.questionHindi,
-        options: q.options.length >= 2 ? q.options : [
-          { id: 'A', text: 'True' },
-          { id: 'B', text: 'False' }
+        options: (q.options && q.options.length >= 2) ? q.options : [
+          { id: 'A', text: 'Option A' },
+          { id: 'B', text: 'Option B' },
+          { id: 'C', text: 'Option C' },
+          { id: 'D', text: 'Option D' }
         ],
         correctOptionId: q.correctOptionId || 'A',
         correctOptionIds: q.correctOptionIds,

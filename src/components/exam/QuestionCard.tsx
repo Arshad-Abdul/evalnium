@@ -162,10 +162,21 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       )}
 
       {/* Options Choices Grid */}
-      <div className="grid grid-cols-1 gap-3 pt-2">
-        {question.options.map((opt) => {
-          const isSelected = selectedOptionId === opt.id;
-          const isMSQ = question.questionType === 'multiple_select';
+      {(() => {
+        const safeOptions = (question.options && question.options.length > 0)
+          ? question.options
+          : [
+              { id: 'A', text: 'Option A' },
+              { id: 'B', text: 'Option B' },
+              { id: 'C', text: 'Option C' },
+              { id: 'D', text: 'Option D' }
+            ];
+
+        return (
+          <div className="grid grid-cols-1 gap-3 pt-2">
+            {safeOptions.map((opt) => {
+              const isSelected = selectedOptionId === opt.id;
+              const isMSQ = question.questionType === 'multiple_select';
           return (
             <div
               key={opt.id}
@@ -211,6 +222,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           );
         })}
       </div>
+    );
+  })()}
 
       {/* Clear & Bookmark Actions */}
       <div className="flex items-center justify-between pt-2 border-t border-slate-100">
