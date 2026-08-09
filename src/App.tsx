@@ -22,6 +22,7 @@ import { ExamRunner } from './components/user/ExamRunner';
 import { ExamResultView } from './components/user/ExamResultView';
 import { AnnouncementBanner } from './components/user/AnnouncementBanner';
 import { RevisionHubModal } from './components/user/RevisionHubModal';
+import { CandidateDashboard } from './components/user/CandidateDashboard';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Lazy loaded heavy components for fast initial bundle load
@@ -50,7 +51,7 @@ function getStoredAnnouncements(): Announcement[] {
 
 function MainAppContent() {
   const { isAdminAuthenticated, logoutAdmin, currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'user' | 'leaderboard' | 'admin'>('user');
+  const [activeTab, setActiveTab] = useState<'user' | 'dashboard' | 'leaderboard' | 'admin'>('user');
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [attemptsHistory, setAttemptsHistory] = useState<QuizAttemptResult[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -94,7 +95,7 @@ function MainAppContent() {
     }
   }, [currentUser]);
 
-  const handleTabChange = (tab: 'user' | 'leaderboard' | 'admin') => {
+  const handleTabChange = (tab: 'user' | 'dashboard' | 'leaderboard' | 'admin') => {
     if (tab === 'admin') {
       if (!isAdminAuthenticated) {
         setShowAdminLockModal(true);
@@ -216,6 +217,13 @@ function MainAppContent() {
               onTogglePublish={handleTogglePublish}
               onSaveAnnouncement={handleSaveAnnouncement}
               onDeleteAnnouncement={handleDeleteAnnouncement}
+            />
+          ) : activeTab === 'dashboard' ? (
+            <CandidateDashboard
+              quizzes={quizzes.filter((q) => q.isPublished)}
+              attemptsHistory={attemptsHistory}
+              onSelectQuiz={handleSelectQuiz}
+              onNavigateToCatalog={() => setActiveTab('user')}
             />
           ) : activeTab === 'leaderboard' ? (
             <LeaderboardView />

@@ -75,12 +75,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* Top Banner Navigation */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 flex items-center space-x-2">
+          <div className="flex items-center space-x-2">
+            <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-mono font-bold uppercase tracking-wider border border-indigo-200">
+              EXECUTIVE COMMAND CENTER
+            </span>
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold border border-emerald-200">
+              MySQL 5050 Live
+            </span>
+          </div>
+          <h1 className="text-2xl font-black text-slate-900 flex items-center space-x-2 mt-1">
             <Sparkles className="w-6 h-6 text-indigo-600" />
-            <span>Admin Studio & Test Creator</span>
+            <span>Admin Examination Command Studio</span>
           </h1>
           <p className="text-xs text-slate-500 font-medium mt-1">
-            Convert documents into interactive exams, configure negative marking, and schedule live notices.
+            Convert documents into interactive exams, configure granular anti-cheating rules, and manage notices.
           </p>
         </div>
 
