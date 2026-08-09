@@ -49,7 +49,48 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
     { id: 'sec_2', sectionName: 'Section 2: Technical Domain', questionCount: Math.floor(parseResult.questions.length / 2), timeLimitMinutes: 20 },
   ]);
 
-  const [questions, setQuestions] = useState<ParsedQuestion[]>(parseResult.questions);
+  const [questions, setQuestions] = useState<ParsedQuestion[]>(() => {
+    return parseResult.questions.map((q) => {
+      const opts = (q.options && q.options.length > 0) ? q.options : [
+        { id: 'A', text: '' },
+        { id: 'B', text: '' },
+        { id: 'C', text: '' },
+        { id: 'D', text: '' },
+      ];
+      return {
+        ...q,
+        options: opts,
+        correctOptionId: q.correctOptionId || 'A',
+      };
+    });
+  });
+
+  const handleAddOptionToQuestion = (qId: string) => {
+    setQuestions(prev => prev.map(q => {
+      if (q.tempId !== qId) return q;
+      const nextChar = String.fromCharCode(65 + q.options.length); // e.g. E, F
+      return {
+        ...q,
+        options: [...q.options, { id: nextChar, text: '' }],
+      };
+    }));
+  };
+
+  const handleGenerateDefaultOptions = (qId: string) => {
+    setQuestions(prev => prev.map(q => {
+      if (q.tempId !== qId) return q;
+      return {
+        ...q,
+        options: [
+          { id: 'A', text: '' },
+          { id: 'B', text: '' },
+          { id: 'C', text: '' },
+          { id: 'D', text: '' },
+        ],
+        correctOptionId: 'A',
+      };
+    }));
+  };
 
   const handleUpdateQuestionText = (id: string, text: string) => {
     setQuestions(prev => prev.map(q => q.tempId === id ? { ...q, questionText: text } : q));
@@ -721,6 +762,28 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                   />
                 </div>
               ))}
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => handleAddOptionToQuestion(q.tempId || '')}
+                  className="px-3 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-bold transition-all cursor-pointer"
+                >
+                  + Add Option ({String.fromCharCode(65 + q.options.length)})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleGenerateDefaultOptions(q.tempId || '')}
+                  className="px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+                >
+                  ✨ Auto-Generate (A, B, C, D)
+                </button>
+              </div>
+              <span className="text-[10px] text-slate-500 font-medium">
+                Click radio button on option (A, B, C, D) to set Correct Answer Key
+              </span>
             </div>
 
             {/* Explanation Field */}
