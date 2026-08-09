@@ -98,6 +98,11 @@ async function initDatabase() {
       `ALTER TABLE quizzes ADD COLUMN prevent_early_next_section TINYINT(1) DEFAULT 0;`,
       `ALTER TABLE quizzes ADD COLUMN prevent_prev_question TINYINT(1) DEFAULT 0;`,
       `ALTER TABLE quizzes ADD COLUMN prevent_early_next_question TINYINT(1) DEFAULT 0;`,
+      `ALTER TABLE questions ADD COLUMN question_type VARCHAR(50) DEFAULT 'mcq';`,
+      `ALTER TABLE questions ADD COLUMN image_url LONGTEXT;`,
+      `ALTER TABLE questions ADD COLUMN list_i_json LONGTEXT;`,
+      `ALTER TABLE questions ADD COLUMN list_ii_json LONGTEXT;`,
+      `ALTER TABLE questions ADD COLUMN correct_option_ids_json LONGTEXT;`,
     ];
 
     for (const alterSql of columnsToAdd) {
@@ -121,6 +126,11 @@ async function initDatabase() {
         explanation_hindi TEXT,
         topic VARCHAR(150),
         marks DOUBLE DEFAULT 1,
+        question_type VARCHAR(50) DEFAULT 'mcq',
+        image_url LONGTEXT,
+        list_i_json LONGTEXT,
+        list_ii_json LONGTEXT,
+        correct_option_ids_json LONGTEXT,
         FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
@@ -319,6 +329,11 @@ app.get('/api/quizzes', async (req, res) => {
           explanationHindi: quest.explanation_hindi,
           topic: quest.topic,
           marks: quest.marks,
+          questionType: quest.question_type || 'mcq',
+          imageUrl: quest.image_url || undefined,
+          listI: JSON.parse(quest.list_i_json || '[]'),
+          listII: JSON.parse(quest.list_ii_json || '[]'),
+          correctOptionIds: JSON.parse(quest.correct_option_ids_json || '[]'),
           options: optRows,
         });
       }
@@ -383,9 +398,14 @@ app.post('/api/quizzes', async (req, res) => {
     await pool.query('DELETE FROM questions WHERE quiz_id = ?', [q.id]);
     for (const quest of q.questions) {
       await pool.query(
-        `INSERT INTO questions (id, quiz_id, question_text, question_english, question_hindi, correct_option_id, explanation, explanation_english, explanation_hindi, topic, marks)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [quest.id, q.id, quest.questionText, quest.questionEnglish, quest.questionHindi, quest.correctOptionId, quest.explanation, quest.explanationEnglish, quest.explanationHindi, quest.topic || q.topic, quest.marks || 1]
+        `INSERT INTO questions (
+          id, quiz_id, question_text, question_english, question_hindi, correct_option_id, explanation, explanation_english, explanation_hindi, topic, marks,
+          question_type, image_url, list_i_json, list_ii_json, correct_option_ids_json
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          quest.id, q.id, quest.questionText, quest.questionEnglish, quest.questionHindi, quest.correctOptionId, quest.explanation, quest.explanationEnglish, quest.explanationHindi, quest.topic || q.topic, quest.marks || 1,
+          quest.questionType || 'mcq', quest.imageUrl || null, JSON.stringify(quest.listI || []), JSON.stringify(quest.listII || []), JSON.stringify(quest.correctOptionIds || [quest.correctOptionId || 'A'])
+        ]
       );
 
       for (const opt of quest.options) {
