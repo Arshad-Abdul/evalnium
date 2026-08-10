@@ -447,7 +447,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 
           {/* Right Question Palette */}
           <QuestionPalette
-            questions={quiz.questions}
+            questions={activeQuestions}
             currentQuestionIndex={currentQuestionIndex}
             userAnswers={userAnswers}
             onSelectQuestion={setCurrentQuestionIndex}
@@ -489,7 +489,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
             <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs font-mono text-slate-700">
               <div className="flex justify-between">
                 <span>Total Questions:</span>
-                <span className="font-bold text-slate-900">{quiz.questions.length}</span>
+                <span className="font-bold text-slate-900">{activeQuestions.length}</span>
               </div>
               <div className="flex justify-between">
                 <span>Answered:</span>
@@ -501,7 +501,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
               </div>
               <div className="flex justify-between">
                 <span>Unanswered / Skipped:</span>
-                <span className="font-bold text-rose-700">{quiz.questions.length - answeredCount}</span>
+                <span className="font-bold text-rose-700">{activeQuestions.length - answeredCount}</span>
               </div>
             </div>
 
