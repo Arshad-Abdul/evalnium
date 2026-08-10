@@ -39,6 +39,9 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [timeRemainingSeconds, setTimeRemainingSeconds] = useState(quiz.timeLimitMinutes * 60);
+  const [questionTimeRemainingSeconds, setQuestionTimeRemainingSeconds] = useState(
+    quiz.timingMode === 'question' ? (quiz.questionTimeLimitSeconds || 60) : 0
+  );
   const [userAnswers, setUserAnswers] = useState<Record<string, UserAnswer>>(() => {
     try {
       const saved = localStorage.getItem(sessionKey);
@@ -98,13 +101,21 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
   // Stable ref so force-submit always calls the latest calculateResults
   const calculateResultsRef = React.useRef<(() => QuizAttemptResult) | null>(null);
 
+  // Stable ref so question-timer effect can call latest handleForceSubmit without adding it to deps
+  const handleForceSubmitRef = React.useRef<(() => void) | null>(null);
+  // Stable ref for activeQuestions.length so question-timer doesn't restart on quiz data changes
+  const activeQuestionsCountRef = React.useRef(activeQuestions.length);
+  activeQuestionsCountRef.current = activeQuestions.length;
+
   const handleForceSubmit = useCallback(() => {
     clearSession();
     const result = calculateResultsRef.current?.();
     if (result) onFinishExam(result);
   }, [clearSession, onFinishExam]);
 
-  // Anti-cheating tab switch listener
+  // Keep handleForceSubmitRef in sync after it's defined
+  handleForceSubmitRef.current = handleForceSubmit;
+
   useEffect(() => {
     if (!quiz.enableAntiCheating) return;
 
@@ -203,6 +214,30 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     return () => clearInterval(qTimer);
   }, [currentQuestion.id]);
 
+  // Per-question countdown: only re-runs when the question index or timing settings change
+  useEffect(() => {
+    if (quiz.timingMode !== 'question') return;
+    const limit = quiz.questionTimeLimitSeconds || 60;
+    setQuestionTimeRemainingSeconds(limit);
+    let timeLeft = limit;
+    const interval = setInterval(() => {
+      timeLeft -= 1;
+      setQuestionTimeRemainingSeconds(timeLeft);
+      if (timeLeft <= 0) {
+        clearInterval(interval);
+        // Use refs so this callback is never stale even if parent re-renders
+        if (currentQuestionIndex < activeQuestionsCountRef.current - 1) {
+          setCurrentQuestionIndex(currentQuestionIndex + 1);
+        } else {
+          handleForceSubmitRef.current?.();
+        }
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  // handleForceSubmit and activeQuestions.length are intentionally accessed via refs
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestionIndex, quiz.timingMode, quiz.questionTimeLimitSeconds]);
+
   const handleSelectOption = useCallback((optionId: string) => {
     const qId = currentQuestion.id;
     const isMSQ = currentQuestion.questionType === 'multiple_select';
@@ -227,16 +262,11 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
   }, [currentQuestion?.id, currentQuestion?.questionType]);
 
   const handleClearChoice = (qId: string) => {
-    const existingAns = userAnswers[qId];
-    if (!existingAns) return;
-    setUserAnswers((prev) => ({
-      ...prev,
-      [qId]: {
-        ...existingAns,
-        selectedOptionId: null,
-        selectedOptionIds: [],
-      },
-    }));
+    setUserAnswers((prev) => {
+      const existing = prev[qId];
+      if (!existing) return prev;
+      return { ...prev, [qId]: { ...existing, selectedOptionId: null, selectedOptionIds: [] } };
+    });
   };
 
   const handleToggleMarkForReview = useCallback((qId: string) => {
@@ -353,7 +383,9 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         examViewMode={examViewMode}
         setExamViewMode={setExamViewMode}
         questionViewMode={quiz.questionViewMode}
+        timingMode={quiz.timingMode}
         timeRemainingSeconds={timeRemainingSeconds}
+        questionTimeRemainingSeconds={quiz.timingMode === 'question' ? questionTimeRemainingSeconds : undefined}
         onOpenSubmitModal={() => setShowSubmitModal(true)}
       />
 
@@ -416,7 +448,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
             <div className="flex items-center justify-between pt-4 border-t border-slate-100">
               <button
                 onClick={() => setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))}
-                disabled={currentQuestionIndex === 0}
+                disabled={currentQuestionIndex === 0 || quiz.preventPreviousQuestionReturn === true}
                 className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40 text-xs font-bold flex items-center space-x-1.5 transition-all"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -424,9 +456,10 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
               </button>
 
               <div className="flex items-center space-x-3">
-                {currentQuestionIndex < quiz.questions.length - 1 ? (
+                {currentQuestionIndex < activeQuestions.length - 1 ? (
                   <button
-                    onClick={() => setCurrentQuestionIndex((prev) => Math.min(quiz.questions.length - 1, prev + 1))}
+                    onClick={() => setCurrentQuestionIndex((prev) => Math.min(activeQuestions.length - 1, prev + 1))}
+                    disabled={quiz.timingMode === 'question' && quiz.preventEarlyNextQuestion === true && questionTimeRemainingSeconds > 0}
                     className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs flex items-center space-x-1.5 transition-all"
                   >
                     <span>Save & Next (➔)</span>
@@ -450,6 +483,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
             questions={activeQuestions}
             currentQuestionIndex={currentQuestionIndex}
             userAnswers={userAnswers}
+            preventPreviousQuestion={quiz.preventPreviousQuestionReturn === true}
             onSelectQuestion={setCurrentQuestionIndex}
             onOpenSubmitModal={() => setShowSubmitModal(true)}
           />
@@ -457,17 +491,25 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
       ) : (
         /* All Questions Per Screen View */
         <div className="space-y-6">
-          {quiz.questions.map((q, idx) => (
+          {activeQuestions.map((q, idx) => (
             <div key={q.id} className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-xs">
               <QuestionCard
                 question={q}
                 questionIndex={idx}
-                totalQuestions={quiz.questions.length}
+                totalQuestions={activeQuestions.length}
                 userAnswer={userAnswers[q.id] || { questionId: q.id, selectedOptionId: null, isMarkedForReview: false, timeSpentSeconds: 0 }}
                 languageMode={languageMode}
                 onSelectOption={(optId) => {
-                  const existingAns = userAnswers[q.id] || { questionId: q.id, selectedOptionId: null, isMarkedForReview: false, timeSpentSeconds: 0 };
-                  setUserAnswers(prev => ({ ...prev, [q.id]: { ...existingAns, selectedOptionId: optId } }));
+                  const isMSQ = q.questionType === 'multiple_select';
+                  setUserAnswers((prev) => {
+                    const existing = prev[q.id] || { questionId: q.id, selectedOptionId: null, selectedOptionIds: [], isMarkedForReview: false, timeSpentSeconds: 0 };
+                    if (isMSQ) {
+                      const current = existing.selectedOptionIds || [];
+                      const next = current.includes(optId) ? current.filter(id => id !== optId) : [...current, optId].sort();
+                      return { ...prev, [q.id]: { ...existing, selectedOptionId: null, selectedOptionIds: next } };
+                    }
+                    return { ...prev, [q.id]: { ...existing, selectedOptionId: optId, selectedOptionIds: [] } };
+                  });
                 }}
                 onClearChoice={() => handleClearChoice(q.id)}
                 onToggleBookmark={() => handleToggleMarkForReview(q.id)}

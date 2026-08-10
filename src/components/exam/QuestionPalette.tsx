@@ -5,6 +5,7 @@ interface QuestionPaletteProps {
   questions: Question[];
   currentQuestionIndex: number;
   userAnswers: Record<string, UserAnswer>;
+  preventPreviousQuestion?: boolean;
   onSelectQuestion: (index: number) => void;
   onOpenSubmitModal: () => void;
 }
@@ -13,6 +14,7 @@ export const QuestionPalette: React.FC<QuestionPaletteProps> = ({
   questions,
   currentQuestionIndex,
   userAnswers,
+  preventPreviousQuestion = false,
   onSelectQuestion,
   onOpenSubmitModal,
 }) => {
@@ -70,8 +72,12 @@ export const QuestionPalette: React.FC<QuestionPaletteProps> = ({
             return (
               <button
                 key={q.id}
-                onClick={() => onSelectQuestion(idx)}
-                className={`h-9 rounded-lg font-mono text-xs font-bold transition-all flex items-center justify-center border ${btnStyle}`}
+                onClick={() => {
+                  if (preventPreviousQuestion && idx < currentQuestionIndex) return;
+                  onSelectQuestion(idx);
+                }}
+                disabled={preventPreviousQuestion && idx < currentQuestionIndex}
+                className={`h-9 rounded-lg font-mono text-xs font-bold transition-all flex items-center justify-center border ${btnStyle} ${preventPreviousQuestion && idx < currentQuestionIndex ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 {idx + 1}
               </button>

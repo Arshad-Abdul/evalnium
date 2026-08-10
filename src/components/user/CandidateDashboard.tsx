@@ -364,7 +364,7 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
                     <p className="text-[11px] font-mono text-slate-500 mt-1">Score: {attempt.score} / {attempt.maxScore}</p>
                   </div>
 
-                  {attempt.passed && (
+                  {attempt.passed && quizzes.find(q => q.id === attempt.quizId)?.enableCertificate !== false && (
                     <button
                       onClick={() => setSelectedCertAttempt(attempt)}
                       className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 font-bold text-xs shadow-xs flex items-center space-x-1.5 transition-all cursor-pointer"

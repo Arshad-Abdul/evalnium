@@ -9,7 +9,9 @@ interface ExamHeaderProps {
   examViewMode: 'single' | 'all';
   setExamViewMode: (mode: 'single' | 'all') => void;
   questionViewMode?: 'both' | 'single_only' | 'all_only';
+  timingMode?: 'quiz' | 'sectional' | 'question';
   timeRemainingSeconds: number;
+  questionTimeRemainingSeconds?: number;
   onOpenSubmitModal: () => void;
 }
 
@@ -21,10 +23,13 @@ export const ExamHeader: React.FC<ExamHeaderProps> = ({
   examViewMode,
   setExamViewMode,
   questionViewMode = 'both',
+  timingMode,
   timeRemainingSeconds,
+  questionTimeRemainingSeconds,
   onOpenSubmitModal,
 }) => {
   const isLowTime = timeRemainingSeconds < 120;
+  const isLowQTime = (questionTimeRemainingSeconds ?? 99) < 10;
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -115,14 +120,25 @@ export const ExamHeader: React.FC<ExamHeaderProps> = ({
         </div>
 
         {/* Countdown Timer Display */}
-        <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg font-mono text-xs font-bold border transition-all ${
-          isLowTime
-            ? 'bg-rose-50 border-rose-300 text-rose-700 animate-pulse'
-            : 'bg-slate-50 border-slate-200 text-slate-800'
-        }`}>
-          <Clock className={`w-3.5 h-3.5 ${isLowTime ? 'text-rose-600' : 'text-amber-600'}`} />
-          <span>Time Left: {formatTime(timeRemainingSeconds)}</span>
-        </div>
+        {timingMode === 'question' && questionTimeRemainingSeconds !== undefined ? (
+          <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg font-mono text-xs font-bold border transition-all ${
+            isLowQTime
+              ? 'bg-rose-50 border-rose-400 text-rose-700 animate-pulse'
+              : 'bg-amber-50 border-amber-300 text-amber-800'
+          }`}>
+            <Clock className={`w-3.5 h-3.5 ${isLowQTime ? 'text-rose-600' : 'text-amber-600'}`} />
+            <span>Q Time: {formatTime(questionTimeRemainingSeconds)}</span>
+          </div>
+        ) : (
+          <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg font-mono text-xs font-bold border transition-all ${
+            isLowTime
+              ? 'bg-rose-50 border-rose-300 text-rose-700 animate-pulse'
+              : 'bg-slate-50 border-slate-200 text-slate-800'
+          }`}>
+            <Clock className={`w-3.5 h-3.5 ${isLowTime ? 'text-rose-600' : 'text-amber-600'}`} />
+            <span>Time Left: {formatTime(timeRemainingSeconds)}</span>
+          </div>
+        )}
 
         <button
           onClick={onOpenSubmitModal}

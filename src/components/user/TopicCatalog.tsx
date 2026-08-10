@@ -335,7 +335,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                       </span>
                       <p className="text-[11px] font-mono text-slate-500 mt-1">Score: {attempt.score}/{attempt.maxScore}</p>
                       
-                      {attempt.passed && (
+                      {attempt.passed && quizzes.find(q => q.id === attempt.quizId)?.enableCertificate !== false && (
                         <button
                           onClick={() => setSelectedCertAttempt(attempt)}
                           className="mt-2 text-[11px] text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 px-2.5 py-1 rounded-lg font-bold flex items-center space-x-1 transition-all shadow-xs"

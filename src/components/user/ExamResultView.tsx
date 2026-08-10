@@ -48,24 +48,6 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
   // Rank #1 Topper
   const topper = quizAttempts.sort((a, b) => b.percentage - a.percentage)[0] || result;
 
-  // Topic Breakdown for Weak-Topic Radar
-  const topicStats: Record<string, { total: number; correct: number }> = {};
-  quiz.questions.forEach((q) => {
-    const topicName = q.topic || quiz.topic || 'General';
-    if (!topicStats[topicName]) {
-      topicStats[topicName] = { total: 0, correct: 0 };
-    }
-    topicStats[topicName].total++;
-    const uAns = result.userAnswers[q.id];
-    if (uAns && uAns.selectedOptionId === q.correctOptionId) {
-      topicStats[topicName].correct++;
-    }
-  });
-
-  const weakTopics = Object.entries(topicStats).filter(
-    ([, stat]) => Math.round((stat.correct / stat.total) * 100) < 60
-  );
-
   const isQuestionAnswered = (q: Question, uAns: UserAnswer | undefined): boolean => {
     if (!uAns) return false;
     if (q.questionType === 'multiple_select') return (uAns.selectedOptionIds?.length ?? 0) > 0;
@@ -81,6 +63,24 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
     }
     return uAns.selectedOptionId === q.correctOptionId;
   };
+
+  // Topic Breakdown for Weak-Topic Radar
+  const topicStats: Record<string, { total: number; correct: number }> = {};
+  quiz.questions.forEach((q) => {
+    const topicName = q.topic || quiz.topic || 'General';
+    if (!topicStats[topicName]) {
+      topicStats[topicName] = { total: 0, correct: 0 };
+    }
+    topicStats[topicName].total++;
+    const uAns = result.userAnswers[q.id];
+    if (isQuestionCorrect(q, uAns)) {
+      topicStats[topicName].correct++;
+    }
+  });
+
+  const weakTopics = Object.entries(topicStats).filter(
+    ([, stat]) => Math.round((stat.correct / stat.total) * 100) < 60
+  );
 
   const filteredQuestions = quiz.questions.filter((q) => {
     const uAns = result.userAnswers[q.id];
