@@ -59,6 +59,7 @@ export interface Quiz {
     id: string;
     sectionName: string;
     questionIds: string[];
+    questionCount?: number;
     timeLimitMinutes: number;
   }[];
   questionTimeLimitSeconds?: number;

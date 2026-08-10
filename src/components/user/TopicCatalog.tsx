@@ -217,7 +217,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
 
                 {(() => {
                   const isContest = quiz.quizType === 'live_contest';
-                  const hasAttempted = attemptsHistory.some(a => a.quizId === quiz.id);
+                  const hasAttempted = myAttempts.some(a => a.quizId === quiz.id);
 
                   if (isContest) {
                     const now = new Date();

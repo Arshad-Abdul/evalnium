@@ -411,18 +411,39 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
       {quiz.sectionalConfig && quiz.sectionalConfig.length > 0 && (
         <div className="flex items-center space-x-2 bg-slate-900 text-white p-2.5 rounded-2xl border border-slate-800 overflow-x-auto">
           <span className="text-xs font-bold text-slate-400 px-2 uppercase font-mono flex-shrink-0">Paper Sections:</span>
-          {quiz.sectionalConfig.map((sec, idx) => (
-            <button
-              key={sec.id || idx}
-              onClick={() => {
-                const firstQIndex = idx * Math.floor(activeQuestions.length / quiz.sectionalConfig!.length);
-                setCurrentQuestionIndex(Math.min(firstQIndex, activeQuestions.length - 1));
-              }}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md border border-indigo-400/40 flex-shrink-0 cursor-pointer"
-            >
-              {sec.sectionName} ({sec.timeLimitMinutes} Mins)
-            </button>
-          ))}
+          {(() => {
+            // Pre-compute each section's start index using questionCount, falling back to equal division
+            const sectionStarts: number[] = [];
+            let cumulative = 0;
+            const equalSize = Math.floor(activeQuestions.length / quiz.sectionalConfig!.length);
+            quiz.sectionalConfig!.forEach((sec) => {
+              sectionStarts.push(cumulative);
+              cumulative += sec.questionCount || equalSize;
+            });
+            // Determine which section the current question belongs to
+            const currentSectionIdx = sectionStarts.reduce((best, start, i) =>
+              currentQuestionIndex >= start ? i : best, 0);
+            return quiz.sectionalConfig!.map((sec, idx) => {
+              const firstQIndex = Math.min(sectionStarts[idx], activeQuestions.length - 1);
+              const isLocked = quiz.preventPreviousSectionReturn === true && idx < currentSectionIdx;
+              return (
+                <button
+                  key={sec.id || idx}
+                  onClick={() => { if (!isLocked) setCurrentQuestionIndex(firstQIndex); }}
+                  disabled={isLocked}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-md border flex-shrink-0 transition-all ${
+                    idx === currentSectionIdx
+                      ? 'bg-white text-indigo-900 border-white'
+                      : isLocked
+                      ? 'bg-slate-700 text-slate-500 border-slate-600 cursor-not-allowed opacity-50'
+                      : 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-indigo-400/40 cursor-pointer'
+                  }`}
+                >
+                  {sec.sectionName} ({sec.timeLimitMinutes} Mins)
+                </button>
+              );
+            });
+          })()}
         </div>
       )}
 

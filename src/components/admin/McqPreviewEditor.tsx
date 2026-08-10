@@ -228,6 +228,13 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       preventPreviousQuestionReturn,
       preventEarlyNextQuestion,
       questionViewMode,
+      sectionalConfig: sections.map(sec => ({
+        id: sec.id,
+        sectionName: sec.sectionName,
+        questionIds: [],
+        questionCount: sec.questionCount,
+        timeLimitMinutes: sec.timeLimitMinutes,
+      })),
       questions: questions.map((q, idx) => ({
         id: q.tempId || `q_${idx + 1}_${Date.now()}`,
         questionText: q.questionText,
