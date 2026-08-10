@@ -4,6 +4,7 @@ export interface UserProfile {
   uid: string;
   name: string;
   email: string;
+  password?: string;
   role: UserRole;
   avatarUrl?: string;
   targetExam?: string;
@@ -11,6 +12,18 @@ export interface UserProfile {
   institution?: string;
   totalExamsTaken?: number;
   createdAt: string;
+}
+
+export interface AuthContextType {
+  currentUser: UserProfile | null;
+  isAdminAuthenticated: boolean;
+  registerCandidate: (name: string, email: string) => Promise<UserProfile>;
+  loginCandidate: (email: string, name?: string) => Promise<UserProfile>;
+  checkCandidateExists: (email: string) => Promise<boolean>;
+  loginAdmin: (passcode: string) => boolean;
+  logoutAdmin: () => void;
+  logoutCandidate: () => void;
+  updateUserProfile: (updates: Partial<UserProfile>) => void;
 }
 
 export interface LeaderboardEntry {
@@ -26,4 +39,5 @@ export interface LeaderboardEntry {
   percentage: number;
   timeSpentSeconds: number;
   attemptedAt: string;
+  attemptsCount?: number;
 }

@@ -5,10 +5,11 @@ import { User, Mail, Lock, Sparkles, X, CheckCircle, ShieldCheck, KeyRound, Refr
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
-  const { registerCandidate, loginCandidate } = useAuth();
+export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => {
+  const { registerCandidate, loginCandidate, checkCandidateExists } = useAuth();
   const [tab, setTab] = useState<'signin' | 'register'>('register');
 
   const [name, setName] = useState('');
@@ -136,18 +137,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     }
 
     // OTP Verified! Complete registration / login
-    if (tab === 'register') {
-      registerCandidate(name || 'Candidate', email);
-      setSuccessMsg('✅ Email Verified & Candidate Account Created Successfully!');
-    } else {
-      loginCandidate(email, name);
-      setSuccessMsg('✅ Email Verified & Signed In Successfully!');
+    try {
+      if (tab === 'register') {
+        await registerCandidate(name || 'Candidate', email);
+        setSuccessMsg('✅ Email Verified & Candidate Account Created Successfully!');
+      } else {
+        await loginCandidate(email, name);
+        setSuccessMsg('✅ Email Verified & Signed In Successfully!');
+      }
+    } catch (err: any) {
+      setOtpError(err.message || 'Authentication failed');
+      return;
     }
 
     setTimeout(() => {
       setSuccessMsg(null);
       setStep('details');
       onClose();
+      if (onSuccess) onSuccess();
     }, 1500);
   };
 
@@ -210,21 +217,44 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             </div>
 
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setOtpError(null);
+                
                 if (tab === 'signin') {
-                  e.preventDefault();
                   if (!email) return;
-                  loginCandidate(email, name);
-                  setSuccessMsg(`Welcome Back! Instant Sign-In Successful.`);
-                  setTimeout(() => {
-                    onClose();
-                  }, 1000);
+                  
+                  setIsLoading(true);
+                  try {
+                    const exists = await checkCandidateExists(email);
+                    if (!exists) {
+                      setOtpError("Account not found. Please create an account first.");
+                      setIsLoading(false);
+                      return;
+                    }
+
+                    // Original flow: direct sign-in for loginCandidate without OTP
+                    await loginCandidate(email, name);
+                    setSuccessMsg(`Welcome Back! Instant Sign-In Successful.`);
+                    setTimeout(() => {
+                      onClose();
+                    }, 1000);
+                  } catch (err: any) {
+                    setOtpError(err.message || 'Login failed');
+                  } finally {
+                    setIsLoading(false);
+                  }
                 } else {
                   handleSendOtp(e);
                 }
               }}
               className="space-y-4"
             >
+              {otpError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold text-center">
+                  {otpError}
+                </div>
+              )}
               {tab === 'register' && (
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-slate-700">Full Candidate Name</label>

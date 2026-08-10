@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { Quiz } from '../../types/quiz';
-import { Clock, HelpCircle, Award, ShieldAlert, Play, ArrowLeft, User, Trophy, Sparkles } from 'lucide-react';
+import { Clock, HelpCircle, Award, ShieldAlert, Play, ArrowLeft, User, Trophy, Sparkles, RefreshCw } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface QuizInstructionsModalProps {
   quiz: Quiz;
@@ -15,7 +16,25 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
   onCancel,
   onStartExam,
 }) => {
-  const [candidateName, setCandidateName] = useState(defaultCandidateName || 'Candidate');
+  const { currentUser } = useAuth();
+  const [candidateName, setCandidateName] = useState(defaultCandidateName || currentUser?.name || 'Candidate');
+  
+  const sessionKey = `evalnium_live_exam_${currentUser?.email || candidateName || 'guest'}_${quiz.id}`;
+  const [isResuming] = useState(() => {
+    try {
+      const saved = localStorage.getItem(sessionKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.startTime) {
+          const elapsed = Math.floor((Date.now() - parsed.startTime) / 1000);
+          if (elapsed < (quiz.timeLimitMinutes * 60)) {
+            return true;
+          }
+        }
+      }
+    } catch {}
+    return false;
+  });
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -118,10 +137,23 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
 
           <button
             onClick={() => onStartExam(candidateName || 'Candidate')}
-            className="w-2/3 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center space-x-2 transition-all active:scale-98"
+            className={`w-2/3 py-3 rounded-xl text-white font-bold text-xs shadow-md flex items-center justify-center space-x-2 transition-all active:scale-98 ${
+              isResuming 
+                ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20' 
+                : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'
+            }`}
           >
-            <Play className="w-4 h-4 fill-white" />
-            <span>Begin Test Now</span>
+            {isResuming ? (
+              <>
+                <RefreshCw className="w-4 h-4 text-white" />
+                <span>Resume CBT Examination</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4 fill-white" />
+                <span>Begin Test Now</span>
+              </>
+            )}
           </button>
         </div>
 

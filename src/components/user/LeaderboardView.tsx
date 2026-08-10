@@ -50,7 +50,7 @@ export const LeaderboardView: React.FC = () => {
   const quizTitles = ['All Exams (Overall Cumulative)', ...Array.from(new Set(entries.map((e) => e.quizTitle)))];
   const topics = ['All Topics', ...Array.from(new Set(entries.map((e) => e.topic)))];
 
-  const filteredEntries = entries.filter((e) => {
+  const filteredEntriesRaw = entries.filter((e) => {
     const matchesSearch =
       e.candidateName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       e.quizTitle.toLowerCase().includes(searchQuery.toLowerCase());
@@ -58,6 +58,44 @@ export const LeaderboardView: React.FC = () => {
     const matchesQuiz = selectedQuizTitle === 'All Exams (Overall Cumulative)' || e.quizTitle === selectedQuizTitle;
     return matchesSearch && matchesTopic && matchesQuiz;
   });
+
+  let filteredEntries = filteredEntriesRaw;
+  if (selectedQuizTitle === 'All Exams (Overall Cumulative)') {
+    const aggregated = new Map<string, LeaderboardEntry>();
+    filteredEntriesRaw.forEach(e => {
+      if (!aggregated.has(e.candidateName)) {
+        aggregated.set(e.candidateName, { 
+          ...e, 
+          quizTitle: '1 Tests Attempted', 
+          score: e.score, 
+          maxScore: e.maxScore, 
+          timeSpentSeconds: e.timeSpentSeconds,
+          attemptsCount: 1 
+        });
+      } else {
+        const existing = aggregated.get(e.candidateName)!;
+        existing.score += e.score;
+        existing.maxScore += e.maxScore;
+        existing.timeSpentSeconds += e.timeSpentSeconds;
+        existing.attemptsCount = (existing.attemptsCount || 1) + 1;
+        existing.quizTitle = `${existing.attemptsCount} Tests Attempted`;
+        existing.percentage = Math.round((existing.score / existing.maxScore) * 100);
+        if (new Date(e.attemptedAt) > new Date(existing.attemptedAt)) {
+          existing.attemptedAt = e.attemptedAt;
+        }
+      }
+    });
+    filteredEntries = Array.from(aggregated.values()).sort((a, b) => {
+      // OPTION 3: Evalnium Hybrid Rating = Total Score * (Accuracy / 100)
+      const ratingA = a.score * (a.percentage / 100);
+      const ratingB = b.score * (b.percentage / 100);
+      
+      if (ratingB !== ratingA) {
+        return ratingB - ratingA;
+      }
+      return a.timeSpentSeconds - b.timeSpentSeconds;
+    });
+  }
 
   const top1 = filteredEntries[0];
   const top2 = filteredEntries[1];
@@ -236,14 +274,14 @@ export const LeaderboardView: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
-                  <th className="py-3.5 px-5">Rank</th>
-                  <th className="py-3.5 px-5">Candidate Name</th>
-                  <th className="py-3.5 px-5">Exam Title</th>
-                  <th className="py-3.5 px-5">Score</th>
-                  <th className="py-3.5 px-5">Accuracy %</th>
-                  <th className="py-3.5 px-5">Completion Time</th>
-                  <th className="py-3.5 px-5">Attempt Date</th>
+                <tr>
+                  <th className="px-4 py-3 border-b-2 border-indigo-200">Rank</th>
+                  <th className="px-4 py-3 border-b-2 border-indigo-200">Candidate Name</th>
+                  <th className="px-4 py-3 border-b-2 border-indigo-200">Exam Title / Volume</th>
+                  <th className="px-4 py-3 border-b-2 border-indigo-200">Score & Rating</th>
+                  <th className="px-4 py-3 border-b-2 border-indigo-200">Accuracy %</th>
+                  <th className="px-4 py-3 border-b-2 border-indigo-200">Completion Time</th>
+                  <th className="px-4 py-3 border-b-2 border-indigo-200">Attempt Date</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
@@ -264,8 +302,22 @@ export const LeaderboardView: React.FC = () => {
                         </div>
                         <span>{entry.candidateName}</span>
                       </td>
-                      <td className="py-4 px-5 font-semibold text-slate-800">{entry.quizTitle}</td>
-                      <td className="py-4 px-5 font-mono font-bold">{entry.score} / {entry.maxScore}</td>
+                      <td className="px-4 py-4 font-bold text-slate-800">
+                      {entry.quizTitle}
+                      {entry.attemptsCount && entry.attemptsCount > 1 && (
+                        <span className="ml-2 px-1.5 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] rounded border border-indigo-200 font-extrabold uppercase">
+                          {entry.attemptsCount} Tests
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4 text-slate-900 font-black font-mono">
+                      {entry.score.toFixed(2)} <span className="text-slate-400 font-bold">/ {entry.maxScore}</span>
+                      {selectedQuizTitle === 'All Exams (Overall Cumulative)' && (
+                        <div className="text-[10px] text-emerald-600 font-bold uppercase mt-0.5">
+                          Rating: {(entry.score * (entry.percentage / 100)).toFixed(2)} pts
+                        </div>
+                      )}
+                    </td>
                       <td className="py-4 px-5">
                         <span className={`px-2.5 py-0.5 rounded-full font-mono font-extrabold ${
                           entry.percentage >= 80

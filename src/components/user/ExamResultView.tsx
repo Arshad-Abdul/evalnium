@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { QuizAttemptResult, Quiz, Question } from '../../types/quiz';
+import type { QuizAttemptResult, Quiz, Question, UserAnswer } from '../../types/quiz';
 import { getStoredResults } from '../../utils/storage';
 import confetti from 'canvas-confetti';
 import { Trophy, AlertCircle, RotateCcw, Home, HelpCircle, BookOpen, Languages, Target, UserCheck } from 'lucide-react';
@@ -66,14 +66,30 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
     ([, stat]) => Math.round((stat.correct / stat.total) * 100) < 60
   );
 
+  const isQuestionAnswered = (q: Question, uAns: UserAnswer | undefined): boolean => {
+    if (!uAns) return false;
+    if (q.questionType === 'multiple_select') return (uAns.selectedOptionIds?.length ?? 0) > 0;
+    return uAns.selectedOptionId !== null;
+  };
+
+  const isQuestionCorrect = (q: Question, uAns: UserAnswer | undefined): boolean => {
+    if (!uAns) return false;
+    if (q.questionType === 'multiple_select') {
+      const selected = uAns.selectedOptionIds || [];
+      const correct = q.correctOptionIds || [q.correctOptionId];
+      return selected.length === correct.length && selected.every((id: string) => correct.includes(id));
+    }
+    return uAns.selectedOptionId === q.correctOptionId;
+  };
+
   const filteredQuestions = quiz.questions.filter((q) => {
     const uAns = result.userAnswers[q.id];
-    const isSelected = uAns && uAns.selectedOptionId !== null;
-    const isCorrect = isSelected && uAns.selectedOptionId === q.correctOptionId;
+    const answered = isQuestionAnswered(q, uAns);
+    const correct = answered && isQuestionCorrect(q, uAns);
 
-    if (filterType === 'correct') return isCorrect;
-    if (filterType === 'wrong') return isSelected && !isCorrect;
-    if (filterType === 'skipped') return !isSelected;
+    if (filterType === 'correct') return correct;
+    if (filterType === 'wrong') return answered && !correct;
+    if (filterType === 'skipped') return !answered;
     return true;
   });
 
@@ -352,9 +368,10 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
         <div className="space-y-4">
           {filteredQuestions.map((q, idx) => {
             const uAns = result.userAnswers[q.id];
+            const isSkipped = !isQuestionAnswered(q, uAns);
+            const isCorrect = !isSkipped && isQuestionCorrect(q, uAns);
             const selectedOptId = uAns ? uAns.selectedOptionId : null;
-            const isCorrect = selectedOptId === q.correctOptionId;
-            const isSkipped = selectedOptId === null;
+            const selectedOptIds = uAns?.selectedOptionIds || [];
 
             return (
               <div
@@ -391,8 +408,12 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                 {/* Options Breakdown */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
                   {q.options.map((opt) => {
-                    const isCandidateChoice = selectedOptId === opt.id;
-                    const isRightAnswer = q.correctOptionId === opt.id;
+                    const isMSQq = q.questionType === 'multiple_select';
+                    const isCandidateChoice = isMSQq
+                      ? selectedOptIds.includes(opt.id)
+                      : selectedOptId === opt.id;
+                    const correctIds = q.correctOptionIds || [q.correctOptionId];
+                    const isRightAnswer = correctIds.includes(opt.id);
 
                     let optStyle = 'bg-slate-50 border-slate-200 text-slate-600';
 

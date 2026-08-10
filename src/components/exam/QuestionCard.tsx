@@ -27,8 +27,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   onToggleBookmark,
 }) => {
   const selectedOptionId = userAnswer?.selectedOptionId || null;
+  const selectedOptionIds = userAnswer?.selectedOptionIds || [];
   const isMarked = userAnswer?.isMarkedForReview || false;
   const timeSpent = userAnswer?.timeSpentSeconds || 0;
+  const hasSelection = Boolean(selectedOptionId || selectedOptionIds.length > 0);
 
   const [autoHindiText, setAutoHindiText] = React.useState<string>('');
   const [autoHindiOptions, setAutoHindiOptions] = React.useState<Record<string, string>>({});
@@ -61,6 +63,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       isMounted = false;
     };
   }, [question.id, question.questionHindi, question.questionEnglish, question.questionText, question.options, languageMode]);
+
+  const isMultiSelect = question.questionType === 'multiple_select';
+  const correctOptionIds = question.correctOptionIds || [question.correctOptionId];
+  const isSelectionCorrect = isMultiSelect
+    ? selectedOptionIds.length > 0 && selectedOptionIds.length === correctOptionIds.length && selectedOptionIds.every((id) => correctOptionIds.includes(id))
+    : selectedOptionId === question.correctOptionId;
 
   const renderQuestionText = () => {
     if (languageMode === 'en') {
@@ -177,8 +185,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
         return (
           <div className="grid grid-cols-1 gap-3 pt-2">
             {safeOptions.map((opt) => {
-              const isSelected = selectedOptionId === opt.id;
               const isMSQ = question.questionType === 'multiple_select';
+              const isSelected = isMSQ 
+                ? (userAnswer?.selectedOptionIds || []).includes(opt.id)
+                : selectedOptionId === opt.id;
           return (
             <div
               key={opt.id}
@@ -228,20 +238,20 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   })()}
 
       {/* Instant Practice Mode Explanation Box */}
-      {enablePracticeMode && selectedOptionId && (
+      {enablePracticeMode && hasSelection && (
         <div className={`p-4 rounded-2xl border-2 space-y-2 animate-fadeIn ${
-          selectedOptionId === question.correctOptionId
+          isSelectionCorrect
             ? 'bg-emerald-50/90 border-emerald-500 text-emerald-950'
             : 'bg-rose-50/90 border-rose-500 text-rose-950'
         }`}>
           <div className="flex items-center space-x-2 font-bold text-xs">
-            {selectedOptionId === question.correctOptionId ? (
+            {isSelectionCorrect ? (
               <span className="px-2 py-0.5 rounded bg-emerald-600 text-white font-extrabold uppercase">
                 ✅ Correct Answer Choice!
               </span>
             ) : (
               <span className="px-2 py-0.5 rounded bg-rose-600 text-white font-extrabold uppercase">
-                ❌ Incorrect Choice (Correct Answer: Option {question.correctOptionId})
+                ❌ Incorrect Choice (Correct Answer: Option {correctOptionIds.join(', ')})
               </span>
             )}
           </div>
@@ -257,7 +267,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       <div className="flex items-center justify-between pt-2 border-t border-slate-100">
         <button
           onClick={onClearChoice}
-          disabled={!selectedOptionId}
+          disabled={!hasSelection}
           className="text-xs text-slate-500 hover:text-slate-800 disabled:opacity-40 font-semibold"
         >
           Clear Choice Selection

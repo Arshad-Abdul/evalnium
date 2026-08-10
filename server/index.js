@@ -83,7 +83,8 @@ async function initDatabase() {
         prevent_prev_section TINYINT(1) DEFAULT 0,
         prevent_early_next_section TINYINT(1) DEFAULT 0,
         prevent_prev_question TINYINT(1) DEFAULT 0,
-        prevent_early_next_question TINYINT(1) DEFAULT 0
+        prevent_early_next_question TINYINT(1) DEFAULT 0,
+        question_view_mode VARCHAR(50) DEFAULT 'both'
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
@@ -107,6 +108,10 @@ async function initDatabase() {
       `ALTER TABLE questions ADD COLUMN list_i_json LONGTEXT;`,
       `ALTER TABLE questions ADD COLUMN list_ii_json LONGTEXT;`,
       `ALTER TABLE questions ADD COLUMN correct_option_ids_json LONGTEXT;`,
+      `ALTER TABLE quizzes ADD COLUMN access_code VARCHAR(100) DEFAULT NULL;`,
+      `ALTER TABLE quizzes ADD COLUMN allowed_emails LONGTEXT DEFAULT NULL;`,
+      `ALTER TABLE quizzes ADD COLUMN question_view_mode VARCHAR(50) DEFAULT 'both';`,
+      `ALTER TABLE results ADD COLUMN candidate_email VARCHAR(150) DEFAULT NULL;`,
     ];
 
     for (const alterSql of columnsToAdd) {
@@ -205,10 +210,56 @@ async function initDatabase() {
     } catch {
       // Indexes already exist
     }
+    try {
+      await pool.query(`CREATE UNIQUE INDEX idx_users_email ON users(email);`);
+    } catch {
+      // Index already exists
+    }
+    try {
+      await pool.query(`ALTER TABLE users ADD COLUMN is_verified TINYINT(1) DEFAULT 1;`);
+    } catch {
+      // Column already exists
+    }
+
+    await syncCandidatesToUsersTable();
 
     console.log(`✅ All MySQL Database Tables & Indexes Verified & Ready!`);
   } catch (err) {
     console.error('❌ Failed to initialize MySQL Database:', err);
+  }
+}
+
+async function syncCandidatesToUsersTable() {
+  try {
+    const [results] = await pool.query(`
+      SELECT candidate_name, candidate_email, MIN(attempted_at) as first_attempt 
+      FROM results 
+      WHERE candidate_name IS NOT NULL AND candidate_name != ''
+      GROUP BY candidate_name, candidate_email
+    `);
+
+    for (const r of results) {
+      const name = r.candidate_name.trim();
+      let email = (r.candidate_email || '').trim().toLowerCase();
+      
+      if (!email || email === 'not provided') {
+        const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        email = `${slug || 'candidate'}@evalnium.app`;
+        await pool.query('UPDATE results SET candidate_email = ? WHERE candidate_name = ? AND (candidate_email IS NULL OR candidate_email = "" OR candidate_email = "Not Provided")', [email, name]);
+      }
+
+      const uid = `usr_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+      const createdAt = r.first_attempt || new Date().toISOString();
+
+      await pool.query(`
+        INSERT INTO users (uid, name, email, role, created_at)
+        VALUES (?, ?, ?, 'candidate', ?)
+        ON DUPLICATE KEY UPDATE name = VALUES(name)
+      `, [uid, name, email, createdAt]);
+    }
+    console.log(`✅ Candidates auto-synced to users table.`);
+  } catch (err) {
+    console.error('Failed to sync candidates to users table:', err.message);
   }
 }
 
@@ -308,8 +359,132 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// --- USER AUTHENTICATION ENDPOINTS ---
+app.get('/api/users/check', async (req, res) => {
+  try {
+    const email = req.query.email?.toString().toLowerCase().trim();
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    const [rows] = await pool.query('SELECT uid FROM users WHERE email = ?', [email]);
+    res.json({ exists: rows.length > 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/users/register', async (req, res) => {
+  try {
+    const { name, email, uid } = req.body;
+    if (!email || !name || !uid) return res.status(400).json({ error: 'Missing required fields' });
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const createdAt = new Date().toISOString();
+
+    await pool.query(
+      `INSERT INTO users (uid, name, email, role, is_verified, created_at) VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE name = ?, is_verified = 1`,
+      [uid, name.trim(), normalizedEmail, 'candidate', 1, createdAt, name.trim()]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/users/login', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Account not found' });
+    }
+
+    const user = rows[0];
+    res.json({
+      uid: user.uid,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      targetExam: user.target_exam,
+      phone: user.phone,
+      institution: user.institution,
+      createdAt: user.created_at
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// List all users (for admin)
+app.get('/api/users', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT uid, name, email, role, target_exam, phone, institution, created_at FROM users ORDER BY created_at DESC');
+    res.json(rows.map(u => ({
+      uid: u.uid,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      targetExam: u.target_exam,
+      phone: u.phone,
+      institution: u.institution,
+      createdAt: u.created_at
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete a user and their test results (admin only)
+app.delete('/api/users/:uid', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT uid, name, email FROM users WHERE uid = ?', [req.params.uid]);
+    if (rows.length > 0) {
+      const { name, email } = rows[0];
+      await pool.query('DELETE FROM users WHERE uid = ?', [req.params.uid]);
+      if (email) {
+        await pool.query('DELETE FROM results WHERE candidate_email = ?', [email]);
+      }
+      if (name) {
+        await pool.query('DELETE FROM results WHERE candidate_name = ?', [name]);
+      }
+    } else {
+      await pool.query('DELETE FROM users WHERE uid = ?', [req.params.uid]);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Trigger manual sync of legacy candidates to users table
+app.post('/api/users/sync', async (req, res) => {
+  try {
+    await syncCandidatesToUsersTable();
+    res.json({ success: true, message: 'Candidates synced successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // API Endpoints
+
+// Simple memory store for live exam sessions
+const activeSessions = new Map();
+
+// Clear stale sessions every 1 minute
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, session] of activeSessions.entries()) {
+    if (now - session.lastSeen > 2 * 60 * 1000) { // 2 minutes timeout
+      activeSessions.delete(key);
+    }
+  }
+}, 60 * 1000);
 
 // 1. Quizzes (with Granular Admin Settings & Rules)
 app.get('/api/quizzes', async (req, res) => {
@@ -321,7 +496,7 @@ app.get('/api/quizzes', async (req, res) => {
       const [qRows] = await pool.query('SELECT * FROM questions WHERE quiz_id = ?', [q.id]);
       const questions = [];
       for (const quest of qRows) {
-        const [optRows] = await pool.query('SELECT option_letter as id, option_text as text FROM options WHERE question_id = ?', [quest.id]);
+        const [optRows] = await pool.query('SELECT option_letter as id, option_text as text FROM options WHERE question_id = ? ORDER BY option_letter ASC', [quest.id]);
         questions.push({
           id: quest.id,
           questionText: quest.question_text,
@@ -372,6 +547,9 @@ app.get('/api/quizzes', async (req, res) => {
         shuffleOptions: q.shuffle_options !== undefined ? Boolean(q.shuffle_options) : true,
         enablePracticeMode: Boolean(q.enable_practice_mode),
         defaultLanguageMode: q.default_language_mode || 'en',
+        accessCode: q.access_code || undefined,
+        allowedEmails: q.allowed_emails ? JSON.parse(q.allowed_emails) : undefined,
+        questionViewMode: q.question_view_mode || 'both',
         questions,
       });
     }
@@ -383,33 +561,39 @@ app.get('/api/quizzes', async (req, res) => {
 });
 
 app.post('/api/quizzes', async (req, res) => {
+  let connection;
   try {
     const q = req.body;
-    await pool.query(
+    
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // Insert or update quiz
+    await connection.query(
       `INSERT INTO quizzes (
-        id, title, description, topic, category, difficulty, time_limit_minutes, passing_percentage, negative_marks, quiz_type, scheduled_start_datetime, scheduled_end_datetime, is_published, created_at, updated_at, author,
+        id, title, description, topic, time_limit_minutes, passing_percentage, negative_marks, quiz_type, is_published, created_at, updated_at, author,
         enable_certificate, enable_anti_cheating, timing_mode, sectional_config_json, question_time_limit_seconds, prevent_prev_section, prevent_early_next_section, prevent_prev_question, prevent_early_next_question,
-        shuffle_questions, shuffle_options, enable_practice_mode, default_language_mode
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE
+        shuffle_questions, shuffle_options, enable_practice_mode, default_language_mode, access_code, allowed_emails, question_view_mode
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE 
         title=?, description=?, topic=?, time_limit_minutes=?, passing_percentage=?, negative_marks=?, quiz_type=?, is_published=?, updated_at=?,
         enable_certificate=?, enable_anti_cheating=?, timing_mode=?, sectional_config_json=?, question_time_limit_seconds=?, prevent_prev_section=?, prevent_early_next_section=?, prevent_prev_question=?, prevent_early_next_question=?,
-        shuffle_questions=?, shuffle_options=?, enable_practice_mode=?, default_language_mode=?`,
+        shuffle_questions=?, shuffle_options=?, enable_practice_mode=?, default_language_mode=?, access_code=?, allowed_emails=?, question_view_mode=?`,
       [
-        q.id, q.title, q.description, q.topic, q.category, q.difficulty, q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.scheduledStartDateTime, q.scheduledEndDateTime, q.isPublished ? 1 : 0, q.createdAt, q.updatedAt, q.author,
+        q.id, q.title, q.description, q.topic, q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.isPublished ? 1 : 0, q.createdAt, q.updatedAt, q.author || 'Admin',
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
-        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en',
+        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both',
         
         q.title, q.description, q.topic, q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.isPublished ? 1 : 0, q.updatedAt,
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
-        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en'
+        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both'
       ]
     );
 
     // Replace questions
-    await pool.query('DELETE FROM questions WHERE quiz_id = ?', [q.id]);
+    await connection.query('DELETE FROM questions WHERE quiz_id = ?', [q.id]);
     for (const quest of q.questions) {
-      await pool.query(
+      await connection.query(
         `INSERT INTO questions (
           id, quiz_id, question_text, question_english, question_hindi, correct_option_id, explanation, explanation_english, explanation_hindi, topic, marks,
           question_type, image_url, list_i_json, list_ii_json, correct_option_ids_json
@@ -421,16 +605,24 @@ app.post('/api/quizzes', async (req, res) => {
       );
 
       for (const opt of quest.options) {
-        await pool.query(
+        await connection.query(
           `INSERT INTO options (question_id, option_letter, option_text) VALUES (?, ?, ?)`,
           [quest.id, opt.id, opt.text]
         );
       }
     }
 
+    await connection.commit();
     res.json({ success: true });
   } catch (err) {
+    if (connection) {
+      await connection.rollback();
+    }
     res.status(500).json({ error: err.message });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 });
 
@@ -441,6 +633,29 @@ app.delete('/api/quizzes/:id', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// --- Live Sessions Tracking ---
+app.post('/api/sessions/heartbeat', (req, res) => {
+  const { quizId, candidateName, candidateEmail, timeRemaining, percentageComplete } = req.body;
+  if (!quizId || !candidateName) return res.status(400).json({ error: 'Missing required fields' });
+  
+  const sessionKey = `${quizId}_${candidateEmail || candidateName}`;
+  activeSessions.set(sessionKey, {
+    quizId,
+    candidateName,
+    candidateEmail,
+    timeRemaining,
+    percentageComplete,
+    lastSeen: Date.now()
+  });
+  
+  res.json({ success: true });
+});
+
+app.get('/api/sessions/live', (req, res) => {
+  const sessions = Array.from(activeSessions.values());
+  res.json(sessions);
 });
 
 // 2. Results / Leaderboard (with Pagination support)
@@ -463,6 +678,7 @@ app.get('/api/results', async (req, res) => {
       quizId: r.quiz_id,
       quizTitle: r.current_quiz_title || r.quiz_title,
       candidateName: r.candidate_name,
+      candidateEmail: r.candidate_email,
       topic: r.topic,
       score: r.score,
       maxScore: r.max_score,
@@ -472,8 +688,8 @@ app.get('/api/results', async (req, res) => {
       correctAnswers: r.correct_answers,
       wrongAnswers: r.wrong_answers,
       skippedQuestions: r.skipped_questions,
+      userAnswers: r.user_answers_json ? JSON.parse(r.user_answers_json) : {},
       attemptedAt: r.attempted_at,
-      userAnswers: JSON.parse(r.user_answers_json || '{}'),
     }));
 
     res.json(results);
@@ -486,10 +702,16 @@ app.post('/api/results', async (req, res) => {
   try {
     const r = req.body;
     await pool.query(
-      `INSERT INTO results (id, quiz_id, quiz_title, candidate_name, topic, score, max_score, percentage, passed, time_spent_seconds, correct_answers, wrong_answers, skipped_questions, user_answers_json, attempted_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO results (
+        id, quiz_id, quiz_title, candidate_name, candidate_email, topic, score, max_score, percentage,
+        passed, time_spent_seconds, correct_answers, wrong_answers, skipped_questions, user_answers_json, attempted_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        score=?, percentage=?, passed=?, time_spent_seconds=?, correct_answers=?, wrong_answers=?, skipped_questions=?, user_answers_json=?`,
       [
-        r.id, r.quizId, r.quizTitle, r.candidateName, r.topic, r.score, r.maxScore, r.percentage, r.passed ? 1 : 0, r.timeSpentSeconds, r.correctAnswers, r.wrongAnswers, r.skippedQuestions, JSON.stringify(r.userAnswers || {}), r.attemptedAt
+        r.id, r.quizId, r.quizTitle, r.candidateName, r.candidateEmail || null, r.topic, r.score, r.maxScore, r.percentage,
+        r.passed ? 1 : 0, r.timeSpentSeconds, r.correctAnswers, r.wrongAnswers, r.skippedQuestions, JSON.stringify(r.userAnswers || {}), r.attemptedAt,
+        r.score, r.percentage, r.passed ? 1 : 0, r.timeSpentSeconds, r.correctAnswers, r.wrongAnswers, r.skippedQuestions, JSON.stringify(r.userAnswers || {})
       ]
     );
     res.json({ success: true });
@@ -570,6 +792,8 @@ app.delete('/api/announcements/:id', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+
 
 const PORT = process.env.PORT || 5050;
 app.listen(PORT, '0.0.0.0', () => {

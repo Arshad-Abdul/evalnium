@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import type { Quiz, QuizAttemptResult } from '../../types/quiz';
 import { Search, BookOpen, Clock, Play, History, Filter, X, Lock, Award } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { AuthModal } from '../auth/AuthModal';
 import { PDFCertificateModal } from './PDFCertificateModal';
 
 interface TopicCatalogProps {
@@ -21,14 +20,9 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
   const [selectedTopic, setSelectedTopic] = useState<string>('All');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('All');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
   const [selectedCertAttempt, setSelectedCertAttempt] = useState<QuizAttemptResult | null>(null);
 
   const handleStartExamAttempt = (quiz: Quiz) => {
-    if (!currentUser) {
-      setShowAuthModal(true);
-      return;
-    }
     onSelectQuiz(quiz);
   };
 
@@ -40,7 +34,18 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
   });
 
   const topics = ['All', ...Array.from(new Set(quizzes.map(q => q.topic)))];
-  const publishedQuizzes = quizzes.filter(q => q.isPublished);
+  const publishedQuizzes = quizzes.filter(q => {
+    if (!q.isPublished) return false;
+    // Target Emails Whitelist check
+    if (q.allowedEmails && q.allowedEmails.length > 0) {
+      if (!currentUser || !currentUser.email) return false;
+      const lowerEmails = q.allowedEmails.map(e => e.toLowerCase());
+      if (!lowerEmails.includes(currentUser.email.toLowerCase())) {
+        return false; // Hide if user is not in whitelist
+      }
+    }
+    return true;
+  });
 
   const filteredQuizzes = publishedQuizzes.filter(quiz => {
     const matchesSearch = quiz.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -72,7 +77,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
             <button
               onClick={() => {
                 if (!currentUser) {
-                  setShowAuthModal(true);
+                  alert("Please sign in to view your history.");
                   return;
                 }
                 setShowHistoryModal(true);
@@ -289,8 +294,6 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
         </div>
       )}
 
-      {/* Auth Modal Trigger for Guest Users */}
-      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
 
       {/* History Modal */}
       {showHistoryModal && (

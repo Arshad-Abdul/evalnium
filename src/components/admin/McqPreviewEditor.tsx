@@ -30,6 +30,12 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [scheduledStartDateTime, setScheduledStartDateTime] = useState<string>(parseResult.scheduledStartDateTime || '');
   const [scheduledEndDateTime, setScheduledEndDateTime] = useState<string>(parseResult.scheduledEndDateTime || '');
   const [defaultLanguageMode, setDefaultLanguageMode] = useState<'en' | 'hi' | 'dual'>(parseResult.defaultLanguageMode || 'en');
+  
+  // --- Privacy & Access Controls ---
+  const [accessCode, setAccessCode] = useState<string>(parseResult.accessCode || '');
+  const [allowedEmailsText, setAllowedEmailsText] = useState<string>(
+    parseResult.allowedEmails ? parseResult.allowedEmails.join(', ') : ''
+  );
 
   // --- Granular Admin Settings & Rules ---
   const [enableCertificate, setEnableCertificate] = useState(typeof parseResult.enableCertificate === 'boolean' ? parseResult.enableCertificate : true);
@@ -40,6 +46,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [preventEarlyNextSection, setPreventEarlyNextSection] = useState(parseResult.preventEarlyNextSection ?? false);
   const [preventPreviousQuestionReturn, setPreventPreviousQuestionReturn] = useState(parseResult.preventPreviousQuestionReturn ?? false);
   const [preventEarlyNextQuestion, setPreventEarlyNextQuestion] = useState(parseResult.preventEarlyNextQuestion ?? false);
+  const [questionViewMode, setQuestionViewMode] = useState<'both' | 'single_only' | 'all_only'>(parseResult.questionViewMode || 'both');
   const [sections, setSections] = useState<Array<{
     id: string;
     sectionName: string;
@@ -207,6 +214,9 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       author: 'Admin Importer',
+      
+      accessCode: accessCode.trim() || undefined,
+      allowedEmails: allowedEmailsText.trim() ? allowedEmailsText.split(',').map(e => e.trim()).filter(e => e) : undefined,
 
       // Granular Admin Controls
       enableCertificate,
@@ -217,6 +227,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       preventEarlyNextSection,
       preventPreviousQuestionReturn,
       preventEarlyNextQuestion,
+      questionViewMode,
       questions: questions.map((q, idx) => ({
         id: q.tempId || `q_${idx + 1}_${Date.now()}`,
         questionText: q.questionText,
@@ -238,7 +249,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
         explanationEnglish: q.explanationEnglish,
         explanationHindi: q.explanationHindi,
         topic: topic,
-        marks: 1
+        marks: q.marks || 1
       }))
     };
 
@@ -539,6 +550,45 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
             </div>
           </div>
 
+          {/* Question Display Layout Control */}
+          <div className="pt-2">
+            <label className="block text-xs font-bold text-slate-800 mb-2 flex items-center space-x-1">
+              <Layers className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Question Screen Display Layout Controls (Exam Interface Mode)</span>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => setQuestionViewMode('both')}
+                className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${
+                  questionViewMode === 'both' ? 'bg-indigo-50 border-indigo-600 text-indigo-900 shadow-xs' : 'bg-white border-slate-200 text-slate-700'
+                }`}
+              >
+                🔄 Both Options Allowed (Candidate Choice)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setQuestionViewMode('single_only')}
+                className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${
+                  questionViewMode === 'single_only' ? 'bg-indigo-50 border-indigo-600 text-indigo-900 shadow-xs' : 'bg-white border-slate-200 text-slate-700'
+                }`}
+              >
+                📄 Force 1 Question / Screen Only
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setQuestionViewMode('all_only')}
+                className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${
+                  questionViewMode === 'all_only' ? 'bg-indigo-50 border-indigo-600 text-indigo-900 shadow-xs' : 'bg-white border-slate-200 text-slate-700'
+                }`}
+              >
+                📜 Force All Questions On 1 Screen
+              </button>
+            </div>
+          </div>
+
           {/* Interactive Sectional Builder */}
           {timingMode === 'sectional' && (
             <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-4">
@@ -749,6 +799,43 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
 
       </div>
 
+      {/* Privacy & Access Controls */}
+      <div className="bg-rose-50/50 p-6 rounded-2xl border border-rose-100 shadow-xs space-y-6">
+        <h3 className="text-sm font-black text-rose-900 flex items-center space-x-2 border-b border-rose-200 pb-3">
+          <span>🔒 Privacy & Access Control (Targeted Exams)</span>
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-700 flex flex-col">
+              <span>🔑 Exam Passcode (Optional)</span>
+              <span className="text-[10px] font-normal text-slate-500">Require candidates to enter this code to start.</span>
+            </label>
+            <input
+              type="text"
+              value={accessCode}
+              onChange={(e) => setAccessCode(e.target.value)}
+              placeholder="e.g. BATCH-A-123"
+              className="w-full p-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:outline-none focus:border-rose-400 bg-white"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-700 flex flex-col">
+              <span>🎯 Allowed Emails Whitelist (Optional)</span>
+              <span className="text-[10px] font-normal text-slate-500">Comma-separated emails. Exam hides from others.</span>
+            </label>
+            <textarea
+              value={allowedEmailsText}
+              onChange={(e) => setAllowedEmailsText(e.target.value)}
+              placeholder="student1@gmail.com, student2@gmail.com"
+              rows={2}
+              className="w-full p-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 focus:outline-none focus:border-rose-400 bg-white"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Extracted MCQ Items List */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -756,7 +843,30 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
             <Sparkles className="w-5 h-5 text-indigo-600" />
             <span>Extracted Questions ({questions.length})</span>
           </h3>
-          <p className="text-xs text-slate-500 font-medium">Select radio button on option to assign the Correct Answer Key</p>
+          <div className="flex flex-col items-end space-y-2">
+            <div className="flex items-center space-x-2 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
+              <span className="text-[10px] font-bold text-emerald-800 uppercase">Set Marks for ALL Questions:</span>
+              <input
+                type="number"
+                min="1"
+                placeholder="Ex: 2"
+                className="w-16 p-1 rounded-lg border border-emerald-300 text-xs font-bold text-center focus:outline-none bg-white"
+                onBlur={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (val > 0) {
+                     setQuestions(prev => prev.map(q => ({...q, marks: val})));
+                     e.target.value = ''; // clear after apply
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  }
+                }}
+              />
+            </div>
+            <p className="text-xs text-slate-500 font-medium">Select radio button on option to assign the Correct Answer Key</p>
+          </div>
         </div>
 
         {questions.map((q, qIndex) => (
@@ -787,6 +897,22 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                   <option value="multiple_select">☑️ Multiple Select (MSQ)</option>
                   <option value="match_following">🧩 Match the Following</option>
                 </select>
+
+                {/* Marks Selector */}
+                <div className="flex items-center space-x-1.5 bg-emerald-50 border border-emerald-200 p-1.5 rounded-lg">
+                  <span className="text-[10px] font-extrabold text-emerald-800 uppercase">Marks:</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={q.marks || 1}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 1;
+                      setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, marks: val } : item));
+                    }}
+                    className="w-12 p-0.5 rounded bg-white border border-emerald-300 text-xs font-bold text-center text-emerald-900 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
               </div>
 
               <button

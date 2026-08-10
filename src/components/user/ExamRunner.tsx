@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import type { Quiz, UserAnswer, QuizAttemptResult } from '../../types/quiz';
 import { ChevronLeft, ChevronRight, AlertTriangle, Send } from 'lucide-react';
 import { saveBookmarkedQuestion } from './RevisionHubModal';
@@ -51,7 +51,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
   });
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [languageMode, setLanguageMode] = useState<'dual' | 'en' | 'hi'>(quiz.defaultLanguageMode || 'en');
-  const [examViewMode, setExamViewMode] = useState<'single' | 'all'>('single');
+  const [examViewMode, setExamViewMode] = useState<'single' | 'all'>(quiz.questionViewMode === 'all_only' ? 'all' : 'single');
 
   const activeQuestions = React.useMemo(() => {
     let prepared = quiz.questions.map(q => {
@@ -89,6 +89,21 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     timeSpentSeconds: 0,
   };
 
+  const clearSession = useCallback(() => {
+    try {
+      localStorage.removeItem(sessionKey);
+    } catch {}
+  }, [sessionKey]);
+
+  // Stable ref so force-submit always calls the latest calculateResults
+  const calculateResultsRef = React.useRef<(() => QuizAttemptResult) | null>(null);
+
+  const handleForceSubmit = useCallback(() => {
+    clearSession();
+    const result = calculateResultsRef.current?.();
+    if (result) onFinishExam(result);
+  }, [clearSession, onFinishExam]);
+
   // Anti-cheating tab switch listener
   useEffect(() => {
     if (!quiz.enableAntiCheating) return;
@@ -109,7 +124,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [quiz.enableAntiCheating]);
+  }, [quiz.enableAntiCheating, handleForceSubmit]);
 
   // Save progress & userAnswers to LocalStorage on state update
   useEffect(() => {
@@ -137,8 +152,33 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     updateTimer();
     const timer = setInterval(updateTimer, 1000);
 
-    return () => clearInterval(timer);
-  }, [examStartTime, quiz.timeLimitMinutes]);
+    const getApiBaseUrl = () => {
+      const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
+      return `http://${host}:5050/api`;
+    };
+
+    const pingHeartbeat = () => {
+      fetch(`${getApiBaseUrl()}/sessions/heartbeat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quizId: quiz.id,
+          candidateName,
+          candidateEmail: currentUser?.email,
+          timeRemaining: timeRemainingSeconds,
+          percentageComplete: Math.round((Object.keys(userAnswers).length / quiz.questions.length) * 100)
+        })
+      }).catch(() => {}); // ignore error
+    };
+
+    pingHeartbeat();
+    const heartbeatInterval = setInterval(pingHeartbeat, 10000); // every 10s
+
+    return () => {
+      clearInterval(timer);
+      clearInterval(heartbeatInterval);
+    };
+  }, [examStartTime, quiz.timeLimitMinutes, quiz.id, candidateName, currentUser?.email, timeRemainingSeconds, userAnswers, quiz.questions.length, handleForceSubmit]);
 
   // Per-question timer
   useEffect(() => {
@@ -163,58 +203,28 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     return () => clearInterval(qTimer);
   }, [currentQuestion.id]);
 
-  // Fast CBT Keyboard Shortcuts Listener
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore shortcut keys if user is typing in an input field
-      const activeElem = document.activeElement;
-      if (activeElem && (activeElem.tagName === 'INPUT' || activeElem.tagName === 'TEXTAREA')) {
-        return;
+  const handleSelectOption = useCallback((optionId: string) => {
+    const qId = currentQuestion.id;
+    const isMSQ = currentQuestion.questionType === 'multiple_select';
+
+    setUserAnswers((prev) => {
+      const existing = prev[qId] || {
+        questionId: qId,
+        selectedOptionId: null,
+        selectedOptionIds: [],
+        isMarkedForReview: false,
+        timeSpentSeconds: 0,
+      };
+      if (isMSQ) {
+        const current = existing.selectedOptionIds || [];
+        const next = current.includes(optionId)
+          ? current.filter(id => id !== optionId)
+          : [...current, optionId].sort();
+        return { ...prev, [qId]: { ...existing, selectedOptionId: null, selectedOptionIds: next } };
       }
-
-      const key = e.key.toLowerCase();
-      const code = e.code;
-
-      if (key === 'a' || code === 'Digit1' || code === 'Numpad1') {
-        handleSelectOption('A');
-      } else if (key === 'b' || code === 'Digit2' || code === 'Numpad2') {
-        handleSelectOption('B');
-      } else if (key === 'c' || code === 'Digit3' || code === 'Numpad3') {
-        handleSelectOption('C');
-      } else if (key === 'd' || code === 'Digit4' || code === 'Numpad4') {
-        handleSelectOption('D');
-      } else if (code === 'ArrowRight' || key === 'enter') {
-        if (currentQuestionIndex < quiz.questions.length - 1) {
-          setCurrentQuestionIndex((prev) => prev + 1);
-        }
-      } else if (code === 'ArrowLeft') {
-        if (currentQuestionIndex > 0) {
-          setCurrentQuestionIndex((prev) => prev - 1);
-        }
-      } else if (key === 'm') {
-        handleToggleMarkForReview(currentQuestion.id);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentQuestionIndex, currentQuestion.id, quiz.questions.length]);
-
-  const handleSelectOption = (optionId: string) => {
-    const existingAns = userAnswers[currentQuestion.id] || {
-      questionId: currentQuestion.id,
-      selectedOptionId: null,
-      isMarkedForReview: false,
-      timeSpentSeconds: 0,
-    };
-    setUserAnswers((prev) => ({
-      ...prev,
-      [currentQuestion.id]: {
-        ...existingAns,
-        selectedOptionId: optionId,
-      },
-    }));
-  };
+      return { ...prev, [qId]: { ...existing, selectedOptionId: optionId, selectedOptionIds: [] } };
+    });
+  }, [currentQuestion?.id, currentQuestion?.questionType]);
 
   const handleClearChoice = (qId: string) => {
     const existingAns = userAnswers[qId];
@@ -224,32 +234,27 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
       [qId]: {
         ...existingAns,
         selectedOptionId: null,
+        selectedOptionIds: [],
       },
     }));
   };
 
-  const handleToggleMarkForReview = (qId: string) => {
-    const existingAns = userAnswers[qId] || {
-      questionId: qId,
-      selectedOptionId: null,
-      isMarkedForReview: false,
-      timeSpentSeconds: 0,
-    };
-    const nextState = !existingAns.isMarkedForReview;
-    if (nextState) {
-      const qObj = activeQuestions.find(q => q.id === qId);
-      if (qObj) saveBookmarkedQuestion(qObj);
-    }
-    setUserAnswers((prev) => ({
-      ...prev,
-      [qId]: {
-        ...existingAns,
-        isMarkedForReview: nextState,
-      },
-    }));
-  };
+  const handleToggleMarkForReview = useCallback((qId: string) => {
+    const qObj = activeQuestions.find(q => q.id === qId);
+    setUserAnswers((prev) => {
+      const existing = prev[qId] || {
+        questionId: qId,
+        selectedOptionId: null,
+        isMarkedForReview: false,
+        timeSpentSeconds: 0,
+      };
+      const nextState = !existing.isMarkedForReview;
+      if (nextState && qObj) saveBookmarkedQuestion(qObj);
+      return { ...prev, [qId]: { ...existing, isMarkedForReview: nextState } };
+    });
+  }, [activeQuestions]);
 
-  const calculateResults = (): QuizAttemptResult => {
+  const calculateResults = useCallback((): QuizAttemptResult => {
     let score = 0;
     let correctAnswers = 0;
     let wrongAnswers = 0;
@@ -257,11 +262,31 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 
     activeQuestions.forEach((q) => {
       const uAns = userAnswers[q.id];
-      const selectedOpt = uAns ? uAns.selectedOptionId : null;
+      const isMSQ = q.questionType === 'multiple_select';
+      
+      let isCorrect = false;
+      let isSkipped = false;
 
-      if (selectedOpt === null) {
+      if (isMSQ) {
+        const selected = uAns?.selectedOptionIds || [];
+        const correct = q.correctOptionIds || [q.correctOptionId];
+        isSkipped = selected.length === 0;
+        
+        // Exact match of arrays
+        if (!isSkipped) {
+          isCorrect = selected.length === correct.length && selected.every(val => correct.includes(val!));
+        }
+      } else {
+        const selected = uAns?.selectedOptionId || null;
+        isSkipped = selected === null;
+        if (!isSkipped) {
+          isCorrect = selected === q.correctOptionId;
+        }
+      }
+
+      if (isSkipped) {
         skippedQuestions++;
-      } else if (selectedOpt === q.correctOptionId) {
+      } else if (isCorrect) {
         score += q.marks || 1;
         correctAnswers++;
       } else {
@@ -298,28 +323,22 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
       totalQuestions: activeQuestions.length,
       attemptedQuestions: correctAnswers + wrongAnswers,
     };
-  };
+  }, [activeQuestions, candidateName, currentUser?.name, quiz.negativeMarks, quiz.passingPercentage, quiz.timeLimitMinutes, quiz.title, quiz.topic, quiz.id, timeRemainingSeconds, userAnswers]);
 
-  const clearSession = () => {
-    try {
-      localStorage.removeItem(sessionKey);
-    } catch {}
-  };
+  // Keep ref in sync so handleForceSubmit always uses the latest calculateResults
+  calculateResultsRef.current = calculateResults;
 
-  const handleForceSubmit = () => {
-    clearSession();
-    const result = calculateResults();
-    onFinishExam(result);
-  };
-
-  const handleConfirmSubmit = () => {
+  const handleConfirmSubmit = useCallback(() => {
     clearSession();
     setShowSubmitModal(false);
     const result = calculateResults();
     onFinishExam(result);
-  };
+  }, [calculateResults, clearSession, onFinishExam]);
 
-  const answeredCount = Object.values(userAnswers).filter(a => a.selectedOptionId !== null).length;
+  const answeredCount = Object.values(userAnswers).filter((a) => {
+    if (a.selectedOptionIds && a.selectedOptionIds.length > 0) return true;
+    return a.selectedOptionId !== null;
+  }).length;
   const reviewCount = Object.values(userAnswers).filter(a => a.isMarkedForReview).length;
 
   return (
@@ -333,6 +352,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         setLanguageMode={setLanguageMode}
         examViewMode={examViewMode}
         setExamViewMode={setExamViewMode}
+        questionViewMode={quiz.questionViewMode}
         timeRemainingSeconds={timeRemainingSeconds}
         onOpenSubmitModal={() => setShowSubmitModal(true)}
       />
@@ -380,6 +400,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
           {/* Question Box */}
           <div className="lg:col-span-3 bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-6">
             <QuestionCard
+              key={currentQuestion.id}
               question={currentQuestion}
               questionIndex={currentQuestionIndex}
               totalQuestions={activeQuestions.length}

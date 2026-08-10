@@ -4,8 +4,9 @@ import type { UserProfile } from '../types/auth';
 interface AuthContextType {
   currentUser: UserProfile | null;
   isAdminAuthenticated: boolean;
-  registerCandidate: (name: string, email: string) => UserProfile;
-  loginCandidate: (email: string, name?: string) => UserProfile;
+  registerCandidate: (name: string, email: string) => Promise<UserProfile>;
+  loginCandidate: (email: string, name?: string) => Promise<UserProfile>;
+  checkCandidateExists: (email: string) => Promise<boolean>;
   loginAdmin: (passcode: string) => boolean;
   logoutAdmin: () => void;
   logoutCandidate: () => void;
@@ -48,27 +49,81 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem(ADMIN_AUTH_KEY, isAdminAuthenticated ? 'true' : 'false');
   }, [isAdminAuthenticated]);
 
-  const registerCandidate = (name: string, email: string): UserProfile => {
-    const newUser: UserProfile = {
-      uid: `usr_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+  const getApiUrl = () => {
+    const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
+    return `http://${host}:5050/api/users`;
+  };
+
+  const registerCandidate = async (name: string, email: string): Promise<UserProfile> => {
+    const uid = `usr_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    const payload = {
+      uid,
       name: name.trim() || 'Candidate',
       email: email.trim().toLowerCase(),
+    };
+    
+    const res = await fetch(`${getApiUrl()}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Failed to register candidate');
+    }
+
+    const newUser: UserProfile = {
+      uid: payload.uid,
+      name: payload.name,
+      email: payload.email,
       role: 'candidate',
       totalExamsTaken: 0,
       createdAt: new Date().toISOString()
     };
+
     setCurrentUser(newUser);
     return newUser;
   };
 
-  const loginCandidate = (email: string, name?: string): UserProfile => {
+  const checkCandidateExists = async (email: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`${getApiUrl()}/check?email=${encodeURIComponent(email)}`);
+      if (!res.ok) return false;
+      const data = await res.json();
+      return data.exists;
+    } catch {
+      return false;
+    }
+  };
+
+  const loginCandidate = async (email: string): Promise<UserProfile> => {
+    const res = await fetch(`${getApiUrl()}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    });
+
+    if (!res.ok) {
+      if (res.status === 404) {
+        throw new Error("Account not found. Please create an account first.");
+      }
+      const data = await res.json();
+      throw new Error(data.error || 'Failed to login');
+    }
+
+    const data = await res.json();
     const user: UserProfile = {
-      uid: `usr_${Date.now()}`,
-      name: name || email.split('@')[0] || 'Candidate',
-      email: email.trim().toLowerCase(),
-      role: 'candidate',
-      createdAt: new Date().toISOString()
+      uid: data.uid,
+      name: data.name,
+      email: data.email,
+      role: data.role,
+      targetExam: data.targetExam,
+      phone: data.phone,
+      institution: data.institution,
+      createdAt: data.createdAt,
     };
+    
     setCurrentUser(user);
     return user;
   };
@@ -108,6 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAdminAuthenticated,
         registerCandidate,
         loginCandidate,
+        checkCandidateExists,
         loginAdmin,
         logoutAdmin,
         logoutCandidate,

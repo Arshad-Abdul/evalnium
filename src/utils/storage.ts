@@ -9,15 +9,23 @@ const ANNOUNCEMENTS_KEY = 'evalnium_announcements_v1';
 const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
     const host = window.location.hostname || 'localhost';
-    return `http://${host}:5050/api`;
+    const isLocalhost = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0';
+    return isLocalhost ? 'http://localhost:5050/api' : `http://${host}:5050/api`;
   }
   return 'http://localhost:5050/api';
 };
 
+const shouldSkipApiCall = () => {
+  if (typeof window === 'undefined') return false;
+  const skipApiParam = new URLSearchParams(window.location.search).get('skipApi');
+  return skipApiParam === '1' || skipApiParam === 'true';
+};
+
 // --- QUIZZES CLOUD & LOCAL SYNC ---
 export async function syncQuizzesFromMySQL(): Promise<Quiz[] | null> {
+  if (shouldSkipApiCall()) return null;
   try {
-    const res = await fetch(`${getApiBaseUrl()}/quizzes`);
+    const res = await fetch(`${getApiBaseUrl()}/quizzes`, { signal: AbortSignal.timeout(2500) });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -69,7 +77,14 @@ export function saveQuiz(quiz: Quiz): Quiz[] {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(quiz),
-  }).catch(() => {});
+  }).then(async res => {
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error('❌ MySQL quiz save failed:', res.status, err);
+    }
+  }).catch(err => {
+    console.error('❌ MySQL quiz save network error:', err);
+  });
 
   return updated;
 }
@@ -93,8 +108,9 @@ export function deleteQuiz(id: string): Quiz[] {
 
 // --- RESULTS & LEADERBOARD CLOUD & LOCAL SYNC ---
 export async function syncResultsFromMySQL(): Promise<QuizAttemptResult[] | null> {
+  if (shouldSkipApiCall()) return null;
   try {
-    const res = await fetch(`${getApiBaseUrl()}/results`);
+    const res = await fetch(`${getApiBaseUrl()}/results`, { signal: AbortSignal.timeout(2500) });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -162,8 +178,9 @@ export function saveResult(result: QuizAttemptResult): QuizAttemptResult[] {
 
 // --- ANNOUNCEMENTS CLOUD & LOCAL SYNC ---
 export async function syncAnnouncementsFromMySQL(): Promise<Announcement[] | null> {
+  if (shouldSkipApiCall()) return null;
   try {
-    const res = await fetch(`${getApiBaseUrl()}/announcements`);
+    const res = await fetch(`${getApiBaseUrl()}/announcements`, { signal: AbortSignal.timeout(2500) });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) {

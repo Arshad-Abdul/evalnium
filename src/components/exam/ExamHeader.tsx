@@ -8,6 +8,7 @@ interface ExamHeaderProps {
   setLanguageMode: (mode: 'dual' | 'en' | 'hi') => void;
   examViewMode: 'single' | 'all';
   setExamViewMode: (mode: 'single' | 'all') => void;
+  questionViewMode?: 'both' | 'single_only' | 'all_only';
   timeRemainingSeconds: number;
   onOpenSubmitModal: () => void;
 }
@@ -19,6 +20,7 @@ export const ExamHeader: React.FC<ExamHeaderProps> = ({
   setLanguageMode,
   examViewMode,
   setExamViewMode,
+  questionViewMode = 'both',
   timeRemainingSeconds,
   onOpenSubmitModal,
 }) => {
@@ -81,29 +83,35 @@ export const ExamHeader: React.FC<ExamHeaderProps> = ({
 
         {/* Exam View Layout Mode Switcher */}
         <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
-          <button
-            onClick={() => setExamViewMode('single')}
-            className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center space-x-1 transition-all ${
-              examViewMode === 'single'
-                ? 'bg-white text-slate-900 shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>1 Question/Screen</span>
-          </button>
+          {(questionViewMode === 'both' || questionViewMode === 'single_only') && (
+            <button
+              onClick={() => setExamViewMode('single')}
+              disabled={questionViewMode === 'single_only'}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center space-x-1 transition-all ${
+                examViewMode === 'single'
+                  ? 'bg-white text-slate-900 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>1 Question/Screen</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setExamViewMode('all')}
-            className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center space-x-1 transition-all ${
-              examViewMode === 'all'
-                ? 'bg-white text-slate-900 shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>All Questions</span>
-          </button>
+          {(questionViewMode === 'both' || questionViewMode === 'all_only') && (
+            <button
+              onClick={() => setExamViewMode('all')}
+              disabled={questionViewMode === 'all_only'}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center space-x-1 transition-all ${
+                examViewMode === 'all'
+                  ? 'bg-white text-slate-900 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>All Questions</span>
+            </button>
+          )}
         </div>
 
         {/* Countdown Timer Display */}

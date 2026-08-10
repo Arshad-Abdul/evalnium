@@ -16,7 +16,9 @@ export const QuestionPalette: React.FC<QuestionPaletteProps> = ({
   onSelectQuestion,
   onOpenSubmitModal,
 }) => {
-  const answeredCount = Object.values(userAnswers).filter(a => a.selectedOptionId !== null).length;
+  const isAnswered = (a: UserAnswer) =>
+    a.selectedOptionId !== null || (a.selectedOptionIds != null && a.selectedOptionIds.length > 0);
+  const answeredCount = Object.values(userAnswers).filter(isAnswered).length;
   const reviewCount = Object.values(userAnswers).filter(a => a.isMarkedForReview).length;
   const unansweredCount = questions.length - answeredCount;
 
@@ -51,7 +53,7 @@ export const QuestionPalette: React.FC<QuestionPaletteProps> = ({
         <div className="grid grid-cols-5 gap-2 max-h-64 overflow-y-auto pr-1">
           {questions.map((q, idx) => {
             const uAns = userAnswers[q.id];
-            const isAnswered = uAns && uAns.selectedOptionId !== null;
+            const isAnswered = uAns && (uAns.selectedOptionId !== null || (uAns.selectedOptionIds != null && uAns.selectedOptionIds.length > 0));
             const isReview = uAns && uAns.isMarkedForReview;
             const isCurrent = idx === currentQuestionIndex;
 

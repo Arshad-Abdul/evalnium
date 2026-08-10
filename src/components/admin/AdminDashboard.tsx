@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Quiz, ParseResult } from '../../types/quiz';
 import type { Announcement } from '../../types/announcement';
 import { QuizImporter } from './QuizImporter';
 import { McqPreviewEditor } from './McqPreviewEditor';
 import { AnnouncementManager } from './AnnouncementManager';
-import { Plus, Trash2, FileDown, Layers, Sparkles, Clock, Megaphone, Database, CheckCircle, Users, Edit } from 'lucide-react';
+import { Plus, Trash2, FileDown, Layers, Sparkles, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity } from 'lucide-react';
 import { getStoredResults } from '../../utils/storage';
 
 interface AdminDashboardProps {
@@ -26,7 +26,81 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onSaveAnnouncement = () => {},
   onDeleteAnnouncement = () => {},
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'import' | 'manage' | 'candidates' | 'announcements' | 'mysql'>('import');
+  const [activeSubTab, setActiveSubTab] = useState<'import' | 'manage' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users'>('import');
+  const [liveSessions, setLiveSessions] = useState<any[]>([]);
+  const [registeredUsers, setRegisteredUsers] = useState<Array<{ uid: string; name: string; email: string; role: string; createdAt: string }>>([]);
+
+  const getApiBaseUrl = () => {
+    const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
+    return `http://${host}:5050/api`;
+  };
+
+  useEffect(() => {
+    if (activeSubTab === 'live') {
+      const fetchLive = async () => {
+        try {
+          const res = await fetch(`${getApiBaseUrl()}/sessions/live`);
+          const data = await res.json();
+          setLiveSessions(data);
+        } catch (e) {
+          console.error(e);
+        }
+      };
+      fetchLive();
+      const interval = setInterval(fetchLive, 5000);
+      return () => clearInterval(interval);
+    } else if (activeSubTab === 'users') {
+      fetchUsers();
+    }
+  }, [activeSubTab]);
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/users`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.length === 0) {
+          // If empty, trigger auto sync once to pull from test results
+          await fetch(`${getApiBaseUrl()}/users/sync`, { method: 'POST' });
+          const syncRes = await fetch(`${getApiBaseUrl()}/users`);
+          if (syncRes.ok) {
+            setRegisteredUsers(await syncRes.json());
+            return;
+          }
+        }
+        setRegisteredUsers(data);
+      }
+    } catch (e) {
+      console.error('Error fetching registered users:', e);
+    }
+  };
+
+  const handleSyncUsers = async () => {
+    try {
+      await fetch(`${getApiBaseUrl()}/users/sync`, { method: 'POST' });
+      await fetchUsers();
+    } catch (e) {
+      console.error('Error syncing users:', e);
+    }
+  };
+
+  const handleDeleteUser = async (uid: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete user "${name}"? This will also remove their test history.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/users/${uid}`, { method: 'DELETE' });
+      if (res.ok) {
+        setRegisteredUsers(prev => prev.filter(u => u.uid !== uid));
+      } else {
+        alert('Failed to delete user.');
+      }
+    } catch (e) {
+      console.error('Error deleting user:', e);
+      alert('Error deleting user.');
+    }
+  };
+
   const [parsedResult, setParsedResult] = useState<{ res: ParseResult; sourceName: string } | null>(null);
 
   const allAttemptResults = getStoredResults();
@@ -34,6 +108,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Aggregate candidate statistics
   const candidateStatsMap: Record<string, {
     candidateName: string;
+    candidateEmail: string;
     totalAttempts: number;
     totalScorePctSum: number;
     passedCount: number;
@@ -41,10 +116,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   }> = {};
 
   allAttemptResults.forEach(r => {
-    const key = r.candidateName || 'Unknown Candidate';
+    const key = r.candidateEmail || r.candidateName || 'Unknown Candidate';
     if (!candidateStatsMap[key]) {
       candidateStatsMap[key] = {
-        candidateName: key,
+        candidateName: r.candidateName || 'Unknown Candidate',
+        candidateEmail: r.candidateEmail || 'Not Provided',
         totalAttempts: 0,
         totalScorePctSum: 0,
         passedCount: 0,
@@ -88,6 +164,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       scheduledStartDateTime: quiz.scheduledStartDateTime,
       scheduledEndDateTime: quiz.scheduledEndDateTime,
       defaultLanguageMode: quiz.defaultLanguageMode,
+      accessCode: quiz.accessCode,
+      allowedEmails: quiz.allowedEmails,
 
       // Granular Admin Controls
       enableCertificate: quiz.enableCertificate,
@@ -98,6 +176,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       preventEarlyNextSection: quiz.preventEarlyNextSection,
       preventPreviousQuestionReturn: quiz.preventPreviousQuestionReturn,
       preventEarlyNextQuestion: quiz.preventEarlyNextQuestion,
+      questionViewMode: quiz.questionViewMode || 'both',
       sectionalConfig: quiz.sectionalConfig?.map(sec => ({
         id: sec.id,
         sectionName: sec.sectionName,
@@ -120,6 +199,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         explanation: q.explanation,
         explanationEnglish: q.explanationEnglish,
         explanationHindi: q.explanationHindi,
+        marks: q.marks,
         isValid: true,
       })),
       errors: [],
@@ -207,6 +287,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveSubTab('users')}
+            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center space-x-1 transition-all ${
+              activeSubTab === 'users'
+                ? 'bg-white text-rose-700 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5 text-rose-600" />
+            <span>User Accounts</span>
+          </button>
+
+          <button
             onClick={() => setActiveSubTab('announcements')}
             className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center space-x-1 transition-all ${
               activeSubTab === 'announcements'
@@ -227,12 +319,111 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             }`}
           >
             <Database className="w-3.5 h-3.5 text-emerald-600" />
-            <span>MySQL Status</span>
+            <span>Database Studio</span>
+          </button>
+          <button
+            onClick={() => setActiveSubTab('live')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border shadow-xs flex items-center space-x-2 ${
+              activeSubTab === 'live'
+                ? 'bg-rose-600 text-white border-rose-600'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>Live Exams Tracker</span>
           </button>
         </div>
       </div>
 
       {activeSubTab === 'import' && <QuizImporter onParsedResult={handleParsed} />}
+
+      {/* SubTab: User Accounts Management (Delete Users) */}
+      {activeSubTab === 'users' && (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
+                <Users className="w-5 h-5 text-rose-600" />
+                <span>Registered User Accounts (MySQL DB)</span>
+              </h2>
+              <p className="text-xs text-slate-500 font-medium">Manage registered candidate profiles and delete unwanted accounts</p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleSyncUsers}
+                className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-bold transition-colors border border-indigo-200"
+              >
+                Sync Exam Candidates
+              </button>
+              <button
+                onClick={fetchUsers}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-bold transition-colors"
+              >
+                Refresh List
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase">
+                <tr>
+                  <th className="p-3">User Profile</th>
+                  <th className="p-3">Email Address</th>
+                  <th className="p-3">Role</th>
+                  <th className="p-3">Joined Date</th>
+                  <th className="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium">
+                {registeredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-6 text-center text-slate-400">
+                      No registered user accounts found in MySQL database.
+                    </td>
+                  </tr>
+                ) : (
+                  registeredUsers.map(user => (
+                    <tr key={user.uid} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center font-bold text-xs uppercase border border-rose-100">
+                            {user.name ? user.name.charAt(0) : 'U'}
+                          </div>
+                          <div>
+                            <div className="text-slate-900 font-bold">{user.name || 'Candidate'}</div>
+                            <div className="text-slate-400 text-[10px] font-mono">UID: {user.uid}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-3 font-mono text-slate-700">{user.email}</td>
+                      <td className="p-3 font-mono">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          user.role === 'admin' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-700'
+                        }`}>
+                          {user.role}
+                        </span>
+                      </td>
+                      <td className="p-3 text-slate-500 font-mono">
+                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          onClick={() => handleDeleteUser(user.uid, user.name || user.email)}
+                          className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition-colors flex items-center space-x-1 ml-auto"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete User</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* SubTab: Candidate Statistics & Inspector (Addressing Point #3!) */}
       {activeSubTab === 'candidates' && (
@@ -249,7 +440,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase">
                 <tr>
-                  <th className="p-3">Candidate Name</th>
+                  <th className="p-3">Candidate</th>
                   <th className="p-3">Total Tests Taken</th>
                   <th className="p-3">Average Score %</th>
                   <th className="p-3">Exams Passed</th>
@@ -267,14 +458,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   candidateList.map(cand => {
                     const avg = Math.round(cand.totalScorePctSum / cand.totalAttempts);
                     return (
-                      <tr key={cand.candidateName} className="hover:bg-slate-50">
-                        <td className="p-3 font-bold text-slate-900 flex items-center space-x-2">
-                          <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-800 font-extrabold flex items-center justify-center text-xs">
-                            {cand.candidateName.charAt(0).toUpperCase()}
+                      <tr key={`${cand.candidateName}_${cand.candidateEmail}`} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-xs uppercase border border-indigo-100">
+                              {cand.candidateName.charAt(0)}
+                            </div>
+                            <div>
+                              <div className="text-slate-900 font-bold">{cand.candidateName}</div>
+                              <div className="text-slate-400 text-[10px] font-mono">{cand.candidateEmail}</div>
+                            </div>
                           </div>
-                          <span>{cand.candidateName}</span>
                         </td>
-                        <td className="p-3 font-mono font-bold text-slate-700">{cand.totalAttempts} Exams</td>
+                        <td className="p-3 font-mono text-slate-700">{cand.totalAttempts} Exams</td>
                         <td className="p-3 font-mono font-bold">
                           <span className={`px-2 py-0.5 rounded text-[11px] ${
                             avg >= 60 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
@@ -285,6 +481,119 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <td className="p-3 font-mono font-bold text-amber-700">{cand.passedCount} Passed</td>
                         <td className="p-3 text-slate-500 font-mono">
                           {new Date(cand.lastAttemptedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* SubTab: Live Exams Tracker */}
+      {activeSubTab === 'live' && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-black text-slate-900 flex items-center space-x-2">
+              <span className="relative flex h-3 w-3 mr-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+              </span>
+              Real-Time Active Examinations
+            </h2>
+            <span className="px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-full font-bold text-xs">
+              {liveSessions.length} Active Sessions
+            </span>
+          </div>
+
+          <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-extrabold uppercase">
+                <tr>
+                  <th className="px-4 py-3">Candidate</th>
+                  <th className="px-4 py-3">Exam</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Progress</th>
+                  <th className="px-4 py-3">Time Remaining</th>
+                  <th className="px-4 py-3">Last Ping</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white font-medium">
+                {liveSessions.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-slate-500 font-bold">
+                      No candidates currently taking exams.
+                    </td>
+                  </tr>
+                ) : (
+                  liveSessions.map((session, idx) => {
+                    const secsSincePing = Math.round((Date.now() - session.lastSeen) / 1000);
+                    const pct = Math.min(100, Math.max(0, session.percentageComplete || 0));
+                    const isCompleted = pct >= 100;
+                    const isTimedOut = session.timeRemaining <= 0;
+                    const isIdle = !isCompleted && !isTimedOut && secsSincePing > 30;
+                    const quizTitle = quizzes.find(q => q.id === session.quizId)?.title || session.quizId;
+
+                    let statusBadge;
+                    if (isCompleted) {
+                      statusBadge = (
+                        <span className="inline-flex items-center space-x-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
+                          <CheckCircle2 className="w-3 h-3" /><span>Completed</span>
+                        </span>
+                      );
+                    } else if (isTimedOut) {
+                      statusBadge = (
+                        <span className="inline-flex items-center space-x-1 px-2 py-1 rounded-full bg-slate-100 text-slate-500 border border-slate-200 font-bold">
+                          <AlertCircle className="w-3 h-3" /><span>Timed Out</span>
+                        </span>
+                      );
+                    } else if (isIdle) {
+                      statusBadge = (
+                        <span className="inline-flex items-center space-x-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-bold">
+                          <WifiOff className="w-3 h-3" /><span>Idle</span>
+                        </span>
+                      );
+                    } else {
+                      statusBadge = (
+                        <span className="inline-flex items-center space-x-1 px-2 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-bold">
+                          <Activity className="w-3 h-3 animate-pulse" /><span>In Progress</span>
+                        </span>
+                      );
+                    }
+
+                    return (
+                      <tr key={idx} className={`hover:bg-slate-50 transition-colors ${
+                        isCompleted ? 'bg-emerald-50/30' :
+                        isTimedOut ? 'bg-slate-50/60 opacity-60' :
+                        isIdle ? 'bg-amber-50/30' : ''
+                      }`}>
+                        <td className="px-4 py-3 font-bold text-slate-900">
+                          {session.candidateName}
+                          {session.candidateEmail && (
+                            <div className="text-[10px] text-slate-500 font-normal">{session.candidateEmail}</div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-slate-800 leading-tight">{quizTitle}</div>
+                          <div className="text-[10px] font-mono text-slate-400">{session.quizId}</div>
+                        </td>
+                        <td className="px-4 py-3 text-[11px]">{statusBadge}</td>
+                        <td className="px-4 py-3">
+                          <div className="w-full bg-slate-200 rounded-full h-2 mb-1">
+                            <div
+                              className={`h-2 rounded-full ${isCompleted ? 'bg-emerald-500' : isIdle ? 'bg-amber-400' : 'bg-rose-500'}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-slate-500">{pct}% Answered</span>
+                        </td>
+                        <td className="px-4 py-3 font-mono font-bold" style={{ color: session.timeRemaining < 120 ? '#e11d48' : '#475569' }}>
+                          {session.timeRemaining > 0 ? `${Math.floor(session.timeRemaining / 60)}m ${session.timeRemaining % 60}s` : 'Expired'}
+                        </td>
+                        <td className="px-4 py-3 text-slate-400">
+                          {secsSincePing < 60 ? `${secsSincePing}s ago` : `${Math.floor(secsSincePing / 60)}m ago`}
                         </td>
                       </tr>
                     );

@@ -43,6 +43,8 @@ export interface Quiz {
   scheduledStartDateTime?: string; // ISO string e.g. "2026-08-10T10:00"
   scheduledEndDateTime?: string; // ISO string e.g. "2026-08-10T12:00"
   defaultLanguageMode?: 'en' | 'hi' | 'dual';
+  accessCode?: string;
+  allowedEmails?: string[];
   questions: Question[];
   isPublished: boolean;
   createdAt: string;
@@ -64,11 +66,13 @@ export interface Quiz {
   preventEarlyNextSection?: boolean;
   preventPreviousQuestionReturn?: boolean;
   preventEarlyNextQuestion?: boolean;
+  questionViewMode?: 'both' | 'single_only' | 'all_only';
 }
 
 export interface UserAnswer {
   questionId: string;
   selectedOptionId: string | null;
+  selectedOptionIds?: string[];
   isMarkedForReview: boolean;
   timeSpentSeconds: number;
 }
@@ -129,6 +133,10 @@ export interface ParseResult {
     questionCount: number;
     timeLimitMinutes: number;
   }>;
+  accessCode?: string;
+  allowedEmails?: string[];
+
+  questionViewMode?: 'both' | 'single_only' | 'all_only';
 
   questions: ParsedQuestion[];
   errors: string[];
@@ -150,6 +158,7 @@ export interface ParsedQuestion {
   explanation?: string;
   explanationEnglish?: string;
   explanationHindi?: string;
+  marks?: number;
   isValid?: boolean;
   validationError?: string;
 }
