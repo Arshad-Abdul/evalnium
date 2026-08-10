@@ -4,7 +4,7 @@ import { INITIAL_QUIZZES } from '../data/initialQuizzes';
 
 const QUIZZES_KEY = 'evalnium_quizzes_v3';
 const RESULTS_KEY = 'evalnium_results_v3';
-const ANNOUNCEMENTS_KEY = 'evalnium_announcements_v1';
+export const ANNOUNCEMENTS_KEY = 'evalnium_announcements_v1';
 
 const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
@@ -177,6 +177,24 @@ export function saveResult(result: QuizAttemptResult): QuizAttemptResult[] {
 }
 
 // --- ANNOUNCEMENTS CLOUD & LOCAL SYNC ---
+export function getStoredAnnouncements(): Announcement[] {
+  try {
+    const data = localStorage.getItem(ANNOUNCEMENTS_KEY);
+    return data ? JSON.parse(data) : [
+      {
+        id: 'ann_default_1',
+        title: 'UGC NET 2026 Bilingual Mock Series Live Now!',
+        message: 'Practice 100+ LIS metric science questions with negative marking & instant explanations.',
+        scheduledDateTime: new Date().toISOString(),
+        isActive: true,
+        createdAt: new Date().toISOString()
+      }
+    ];
+  } catch {
+    return [];
+  }
+}
+
 export async function syncAnnouncementsFromMySQL(): Promise<Announcement[] | null> {
   if (shouldSkipApiCall()) return null;
   try {

@@ -223,6 +223,18 @@ async function initDatabase() {
 
     await syncCandidatesToUsersTable();
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS bookmarks (
+        id VARCHAR(150) PRIMARY KEY,
+        uid VARCHAR(100) NOT NULL,
+        question_id VARCHAR(100) NOT NULL,
+        question_json LONGTEXT,
+        bookmarked_at VARCHAR(100),
+        UNIQUE KEY unique_user_question (uid, question_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+    try { await pool.query(`CREATE INDEX idx_bookmarks_uid ON bookmarks(uid);`); } catch {}
+
     console.log(`✅ All MySQL Database Tables & Indexes Verified & Ready!`);
   } catch (err) {
     console.error('❌ Failed to initialize MySQL Database:', err);
@@ -793,9 +805,46 @@ app.delete('/api/announcements/:id', async (req, res) => {
   }
 });
 
+// --- Bookmarks (per-user Revision Hub) ---
+app.get('/api/bookmarks', async (req, res) => {
+  const { uid } = req.query;
+  if (!uid) return res.status(400).json({ error: 'uid required' });
+  try {
+    const [rows] = await pool.query('SELECT question_json FROM bookmarks WHERE uid = ? ORDER BY bookmarked_at DESC', [uid]);
+    res.json(rows.map(r => JSON.parse(r.question_json)));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
+app.post('/api/bookmarks', async (req, res) => {
+  const { uid, questionId, question } = req.body;
+  if (!uid || !questionId || !question) return res.status(400).json({ error: 'uid, questionId, and question required' });
+  try {
+    const id = `bm_${uid}_${questionId}`.slice(0, 150);
+    await pool.query(
+      `INSERT INTO bookmarks (id, uid, question_id, question_json, bookmarked_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE question_json = VALUES(question_json), bookmarked_at = VALUES(bookmarked_at)`,
+      [id, uid, questionId, JSON.stringify(question), new Date().toISOString()]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-const PORT = process.env.PORT || 5050;
+app.delete('/api/bookmarks/:questionId', async (req, res) => {
+  const { uid } = req.query;
+  if (!uid) return res.status(400).json({ error: 'uid required' });
+  try {
+    await pool.query('DELETE FROM bookmarks WHERE uid = ? AND question_id = ?', [uid, req.params.questionId]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Evalnium MySQL Express Backend Server running on http://0.0.0.0:${PORT}`);
 });

@@ -433,7 +433,13 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               min={1}
               max={180}
               value={timeLimitMinutes}
-              onChange={(e) => setTimeLimitMinutes(parseInt(e.target.value) || 10)}
+              onChange={(e) => {
+                const newMins = parseInt(e.target.value) || 10;
+                setTimeLimitMinutes(newMins);
+                if (timingMode === 'question' && questions.length > 0) {
+                  setQuestionTimeLimitSeconds(Math.round((newMins * 60) / questions.length));
+                }
+              }}
               className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-sm font-mono font-bold focus:border-indigo-500 focus:bg-white focus:outline-none"
             />
           </div>
@@ -706,7 +712,13 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                   min={10}
                   max={600}
                   value={questionTimeLimitSeconds}
-                  onChange={(e) => setQuestionTimeLimitSeconds(parseInt(e.target.value) || 60)}
+                  onChange={(e) => {
+                    const newSecs = parseInt(e.target.value) || 60;
+                    setQuestionTimeLimitSeconds(newSecs);
+                    if (questions.length > 0) {
+                      setTimeLimitMinutes(Math.round((newSecs * questions.length) / 60));
+                    }
+                  }}
                   className="w-24 p-1.5 rounded-lg border border-slate-300 font-mono font-bold"
                 />
               </div>

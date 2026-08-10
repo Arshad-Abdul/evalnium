@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { Question } from '../../types/quiz';
 import { Bookmark, X, BookOpen, Trash2, HelpCircle } from 'lucide-react';
 import { AudioPlayerButton } from '../common/AudioPlayerButton';
+import { useAuth } from '../../context/AuthContext';
 
 interface RevisionHubModalProps {
   isOpen: boolean;
@@ -9,6 +10,12 @@ interface RevisionHubModalProps {
 }
 
 const BOOKMARKS_KEY = 'evalnium_bookmarked_questions_v1';
+
+const getApiBase = () => {
+  const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
+  const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0';
+  return isLocal ? 'http://localhost:5050/api' : `http://${host}:5050/api`;
+};
 
 export function getBookmarkedQuestions(): Question[] {
   try {
@@ -19,34 +26,60 @@ export function getBookmarkedQuestions(): Question[] {
   }
 }
 
-export function saveBookmarkedQuestion(question: Question): Question[] {
+export function saveBookmarkedQuestion(question: Question, uid?: string): Question[] {
   const existing = getBookmarkedQuestions();
   if (existing.some(q => q.id === question.id)) return existing;
   const updated = [question, ...existing];
   localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(updated));
+  if (uid) {
+    fetch(`${getApiBase()}/bookmarks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid, questionId: question.id, question }),
+    }).catch(() => {});
+  }
   return updated;
 }
 
-export function removeBookmarkedQuestion(qId: string): Question[] {
+export function removeBookmarkedQuestion(qId: string, uid?: string): Question[] {
   const existing = getBookmarkedQuestions();
   const updated = existing.filter(q => q.id !== qId);
   localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(updated));
+  if (uid) {
+    fetch(`${getApiBase()}/bookmarks/${encodeURIComponent(qId)}?uid=${encodeURIComponent(uid)}`, {
+      method: 'DELETE',
+    }).catch(() => {});
+  }
   return updated;
 }
 
 export const RevisionHubModal: React.FC<RevisionHubModalProps> = ({ isOpen, onClose }) => {
+  const { currentUser } = useAuth();
   const [bookmarks, setBookmarks] = useState<Question[]>([]);
 
   useEffect(() => {
-    if (isOpen) {
-      setBookmarks(getBookmarkedQuestions());
+    if (!isOpen) return;
+    const local = getBookmarkedQuestions();
+    setBookmarks(local);
+    // Sync from MySQL if logged in and merge with localStorage
+    if (currentUser?.uid) {
+      fetch(`${getApiBase()}/bookmarks?uid=${encodeURIComponent(currentUser.uid)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then((remote: Question[] | null) => {
+          if (!remote || remote.length === 0) return;
+          const localIds = new Set(local.map(q => q.id));
+          const merged = [...local, ...remote.filter(q => !localIds.has(q.id))];
+          localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(merged));
+          setBookmarks(merged);
+        })
+        .catch(() => {});
     }
-  }, [isOpen]);
+  }, [isOpen, currentUser?.uid]);
 
   if (!isOpen) return null;
 
   const handleRemove = (qId: string) => {
-    const updated = removeBookmarkedQuestion(qId);
+    const updated = removeBookmarkedQuestion(qId, currentUser?.uid);
     setBookmarks(updated);
   };
 

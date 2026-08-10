@@ -11,7 +11,9 @@ import {
   syncResultsFromMySQL,
   syncAnnouncementsFromMySQL,
   saveAnnouncementToCloud,
-  deleteAnnouncementFromCloud
+  deleteAnnouncementFromCloud,
+  getStoredAnnouncements,
+  ANNOUNCEMENTS_KEY,
 } from './utils/storage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
@@ -29,26 +31,6 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 // Lazy loaded heavy components for fast initial bundle load
 const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 const LeaderboardView = lazy(() => import('./components/user/LeaderboardView').then(m => ({ default: m.LeaderboardView })));
-
-const ANNOUNCEMENTS_KEY = 'evalnium_announcements_v1';
-
-function getStoredAnnouncements(): Announcement[] {
-  try {
-    const data = localStorage.getItem(ANNOUNCEMENTS_KEY);
-    return data ? JSON.parse(data) : [
-      {
-        id: 'ann_default_1',
-        title: 'UGC NET 2026 Bilingual Mock Series Live Now!',
-        message: 'Practice 100+ LIS metric science questions with negative marking & instant explanations.',
-        scheduledDateTime: new Date().toISOString(),
-        isActive: true,
-        createdAt: new Date().toISOString()
-      }
-    ];
-  } catch {
-    return [];
-  }
-}
 
 function MainAppContent() {
   const { isAdminAuthenticated, logoutAdmin, currentUser } = useAuth();
