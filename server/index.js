@@ -17,6 +17,7 @@ const DB_CONFIG = {
 };
 
 const DB_NAME = process.env.DB_NAME || 'evalnium_db';
+const PORT = parseInt(process.env.PORT || '5050', 10);
 
 let pool;
 
