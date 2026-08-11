@@ -40,6 +40,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   // --- Granular Admin Settings & Rules ---
   const [enableCertificate, setEnableCertificate] = useState(typeof parseResult.enableCertificate === 'boolean' ? parseResult.enableCertificate : true);
   const [enableAntiCheating, setEnableAntiCheating] = useState(parseResult.enableAntiCheating ?? false);
+  const [maxAttempts, setMaxAttempts] = useState<number>(parseResult.maxAttempts ?? 0);
   const [timingMode, setTimingMode] = useState<'quiz' | 'sectional' | 'question'>(parseResult.timingMode || 'quiz');
   const [questionTimeLimitSeconds, setQuestionTimeLimitSeconds] = useState(parseResult.questionTimeLimitSeconds ?? 60);
   const [preventPreviousSectionReturn, setPreventPreviousSectionReturn] = useState(parseResult.preventPreviousSectionReturn ?? false);
@@ -244,6 +245,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       // Granular Admin Controls
       enableCertificate,
       enableAntiCheating,
+      maxAttempts,
       timingMode,
       questionTimeLimitSeconds,
       preventPreviousSectionReturn,
@@ -561,6 +563,30 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                 className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
               />
             </label>
+
+            {/* Max Attempts Control */}
+            <div className="p-3 rounded-xl bg-white border border-slate-200 md:col-span-2 space-y-2">
+              <div>
+                <span className="text-xs font-bold text-slate-900 block">🔁 Retake / Attempt Limit</span>
+                <span className="text-[11px] text-slate-500 font-medium block">Control how many times a candidate can attempt this exam</span>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {[{ label: 'Unlimited', value: 0 }, { label: '1 Attempt', value: 1 }, { label: '2 Attempts', value: 2 }, { label: '3 Attempts', value: 3 }].map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setMaxAttempts(opt.value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                      maxAttempts === opt.value
+                        ? 'bg-indigo-600 text-white border-indigo-700'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Timing Mode Radio Selector */}

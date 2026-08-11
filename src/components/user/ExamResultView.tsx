@@ -202,19 +202,32 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
 
           {/* Action Buttons */}
           <div className="flex items-center space-x-3 pt-2">
-            {quiz.quizType === 'live_contest' ? (
-              <div className="w-1/2 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 font-bold text-xs flex items-center justify-center space-x-2 cursor-not-allowed">
-                <span>🔒 Retakes Disabled (Live Contest)</span>
-              </div>
-            ) : (
-              <button
-                onClick={onRetake}
-                className="w-1/2 py-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center space-x-2 transition-all"
-              >
-                <RotateCcw className="w-4 h-4 text-indigo-600" />
-                <span>Retake Exam</span>
-              </button>
-            )}
+            {(() => {
+              const attemptsUsed = result.attemptsCount || 1;
+              const retakeLocked =
+                quiz.quizType === 'live_contest' ||
+                (quiz.maxAttempts && quiz.maxAttempts > 0 && attemptsUsed >= quiz.maxAttempts);
+              if (retakeLocked) {
+                return (
+                  <div className="w-1/2 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 font-bold text-xs flex items-center justify-center space-x-2 cursor-not-allowed">
+                    <span>
+                      {quiz.quizType === 'live_contest'
+                        ? '🔒 Retakes Disabled (Live Contest)'
+                        : `🔒 Max Attempts Reached (${attemptsUsed}/${quiz.maxAttempts})`}
+                    </span>
+                  </div>
+                );
+              }
+              return (
+                <button
+                  onClick={onRetake}
+                  className="w-1/2 py-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center space-x-2 transition-all"
+                >
+                  <RotateCcw className="w-4 h-4 text-indigo-600" />
+                  <span>Retake Exam</span>
+                </button>
+              );
+            })()}
 
             <button
               onClick={onGoHome}

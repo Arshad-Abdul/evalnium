@@ -268,7 +268,12 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                   return (
                     <button
                       onClick={() => handleStartExamAttempt(quiz)}
-                      className={`w-full py-2.5 rounded-lg font-bold text-xs shadow-xs flex items-center justify-center space-x-2 transition-colors ${
+                      disabled={(() => {
+                        if (!quiz.maxAttempts || quiz.maxAttempts === 0) return false;
+                        const used = myAttempts.filter(a => a.quizId === quiz.id).length;
+                        return used >= quiz.maxAttempts;
+                      })()}
+                      className={`w-full py-2.5 rounded-lg font-bold text-xs shadow-xs flex items-center justify-center space-x-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                         currentUser
                           ? 'bg-blue-600 hover:bg-blue-700 text-white'
                           : 'bg-slate-900 hover:bg-slate-800 text-white'

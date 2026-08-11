@@ -112,6 +112,7 @@ async function initDatabase() {
       `ALTER TABLE quizzes ADD COLUMN allowed_emails LONGTEXT DEFAULT NULL;`,
       `ALTER TABLE quizzes ADD COLUMN question_view_mode VARCHAR(50) DEFAULT 'both';`,
       `ALTER TABLE results ADD COLUMN candidate_email VARCHAR(150) DEFAULT NULL;`,
+      `ALTER TABLE quizzes ADD COLUMN max_attempts INT DEFAULT 0;`,
     ];
 
     for (const alterSql of columnsToAdd) {
@@ -562,6 +563,7 @@ app.get('/api/quizzes', async (req, res) => {
         accessCode: q.access_code || undefined,
         allowedEmails: q.allowed_emails ? JSON.parse(q.allowed_emails) : undefined,
         questionViewMode: q.question_view_mode || 'both',
+        maxAttempts: q.max_attempts || 0,
         questions,
       });
     }
@@ -585,20 +587,20 @@ app.post('/api/quizzes', async (req, res) => {
       `INSERT INTO quizzes (
         id, title, description, topic, time_limit_minutes, passing_percentage, negative_marks, quiz_type, is_published, created_at, updated_at, author,
         enable_certificate, enable_anti_cheating, timing_mode, sectional_config_json, question_time_limit_seconds, prevent_prev_section, prevent_early_next_section, prevent_prev_question, prevent_early_next_question,
-        shuffle_questions, shuffle_options, enable_practice_mode, default_language_mode, access_code, allowed_emails, question_view_mode
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        shuffle_questions, shuffle_options, enable_practice_mode, default_language_mode, access_code, allowed_emails, question_view_mode, max_attempts
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE 
         title=?, description=?, topic=?, time_limit_minutes=?, passing_percentage=?, negative_marks=?, quiz_type=?, is_published=?, updated_at=?,
         enable_certificate=?, enable_anti_cheating=?, timing_mode=?, sectional_config_json=?, question_time_limit_seconds=?, prevent_prev_section=?, prevent_early_next_section=?, prevent_prev_question=?, prevent_early_next_question=?,
-        shuffle_questions=?, shuffle_options=?, enable_practice_mode=?, default_language_mode=?, access_code=?, allowed_emails=?, question_view_mode=?`,
+        shuffle_questions=?, shuffle_options=?, enable_practice_mode=?, default_language_mode=?, access_code=?, allowed_emails=?, question_view_mode=?, max_attempts=?`,
       [
         q.id, q.title, q.description, q.topic, q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.isPublished ? 1 : 0, q.createdAt, q.updatedAt, q.author || 'Admin',
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
-        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both',
+        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0,
         
         q.title, q.description, q.topic, q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.isPublished ? 1 : 0, q.updatedAt,
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
-        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both'
+        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0
       ]
     );
 
@@ -806,6 +808,15 @@ app.delete('/api/announcements/:id', async (req, res) => {
 });
 
 // --- Bookmarks (per-user Revision Hub) ---
+app.delete('/api/results/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM results WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/bookmarks', async (req, res) => {
   const { uid } = req.query;
   if (!uid) return res.status(400).json({ error: 'uid required' });

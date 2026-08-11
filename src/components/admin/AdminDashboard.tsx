@@ -4,7 +4,7 @@ import type { Announcement } from '../../types/announcement';
 import { QuizImporter } from './QuizImporter';
 import { McqPreviewEditor } from './McqPreviewEditor';
 import { AnnouncementManager } from './AnnouncementManager';
-import { Plus, Trash2, FileDown, Layers, Sparkles, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity } from 'lucide-react';
+import { Plus, Trash2, FileDown, Layers, Sparkles, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight } from 'lucide-react';
 import { getStoredResults } from '../../utils/storage';
 
 interface AdminDashboardProps {
@@ -29,6 +29,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'import' | 'manage' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users'>('import');
   const [liveSessions, setLiveSessions] = useState<any[]>([]);
   const [registeredUsers, setRegisteredUsers] = useState<Array<{ uid: string; name: string; email: string; role: string; createdAt: string }>>([]);
+  const [expandedCandidate, setExpandedCandidate] = useState<string | null>(null);
+  const [deletedResultIds, setDeletedResultIds] = useState<Set<string>>(new Set());
 
   const getApiBaseUrl = () => {
     const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
@@ -103,7 +105,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const [parsedResult, setParsedResult] = useState<{ res: ParseResult; sourceName: string } | null>(null);
 
-  const allAttemptResults = getStoredResults();
+  const allAttemptResults = getStoredResults().filter(r => !deletedResultIds.has(r.id));
+
+  const handleDeleteResult = async (resultId: string, candidateName: string) => {
+    if (!confirm(`Delete this attempt by "${candidateName}"? This cannot be undone.`)) return;
+    try {
+      await fetch(`${getApiBaseUrl()}/results/${resultId}`, { method: 'DELETE' });
+      setDeletedResultIds(prev => new Set([...prev, resultId]));
+      // Also remove from localStorage cache
+      const RESULTS_KEY = 'evalnium_results_v3';
+      try {
+        const cached = JSON.parse(localStorage.getItem(RESULTS_KEY) || '[]');
+        localStorage.setItem(RESULTS_KEY, JSON.stringify(cached.filter((r: { id: string }) => r.id !== resultId)));
+      } catch {}
+    } catch {
+      alert('Failed to delete result. Check server connection.');
+    }
+  };
 
   // Aggregate candidate statistics
   const candidateStatsMap: Record<string, {
@@ -457,32 +475,75 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 ) : (
                   candidateList.map(cand => {
                     const avg = Math.round(cand.totalScorePctSum / cand.totalAttempts);
+                    const key = `${cand.candidateName}_${cand.candidateEmail}`;
+                    const isExpanded = expandedCandidate === key;
+                    const candAttempts = allAttemptResults.filter(r =>
+                      (r.candidateEmail && r.candidateEmail === cand.candidateEmail) ||
+                      (!r.candidateEmail && r.candidateName === cand.candidateName)
+                    );
                     return (
-                      <tr key={`${cand.candidateName}_${cand.candidateEmail}`} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-3">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-xs uppercase border border-indigo-100">
-                              {cand.candidateName.charAt(0)}
+                      <React.Fragment key={key}>
+                        <tr
+                          className="hover:bg-slate-50 transition-colors cursor-pointer"
+                          onClick={() => setExpandedCandidate(isExpanded ? null : key)}
+                        >
+                          <td className="p-3">
+                            <div className="flex items-center space-x-3">
+                              {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />}
+                              <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-xs uppercase border border-indigo-100">
+                                {cand.candidateName.charAt(0)}
+                              </div>
+                              <div>
+                                <div className="text-slate-900 font-bold">{cand.candidateName}</div>
+                                <div className="text-slate-400 text-[10px] font-mono">{cand.candidateEmail}</div>
+                              </div>
                             </div>
-                            <div>
-                              <div className="text-slate-900 font-bold">{cand.candidateName}</div>
-                              <div className="text-slate-400 text-[10px] font-mono">{cand.candidateEmail}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-3 font-mono text-slate-700">{cand.totalAttempts} Exams</td>
-                        <td className="p-3 font-mono font-bold">
-                          <span className={`px-2 py-0.5 rounded text-[11px] ${
-                            avg >= 60 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                          }`}>
-                            {avg}%
-                          </span>
-                        </td>
-                        <td className="p-3 font-mono font-bold text-amber-700">{cand.passedCount} Passed</td>
-                        <td className="p-3 text-slate-500 font-mono">
-                          {new Date(cand.lastAttemptedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </td>
-                      </tr>
+                          </td>
+                          <td className="p-3 font-mono text-slate-700">{cand.totalAttempts} Exams</td>
+                          <td className="p-3 font-mono font-bold">
+                            <span className={`px-2 py-0.5 rounded text-[11px] ${
+                              avg >= 60 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                            }`}>
+                              {avg}%
+                            </span>
+                          </td>
+                          <td className="p-3 font-mono font-bold text-amber-700">{cand.passedCount} Passed</td>
+                          <td className="p-3 text-slate-500 font-mono">
+                            {new Date(cand.lastAttemptedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr>
+                            <td colSpan={5} className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+                              <div className="space-y-2">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Individual Attempts</p>
+                                {candAttempts.length === 0 ? (
+                                  <p className="text-xs text-slate-400">No individual attempts visible.</p>
+                                ) : (
+                                  candAttempts.map(r => (
+                                    <div key={r.id} className="flex items-center justify-between bg-white rounded-xl border border-slate-200 px-4 py-2.5 shadow-2xs">
+                                      <div className="flex items-center space-x-3">
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${r.passed ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                                          {r.percentage}% {r.passed ? '✓' : '✗'}
+                                        </span>
+                                        <span className="font-semibold text-slate-800 text-xs">{r.quizTitle}</span>
+                                        <span className="text-slate-400 text-[10px] font-mono">{new Date(r.attemptedAt).toLocaleDateString()}</span>
+                                      </div>
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteResult(r.id, cand.candidateName); }}
+                                        className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 border border-rose-200 transition-all"
+                                        title="Delete this attempt"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     );
                   })
                 )}

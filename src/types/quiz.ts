@@ -54,6 +54,7 @@ export interface Quiz {
   // --- Granular Admin Settings & Rules ---
   enableCertificate?: boolean;
   enableAntiCheating?: boolean;
+  maxAttempts?: number; // 0 or undefined = unlimited
   timingMode?: 'quiz' | 'sectional' | 'question';
   sectionalConfig?: {
     id: string;
@@ -122,6 +123,7 @@ export interface ParseResult {
   // Granular Admin Controls
   enableCertificate?: boolean;
   enableAntiCheating?: boolean;
+  maxAttempts?: number;
   timingMode?: 'quiz' | 'sectional' | 'question';
   questionTimeLimitSeconds?: number;
   preventPreviousSectionReturn?: boolean;
@@ -136,7 +138,6 @@ export interface ParseResult {
   }>;
   accessCode?: string;
   allowedEmails?: string[];
-
   questionViewMode?: 'both' | 'single_only' | 'all_only';
 
   questions: ParsedQuestion[];

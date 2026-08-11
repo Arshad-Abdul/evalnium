@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import type { Quiz, QuizAttemptResult } from '../../types/quiz';
 import { useAuth } from '../../context/AuthContext';
-import { Award, Trophy, Target, TrendingUp, BookOpen, Clock, CheckCircle2, AlertTriangle, ArrowRight, Play } from 'lucide-react';
+import { Award, Trophy, Target, TrendingUp, BookOpen, Clock, CheckCircle2, AlertTriangle, ArrowRight, Play, Eye, X } from 'lucide-react';
 import { PDFCertificateModal } from './PDFCertificateModal';
+import { ExamResultView } from './ExamResultView';
 
 interface CandidateDashboardProps {
   quizzes: Quiz[];
@@ -19,6 +20,7 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
 }) => {
   const { currentUser } = useAuth();
   const [selectedCertAttempt, setSelectedCertAttempt] = useState<QuizAttemptResult | null>(null);
+  const [reviewAttempt, setReviewAttempt] = useState<QuizAttemptResult | null>(null);
 
   // Filter attempts belonging to the current candidate
   const myAttempts = attemptsHistory.filter(attempt => {
@@ -373,6 +375,13 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
                       <span>PDF Merit Certificate 📜</span>
                     </button>
                   )}
+                  <button
+                    onClick={() => setReviewAttempt(attempt)}
+                    className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold text-xs shadow-xs flex items-center space-x-1.5 transition-all cursor-pointer"
+                  >
+                    <Eye className="w-4 h-4 text-indigo-600" />
+                    <span>View Full Review</span>
+                  </button>
                 </div>
               </div>
             ))
@@ -395,6 +404,40 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
           attemptId={selectedCertAttempt.id}
         />
       )}
+
+      {/* Full Attempt Review Overlay */}
+      {reviewAttempt && (() => {
+        const reviewQuiz = quizzes.find(q => q.id === reviewAttempt.quizId);
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-50 overflow-y-auto">
+            <div className="max-w-4xl mx-auto px-4 py-6">
+              <div className="flex items-center justify-between mb-6 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs sticky top-4 z-10">
+                <div>
+                  <h2 className="font-bold text-slate-900 text-base">Full Attempt Review</h2>
+                  <p className="text-xs text-slate-500 font-medium">{reviewAttempt.quizTitle} • {new Date(reviewAttempt.attemptedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                </div>
+                <button onClick={() => setReviewAttempt(null)} className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              {reviewQuiz ? (
+                <ExamResultView
+                  result={reviewAttempt}
+                  quiz={reviewQuiz}
+                  onRetake={() => { setReviewAttempt(null); onSelectQuiz(reviewQuiz); }}
+                  onGoHome={() => setReviewAttempt(null)}
+                />
+              ) : (
+                <div className="text-center py-20 text-slate-500 space-y-2">
+                  <p className="font-bold text-slate-700">Quiz No Longer Available</p>
+                  <p className="text-xs">The quiz for this attempt may have been deleted by the admin.</p>
+                  <button onClick={() => setReviewAttempt(null)} className="mt-4 px-4 py-2 rounded-lg bg-slate-900 text-white font-bold text-xs">Close</button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );
