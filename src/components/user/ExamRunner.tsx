@@ -172,24 +172,44 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 
   useEffect(() => {
     if (!quiz.enableAntiCheating) return;
+    const maxViolations = quiz.maxTabSwitches || 3;
+    const originalWidth = window.innerWidth;
 
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        setTabSwitchCount((prev) => {
-          const nextCount = prev + 1;
-          setShowAntiCheatWarning(true);
-          if (nextCount >= 3) {
-            alert('🚨 ANTI-CHEATING VIOLATION: 3 Tab Switch violations detected. Exam is being automatically submitted now.');
-            handleForceSubmit();
-          }
-          return nextCount;
-        });
+    const triggerViolation = () => {
+      setTabSwitchCount((prev) => {
+        const nextCount = prev + 1;
+        setShowAntiCheatWarning(true);
+        if (nextCount >= maxViolations) {
+          alert(`🚨 ANTI-CHEATING VIOLATION: ${maxViolations} violation${maxViolations > 1 ? 's' : ''} detected. Exam is being automatically submitted now.`);
+          handleForceSubmit();
+        }
+        return nextCount;
+      });
+    };
+
+    // Tab switch / window minimize
+    const handleVisibilityChange = () => { if (document.hidden) triggerViolation(); };
+    // Alt+Tab / clicking another app — only count if tab is still visible to avoid double-counting
+    const handleWindowBlur = () => { if (!document.hidden) triggerViolation(); };
+    // Significant resize = probable split-screen; use a flag to avoid counting every drag tick
+    let resizeFired = false;
+    const handleWindowResize = () => {
+      if (!resizeFired && window.innerWidth < originalWidth * 0.70) {
+        resizeFired = true;
+        triggerViolation();
+        setTimeout(() => { resizeFired = false; }, 10000);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [quiz.enableAntiCheating, handleForceSubmit]);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('resize', handleWindowResize);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('resize', handleWindowResize);
+    };
+  }, [quiz.enableAntiCheating, quiz.maxTabSwitches, handleForceSubmit]);
 
   // Save progress & userAnswers to LocalStorage on state update
   useEffect(() => {
@@ -473,7 +493,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
           <div className="flex items-center space-x-2">
             <AlertTriangle className="w-5 h-5 text-yellow-300 flex-shrink-0" />
             <span>
-              ⚠️ ANTI-CHEATING WARNING ({tabSwitchCount}/3): Tab/Window switch detected! Exam will auto-submit after 3 violations.
+              ⚠️ ANTI-CHEATING WARNING ({tabSwitchCount}/{quiz.maxTabSwitches || 3}): Tab/Window switch or resize detected! Exam auto-submits after {quiz.maxTabSwitches || 3} violation{(quiz.maxTabSwitches || 3) > 1 ? 's' : ''}.
             </span>
           </div>
           <button

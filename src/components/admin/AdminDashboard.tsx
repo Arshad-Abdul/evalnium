@@ -188,6 +188,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       // Granular Admin Controls
       enableCertificate: quiz.enableCertificate,
       enableAntiCheating: quiz.enableAntiCheating,
+      maxAttempts: quiz.maxAttempts,
+      maxTabSwitches: quiz.maxTabSwitches,
+      resultAnnouncementDateTime: quiz.resultAnnouncementDateTime,
       timingMode: quiz.timingMode,
       questionTimeLimitSeconds: quiz.questionTimeLimitSeconds,
       preventPreviousSectionReturn: quiz.preventPreviousSectionReturn,
@@ -195,6 +198,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       preventPreviousQuestionReturn: quiz.preventPreviousQuestionReturn,
       preventEarlyNextQuestion: quiz.preventEarlyNextQuestion,
       questionViewMode: quiz.questionViewMode || 'both',
+      allowManualEarlyMove: quiz.allowManualEarlyMove,
       sectionalConfig: quiz.sectionalConfig?.map(sec => ({
         id: sec.id,
         sectionName: sec.sectionName,

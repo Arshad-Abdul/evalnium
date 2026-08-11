@@ -55,6 +55,8 @@ export interface Quiz {
   enableCertificate?: boolean;
   enableAntiCheating?: boolean;
   maxAttempts?: number; // 0 or undefined = unlimited
+  maxTabSwitches?: number; // violations before auto-submit, default 3
+  resultAnnouncementDateTime?: string; // ISO string; if set and in future, results are hidden
   timingMode?: 'quiz' | 'sectional' | 'question';
   sectionalConfig?: {
     id: string;
@@ -141,6 +143,8 @@ export interface ParseResult {
   allowedEmails?: string[];
   questionViewMode?: 'both' | 'single_only' | 'all_only';
   allowManualEarlyMove?: boolean;
+  maxTabSwitches?: number;
+  resultAnnouncementDateTime?: string;
 
   questions: ParsedQuestion[];
   errors: string[];

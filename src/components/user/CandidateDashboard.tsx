@@ -375,13 +375,28 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
                       <span>PDF Merit Certificate 📜</span>
                     </button>
                   )}
-                  <button
-                    onClick={() => setReviewAttempt(attempt)}
-                    className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold text-xs shadow-xs flex items-center space-x-1.5 transition-all cursor-pointer"
-                  >
-                    <Eye className="w-4 h-4 text-indigo-600" />
-                    <span>View Full Review</span>
-                  </button>
+                  {(() => {
+                    const q = quizzes.find(q => q.id === attempt.quizId);
+                    const announcementDate = q?.resultAnnouncementDateTime ? new Date(q.resultAnnouncementDateTime) : null;
+                    const reviewAvailable = !announcementDate || new Date() >= announcementDate;
+                    if (reviewAvailable) {
+                      return (
+                        <button
+                          onClick={() => setReviewAttempt(attempt)}
+                          className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold text-xs shadow-xs flex items-center space-x-1.5 transition-all cursor-pointer"
+                        >
+                          <Eye className="w-4 h-4 text-indigo-600" />
+                          <span>View Full Review</span>
+                        </button>
+                      );
+                    }
+                    return (
+                      <span className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 font-bold text-xs flex items-center space-x-1.5">
+                        <Clock className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Results on {announcementDate!.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             ))

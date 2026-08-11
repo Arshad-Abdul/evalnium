@@ -41,6 +41,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [enableCertificate, setEnableCertificate] = useState(typeof parseResult.enableCertificate === 'boolean' ? parseResult.enableCertificate : true);
   const [enableAntiCheating, setEnableAntiCheating] = useState(parseResult.enableAntiCheating ?? false);
   const [maxAttempts, setMaxAttempts] = useState<number>(parseResult.maxAttempts ?? 0);
+  const [maxTabSwitches, setMaxTabSwitches] = useState<number>(parseResult.maxTabSwitches ?? 3);
+  const [resultAnnouncementDateTime, setResultAnnouncementDateTime] = useState<string>(parseResult.resultAnnouncementDateTime || '');
   const [timingMode, setTimingMode] = useState<'quiz' | 'sectional' | 'question'>(parseResult.timingMode || 'quiz');
   const [questionTimeLimitSeconds, setQuestionTimeLimitSeconds] = useState(parseResult.questionTimeLimitSeconds ?? 60);
   const [preventPreviousSectionReturn, setPreventPreviousSectionReturn] = useState(parseResult.preventPreviousSectionReturn ?? false);
@@ -247,6 +249,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       enableCertificate,
       enableAntiCheating,
       maxAttempts,
+      maxTabSwitches,
+      resultAnnouncementDateTime: resultAnnouncementDateTime || undefined,
       timingMode,
       questionTimeLimitSeconds,
       preventPreviousSectionReturn,
@@ -556,7 +560,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
             <label className="p-3 rounded-xl bg-white border border-slate-200 flex items-center justify-between cursor-pointer hover:border-slate-300">
               <div>
                 <span className="text-xs font-bold text-slate-900 block">⚠️ Tab-Switch Anti-Cheating Warning</span>
-                <span className="text-[11px] text-slate-500 font-medium block">Auto-submit exam after 2 tab-switching warnings</span>
+                <span className="text-[11px] text-slate-500 font-medium block">Auto-submit exam after tab-switching violations</span>
               </div>
               <input
                 type="checkbox"
@@ -565,6 +569,26 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                 className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
               />
             </label>
+
+            {/* Max Tab Switches */}
+            {enableAntiCheating && (
+              <div className="p-3 rounded-xl bg-white border border-slate-200 space-y-2">
+                <div>
+                  <span className="text-xs font-bold text-slate-900 block">🚨 Violations Before Auto-Submit</span>
+                  <span className="text-[11px] text-slate-500 font-medium block">Also triggers on window blur (Alt+Tab) and significant resize (split-screen)</span>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {[1, 2, 3, 5].map(n => (
+                    <button key={n} type="button" onClick={() => setMaxTabSwitches(n)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                        maxTabSwitches === n ? 'bg-rose-600 text-white border-rose-700' : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
+                      }`}>
+                      {n} Violation{n > 1 ? 's' : ''}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Max Attempts Control */}
             <div className="p-3 rounded-xl bg-white border border-slate-200 md:col-span-2 space-y-2">
@@ -589,6 +613,26 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                 ))}
               </div>
             </div>
+          </div>
+
+          {/* Result Announcement Date/Time */}
+          <div className="p-3 rounded-xl bg-white border border-slate-200 space-y-2">
+            <div>
+              <span className="text-xs font-bold text-slate-900 block">📅 Result Announcement Date &amp; Time</span>
+              <span className="text-[11px] text-slate-500 font-medium block">Leave blank for instant results. Set a future date to hide scores &amp; leaderboard until announced.</span>
+            </div>
+            <input
+              type="datetime-local"
+              value={resultAnnouncementDateTime}
+              onChange={(e) => setResultAnnouncementDateTime(e.target.value)}
+              className="w-full sm:w-72 px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono focus:outline-none focus:border-indigo-500"
+            />
+            {resultAnnouncementDateTime && (
+              <button type="button" onClick={() => setResultAnnouncementDateTime('')}
+                className="text-[11px] text-rose-600 hover:underline font-semibold">
+                Clear (revert to instant results)
+              </button>
+            )}
           </div>
 
           {/* Timing Mode Radio Selector */}

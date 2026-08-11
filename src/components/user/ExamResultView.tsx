@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { QuizAttemptResult, Quiz, Question, UserAnswer } from '../../types/quiz';
 import { getStoredResults } from '../../utils/storage';
 import confetti from 'canvas-confetti';
-import { Trophy, AlertCircle, RotateCcw, Home, HelpCircle, BookOpen, Languages, Target, UserCheck } from 'lucide-react';
+import { Trophy, AlertCircle, RotateCcw, Home, HelpCircle, BookOpen, Languages, Target, UserCheck, Clock } from 'lucide-react';
 import { AudioPlayerButton } from '../common/AudioPlayerButton';
 
 interface ExamResultViewProps {
@@ -47,6 +47,39 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
 
   // Rank #1 Topper
   const topper = quizAttempts.sort((a, b) => b.percentage - a.percentage)[0] || result;
+
+  // Gate results behind announcement date
+  const announcementDate = quiz.resultAnnouncementDateTime ? new Date(quiz.resultAnnouncementDateTime) : null;
+  const resultsVisible = !announcementDate || new Date() >= announcementDate;
+
+  if (!resultsVisible) {
+    return (
+      <div className="max-w-md mx-auto text-center py-20 space-y-6 animate-in fade-in duration-300">
+        <div className="w-20 h-20 mx-auto rounded-3xl bg-amber-50 border border-amber-200 flex items-center justify-center shadow-sm">
+          <Clock className="w-10 h-10 text-amber-600" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-extrabold text-slate-900">Exam Submitted!</h2>
+          <p className="text-sm text-slate-500 font-medium">Your answers have been securely recorded and will be evaluated.</p>
+        </div>
+        <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 space-y-1">
+          <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">Results will be announced on</p>
+          <p className="text-lg font-black text-amber-900 font-mono">
+            {announcementDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
+          <p className="text-sm font-bold text-amber-800">
+            at {announcementDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </p>
+        </div>
+        <button
+          onClick={onGoHome}
+          className="px-8 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md shadow-indigo-600/20 transition-all"
+        >
+          Back to Exam Catalog
+        </button>
+      </div>
+    );
+  }
 
   const isQuestionAnswered = (q: Question, uAns: UserAnswer | undefined): boolean => {
     if (!uAns) return false;
