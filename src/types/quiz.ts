@@ -69,6 +69,7 @@ export interface Quiz {
   preventPreviousQuestionReturn?: boolean;
   preventEarlyNextQuestion?: boolean;
   questionViewMode?: 'both' | 'single_only' | 'all_only';
+  allowManualEarlyMove?: boolean; // Allow candidate to manually finish section early & move to next (but cannot return)
 }
 
 export interface UserAnswer {
@@ -139,6 +140,7 @@ export interface ParseResult {
   accessCode?: string;
   allowedEmails?: string[];
   questionViewMode?: 'both' | 'single_only' | 'all_only';
+  allowManualEarlyMove?: boolean;
 
   questions: ParsedQuestion[];
   errors: string[];

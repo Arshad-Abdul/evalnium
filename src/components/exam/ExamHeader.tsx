@@ -12,6 +12,8 @@ interface ExamHeaderProps {
   timingMode?: 'quiz' | 'sectional' | 'question';
   timeRemainingSeconds: number;
   questionTimeRemainingSeconds?: number;
+  sectionTimeRemainingSeconds?: number;
+  currentSectionName?: string;
   onOpenSubmitModal: () => void;
 }
 
@@ -26,10 +28,13 @@ export const ExamHeader: React.FC<ExamHeaderProps> = ({
   timingMode,
   timeRemainingSeconds,
   questionTimeRemainingSeconds,
+  sectionTimeRemainingSeconds,
+  currentSectionName,
   onOpenSubmitModal,
 }) => {
   const isLowTime = timeRemainingSeconds < 120;
   const isLowQTime = (questionTimeRemainingSeconds ?? 99) < 10;
+  const isLowSecTime = (sectionTimeRemainingSeconds ?? 999) < 60;
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -128,6 +133,30 @@ export const ExamHeader: React.FC<ExamHeaderProps> = ({
           }`}>
             <Clock className={`w-3.5 h-3.5 ${isLowQTime ? 'text-rose-600' : 'text-amber-600'}`} />
             <span>Q Time: {formatTime(questionTimeRemainingSeconds)}</span>
+          </div>
+        ) : timingMode === 'sectional' && sectionTimeRemainingSeconds !== undefined ? (
+          <div className="flex items-center space-x-2">
+            {currentSectionName && (
+              <span className="hidden sm:block text-[10px] font-bold text-violet-700 bg-violet-50 border border-violet-200 px-2 py-1 rounded-md max-w-[120px] truncate">
+                {currentSectionName}
+              </span>
+            )}
+            <div className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-mono text-xs font-bold border transition-all ${
+              isLowSecTime
+                ? 'bg-rose-50 border-rose-400 text-rose-700 animate-pulse'
+                : (sectionTimeRemainingSeconds ?? 999) < 180
+                ? 'bg-amber-50 border-amber-300 text-amber-800'
+                : 'bg-violet-50 border-violet-300 text-violet-800'
+            }`}>
+              <Clock className={`w-3.5 h-3.5 ${isLowSecTime ? 'text-rose-600' : 'text-violet-600'}`} />
+              <span>Section: {formatTime(sectionTimeRemainingSeconds)}</span>
+            </div>
+            <div className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg font-mono text-xs font-bold border transition-all ${
+              isLowTime ? 'bg-rose-50 border-rose-300 text-rose-700 animate-pulse' : 'bg-slate-50 border-slate-200 text-slate-600'
+            }`}>
+              <Clock className={`w-3 h-3 ${isLowTime ? 'text-rose-500' : 'text-slate-400'}`} />
+              <span>Total: {formatTime(timeRemainingSeconds)}</span>
+            </div>
           </div>
         ) : (
           <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg font-mono text-xs font-bold border transition-all ${

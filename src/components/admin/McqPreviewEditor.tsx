@@ -48,6 +48,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [preventPreviousQuestionReturn, setPreventPreviousQuestionReturn] = useState(parseResult.preventPreviousQuestionReturn ?? false);
   const [preventEarlyNextQuestion, setPreventEarlyNextQuestion] = useState(parseResult.preventEarlyNextQuestion ?? false);
   const [questionViewMode, setQuestionViewMode] = useState<'both' | 'single_only' | 'all_only'>(parseResult.questionViewMode || 'both');
+  const [allowManualEarlyMove, setAllowManualEarlyMove] = useState(parseResult.allowManualEarlyMove ?? false);
   // Section type with both auto-range and manual question pick support
   type SectionDef = {
     id: string;
@@ -253,6 +254,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       preventPreviousQuestionReturn,
       preventEarlyNextQuestion,
       questionViewMode,
+      allowManualEarlyMove,
       sectionalConfig: (() => {
         // Build sequential auto-ranges for 'auto' sections; use manual picks for 'manual' sections
         let cursor = 0;
@@ -961,6 +963,17 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                     />
                     <span>Prevent candidate from moving to next section until current section time ends</span>
                   </label>
+                  {preventEarlyNextSection && (
+                    <label className="flex items-center space-x-2 ml-5 text-violet-800">
+                      <input
+                        type="checkbox"
+                        checked={allowManualEarlyMove}
+                        onChange={(e) => setAllowManualEarlyMove(e.target.checked)}
+                        className="rounded text-violet-600"
+                      />
+                      <span>↳ Allow candidate to manually finish section early &amp; move to next (but cannot go back)</span>
+                    </label>
+                  )}
                 </div>
               </div>
             );

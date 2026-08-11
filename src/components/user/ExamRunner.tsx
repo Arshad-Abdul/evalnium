@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Quiz, UserAnswer, QuizAttemptResult } from '../../types/quiz';
-import { ChevronLeft, ChevronRight, AlertTriangle, Send } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, Send, Clock } from 'lucide-react';
 import { saveBookmarkedQuestion } from './RevisionHubModal';
 import { ExamHeader } from '../exam/ExamHeader';
 import { QuestionPalette } from '../exam/QuestionPalette';
@@ -55,6 +55,8 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [languageMode, setLanguageMode] = useState<'dual' | 'en' | 'hi'>(quiz.defaultLanguageMode || 'en');
   const [examViewMode, setExamViewMode] = useState<'single' | 'all'>(quiz.questionViewMode === 'all_only' ? 'all' : 'single');
+  const [sectionTimeRemainingSeconds, setSectionTimeRemainingSeconds] = useState<number>(0);
+  const [sectionTransitionMsg, setSectionTransitionMsg] = useState<string | null>(null);
 
   const activeQuestions = React.useMemo(() => {
     let prepared = quiz.questions.map(q => {
@@ -80,6 +82,36 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 
     return prepared;
   }, [quiz.id, quiz.questions, quiz.shuffleQuestions, quiz.shuffleOptions]);
+
+  // Section boundary computation — drives per-section timer and navigation locking
+  const sectionBoundaries = React.useMemo(() => {
+    if (!quiz.sectionalConfig?.length || quiz.timingMode !== 'sectional') return [];
+    let cursor = 0;
+    const equalSize = Math.max(1, Math.floor(activeQuestions.length / quiz.sectionalConfig.length));
+    return quiz.sectionalConfig.map((sec) => {
+      const start = cursor;
+      const count = (sec.questionIds && sec.questionIds.length > 0 ? sec.questionIds.length : sec.questionCount) || equalSize;
+      cursor += count;
+      return { start, end: Math.min(cursor, activeQuestions.length), section: sec };
+    });
+  }, [quiz.sectionalConfig, quiz.timingMode, activeQuestions.length]);
+
+  const currentSectionIdx = React.useMemo(() =>
+    !sectionBoundaries.length ? 0
+    : sectionBoundaries.reduce((best, { start }, i) => currentQuestionIndex >= start ? i : best, 0)
+  , [sectionBoundaries, currentQuestionIndex]);
+
+  const currentSectionBoundary = sectionBoundaries[currentSectionIdx] ?? null;
+  const isLastQuestionOfSection = !!currentSectionBoundary && currentQuestionIndex >= currentSectionBoundary.end - 1;
+  const isLastSection = currentSectionIdx >= sectionBoundaries.length - 1;
+  // Blocked if: sectional mode + prevent early next + no manual early move + on last Q of section + not last section + timer > 0
+  const isBlockedBySectionLock =
+    quiz.timingMode === 'sectional' &&
+    quiz.preventEarlyNextSection === true &&
+    !quiz.allowManualEarlyMove &&
+    isLastQuestionOfSection &&
+    !isLastSection &&
+    sectionTimeRemainingSeconds > 0;
 
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [showAntiCheatWarning, setShowAntiCheatWarning] = useState(false);
@@ -115,6 +147,28 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 
   // Keep handleForceSubmitRef in sync after it's defined
   handleForceSubmitRef.current = handleForceSubmit;
+
+  // Section advance refs — must be after sectionBoundaries memo so they capture current values
+  const handleSectionAdvanceRef = React.useRef<(() => void) | null>(null);
+  const sectionBoundariesRef = React.useRef(sectionBoundaries);
+  sectionBoundariesRef.current = sectionBoundaries;
+  const currentSectionIdxRef = React.useRef(currentSectionIdx);
+  currentSectionIdxRef.current = currentSectionIdx;
+
+  const handleSectionAdvance = useCallback(() => {
+    const boundaries = sectionBoundariesRef.current;
+    const curIdx = currentSectionIdxRef.current;
+    if (curIdx < boundaries.length - 1) {
+      const next = boundaries[curIdx + 1];
+      setSectionTransitionMsg(`⏰ Section ${curIdx + 1} time over! Auto-moving to "${next.section.sectionName}"...`);
+      setTimeout(() => setSectionTransitionMsg(null), 4000);
+      setCurrentQuestionIndex(next.start);
+    } else {
+      setSectionTransitionMsg('⏰ All sections completed. Auto-submitting your exam...');
+      setTimeout(() => handleForceSubmitRef.current?.(), 2000);
+    }
+  }, []);
+  handleSectionAdvanceRef.current = handleSectionAdvance;
 
   useEffect(() => {
     if (!quiz.enableAntiCheating) return;
@@ -237,6 +291,28 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
   // handleForceSubmit and activeQuestions.length are intentionally accessed via refs
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestionIndex, quiz.timingMode, quiz.questionTimeLimitSeconds]);
+
+  // Per-section countdown (sectional timing mode only) — resets automatically when section changes
+  useEffect(() => {
+    if (quiz.timingMode !== 'sectional') return;
+    const secConfig = quiz.sectionalConfig?.[currentSectionIdx];
+    if (!secConfig?.timeLimitMinutes) return;
+
+    const limit = secConfig.timeLimitMinutes * 60;
+    setSectionTimeRemainingSeconds(limit);
+    let timeLeft = limit;
+
+    const interval = setInterval(() => {
+      timeLeft -= 1;
+      setSectionTimeRemainingSeconds(timeLeft);
+      if (timeLeft <= 0) {
+        clearInterval(interval);
+        handleSectionAdvanceRef.current?.();
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSectionIdx, quiz.timingMode]);
 
   const handleSelectOption = useCallback((optionId: string) => {
     const qId = currentQuestion.id;
@@ -386,6 +462,8 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         timingMode={quiz.timingMode}
         timeRemainingSeconds={timeRemainingSeconds}
         questionTimeRemainingSeconds={quiz.timingMode === 'question' ? questionTimeRemainingSeconds : undefined}
+        sectionTimeRemainingSeconds={quiz.timingMode === 'sectional' ? sectionTimeRemainingSeconds : undefined}
+        currentSectionName={quiz.timingMode === 'sectional' && quiz.sectionalConfig?.[currentSectionIdx] ? quiz.sectionalConfig[currentSectionIdx].sectionName : undefined}
         onOpenSubmitModal={() => setShowSubmitModal(true)}
       />
 
@@ -407,43 +485,47 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         </div>
       )}
 
+      {/* Section Transition Toast — shown when a section auto-expires and moves to next */}
+      {sectionTransitionMsg && (
+        <div className="bg-indigo-700 text-white p-3 rounded-2xl flex items-center space-x-2 text-xs font-bold shadow-xl border border-indigo-500 animate-pulse">
+          <Clock className="w-4 h-4 text-yellow-300 flex-shrink-0" />
+          <span>{sectionTransitionMsg}</span>
+        </div>
+      )}
+
       {/* Section Tabs Bar */}
       {quiz.sectionalConfig && quiz.sectionalConfig.length > 0 && (
         <div className="flex items-center space-x-2 bg-slate-900 text-white p-2.5 rounded-2xl border border-slate-800 overflow-x-auto">
           <span className="text-xs font-bold text-slate-400 px-2 uppercase font-mono flex-shrink-0">Paper Sections:</span>
-          {(() => {
-            // Pre-compute each section's start index using questionCount, falling back to equal division
-            const sectionStarts: number[] = [];
-            let cumulative = 0;
-            const equalSize = Math.floor(activeQuestions.length / quiz.sectionalConfig!.length);
-            quiz.sectionalConfig!.forEach((sec) => {
-              sectionStarts.push(cumulative);
-              cumulative += sec.questionCount || equalSize;
-            });
-            // Determine which section the current question belongs to
-            const currentSectionIdx = sectionStarts.reduce((best, start, i) =>
-              currentQuestionIndex >= start ? i : best, 0);
-            return quiz.sectionalConfig!.map((sec, idx) => {
-              const firstQIndex = Math.min(sectionStarts[idx], activeQuestions.length - 1);
-              const isLocked = quiz.preventPreviousSectionReturn === true && idx < currentSectionIdx;
-              return (
-                <button
-                  key={sec.id || idx}
-                  onClick={() => { if (!isLocked) setCurrentQuestionIndex(firstQIndex); }}
-                  disabled={isLocked}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-md border flex-shrink-0 transition-all ${
-                    idx === currentSectionIdx
-                      ? 'bg-white text-indigo-900 border-white'
-                      : isLocked
-                      ? 'bg-slate-700 text-slate-500 border-slate-600 cursor-not-allowed opacity-50'
-                      : 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-indigo-400/40 cursor-pointer'
-                  }`}
-                >
-                  {sec.sectionName} ({sec.timeLimitMinutes} Mins)
-                </button>
-              );
-            });
-          })()}
+          {quiz.sectionalConfig!.map((sec, idx) => {
+            const boundary = sectionBoundaries[idx];
+            const firstQIndex = boundary ? Math.min(boundary.start, activeQuestions.length - 1) : 0;
+            const isBackLocked = quiz.preventPreviousSectionReturn === true && idx < currentSectionIdx;
+            const isForwardLocked = quiz.preventEarlyNextSection === true && !quiz.allowManualEarlyMove && idx > currentSectionIdx && sectionTimeRemainingSeconds > 0;
+            const isLocked = isBackLocked || isForwardLocked;
+            const isCurrent = idx === currentSectionIdx;
+            // Live countdown on current section tab
+            const secTimeDisplay = isCurrent && quiz.timingMode === 'sectional' && sectionTimeRemainingSeconds > 0
+              ? ` ⏱ ${Math.floor(sectionTimeRemainingSeconds / 60)}:${String(sectionTimeRemainingSeconds % 60).padStart(2, '0')}`
+              : ` (${sec.timeLimitMinutes}m)`;
+            return (
+              <button
+                key={sec.id || idx}
+                onClick={() => { if (!isLocked) setCurrentQuestionIndex(firstQIndex); }}
+                disabled={isLocked}
+                title={isForwardLocked ? 'Locked — finish current section time first' : isBackLocked ? 'Cannot return to previous sections' : undefined}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-md border flex-shrink-0 transition-all ${
+                  isCurrent
+                    ? 'bg-white text-indigo-900 border-white'
+                    : isLocked
+                    ? 'bg-slate-700 text-slate-500 border-slate-600 cursor-not-allowed opacity-50'
+                    : 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-indigo-400/40 cursor-pointer'
+                }`}
+              >
+                {sec.sectionName}{secTimeDisplay}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -479,11 +561,36 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
               <div className="flex items-center space-x-3">
                 {currentQuestionIndex < activeQuestions.length - 1 ? (
                   <button
-                    onClick={() => setCurrentQuestionIndex((prev) => Math.min(activeQuestions.length - 1, prev + 1))}
-                    disabled={quiz.timingMode === 'question' && quiz.preventEarlyNextQuestion === true && questionTimeRemainingSeconds > 0}
-                    className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs flex items-center space-x-1.5 transition-all"
+                    onClick={() => {
+                      // Section boundary navigation: at last Q of section, jump to next section start
+                      if (isLastQuestionOfSection && !isLastSection && quiz.timingMode === 'sectional') {
+                        if (isBlockedBySectionLock) return;
+                        const nextBoundary = sectionBoundaries[currentSectionIdx + 1];
+                        if (nextBoundary) setCurrentQuestionIndex(nextBoundary.start);
+                      } else {
+                        setCurrentQuestionIndex((prev) => Math.min(activeQuestions.length - 1, prev + 1));
+                      }
+                    }}
+                    disabled={
+                      (quiz.timingMode === 'question' && quiz.preventEarlyNextQuestion === true && questionTimeRemainingSeconds > 0) ||
+                      isBlockedBySectionLock
+                    }
+                    title={isBlockedBySectionLock ? `Cannot advance — wait for section timer to expire (${sectionTimeRemainingSeconds}s remaining)` : undefined}
+                    className={`px-5 py-2 rounded-lg font-bold text-xs shadow-xs flex items-center space-x-1.5 transition-all ${
+                      isBlockedBySectionLock
+                        ? 'bg-slate-400 cursor-not-allowed text-white opacity-80'
+                        : isLastQuestionOfSection && !isLastSection && quiz.timingMode === 'sectional'
+                        ? 'bg-violet-600 hover:bg-violet-700 text-white'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
                   >
-                    <span>Save & Next (➔)</span>
+                    <span>
+                      {isBlockedBySectionLock
+                        ? `⏳ Wait (${sectionTimeRemainingSeconds}s)`
+                        : isLastQuestionOfSection && !isLastSection && quiz.timingMode === 'sectional'
+                        ? 'Finish Section →'
+                        : 'Save & Next (➔)'}
+                    </span>
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 ) : (
@@ -507,6 +614,14 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
             preventPreviousQuestion={quiz.preventPreviousQuestionReturn === true}
             onSelectQuestion={setCurrentQuestionIndex}
             onOpenSubmitModal={() => setShowSubmitModal(true)}
+            sectionBoundaries={sectionBoundaries}
+            currentSectionIdx={currentSectionIdx}
+            lockToCurrentSection={
+              quiz.timingMode === 'sectional' &&
+              quiz.preventEarlyNextSection === true &&
+              !quiz.allowManualEarlyMove &&
+              sectionTimeRemainingSeconds > 0
+            }
           />
         </div>
       ) : (
