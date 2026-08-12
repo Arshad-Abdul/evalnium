@@ -466,6 +466,45 @@ app.post('/api/users/login', async (req, res) => {
   }
 });
 
+app.post('/api/users/reset-password', async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) return res.status(400).json({ error: 'Email, OTP, and new password are required' });
+
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Check if account exists
+    const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Account not found. Please create an account.' });
+    }
+
+    // Verify OTP
+    const record = otpStore.get(normalizedEmail);
+    if (!record) {
+      return res.status(400).json({ error: 'No OTP found or expired. Please request a new code.' });
+    }
+    if (Date.now() > record.expiresAt) {
+      otpStore.delete(normalizedEmail);
+      return res.status(400).json({ error: 'OTP expired. Please request a new code.' });
+    }
+    if (record.otp !== otp.trim()) {
+      return res.status(400).json({ error: 'Incorrect OTP code entered.' });
+    }
+
+    // OTP Verified! Hash new password and save
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [passwordHash, normalizedEmail]);
+    
+    // Clear OTP
+    otpStore.delete(normalizedEmail);
+
+    res.json({ success: true, message: 'Password reset successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // List all users (for admin)
 app.get('/api/users', async (req, res) => {
   try {

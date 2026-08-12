@@ -134,6 +134,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return user;
   };
 
+  const resetPassword = async (email: string, otp: string, newPassword: string): Promise<void> => {
+    const res = await fetch(`${getApiUrl()}/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        email: email.trim().toLowerCase(),
+        otp: otp.trim(),
+        newPassword 
+      }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Failed to reset password');
+    }
+  };
+
   const updateUserProfile = (updates: Partial<UserProfile>) => {
     if (!currentUser) return;
     const updated = { ...currentUser, ...updates };
@@ -169,6 +186,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAdminAuthenticated,
         registerCandidate,
         loginCandidate,
+        resetPassword,
         checkCandidateExists,
         loginAdmin,
         logoutAdmin,

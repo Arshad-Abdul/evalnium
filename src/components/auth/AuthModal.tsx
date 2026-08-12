@@ -9,8 +9,8 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  const { registerCandidate, loginCandidate, checkCandidateExists } = useAuth();
-  const [tab, setTab] = useState<'signin' | 'register'>('register');
+  const { registerCandidate, loginCandidate, resetPassword, checkCandidateExists } = useAuth();
+  const [tab, setTab] = useState<'signin' | 'register' | 'forgot_password'>('register');
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -136,10 +136,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       setIsLoading(false);
     }
 
-    // OTP Verified! Complete registration
+    // OTP Verified! Complete registration or reset password
     try {
-      await registerCandidate(name || 'Candidate', email, password);
-      setSuccessMsg('✅ Email Verified & Candidate Account Created Successfully!');
+      if (tab === 'forgot_password') {
+        await resetPassword(email, enteredOtp, password);
+        setSuccessMsg('✅ Password Reset Successfully! You can now log in.');
+      } else {
+        await registerCandidate(name || 'Candidate', email, password);
+        setSuccessMsg('✅ Email Verified & Candidate Account Created Successfully!');
+      }
     } catch (err: any) {
       setOtpError(err.message || 'Authentication failed');
       return;
@@ -165,10 +170,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-900">
-                {step === 'otp_verify' ? 'Email OTP Verification' : 'Student Access Portal'}
+                {step === 'otp_verify' ? 'Email OTP Verification' : tab === 'forgot_password' ? 'Reset Password' : 'Student Access Portal'}
               </h3>
               <p className="text-xs text-slate-500 font-medium">
-                {step === 'otp_verify' ? `Check email inbox of ${email}` : 'Join candidate network to track ranks & performance'}
+                {step === 'otp_verify' ? `Check email inbox of ${email}` : tab === 'forgot_password' ? 'Enter email and new password' : 'Join candidate network to track ranks & performance'}
               </p>
             </div>
           </div>
@@ -187,29 +192,43 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         {/* Step 1: Form Details */}
         {step === 'details' && (
           <>
-            {/* Tab Switcher */}
-            <div className="flex items-center space-x-1 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
-              <button
-                onClick={() => setTab('register')}
-                className={`w-1/2 py-2 rounded-xl text-xs font-bold transition-all ${
-                  tab === 'register'
-                    ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Create Account
-              </button>
-              <button
-                onClick={() => setTab('signin')}
-                className={`w-1/2 py-2 rounded-xl text-xs font-bold transition-all ${
-                  tab === 'signin'
-                    ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Sign In
-              </button>
-            </div>
+            {tab !== 'forgot_password' ? (
+              <div className="flex items-center space-x-1 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setTab('register')}
+                  className={`w-1/2 py-2 rounded-xl text-xs font-bold transition-all ${
+                    tab === 'register'
+                      ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Create Account
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab('signin')}
+                  className={`w-1/2 py-2 rounded-xl text-xs font-bold transition-all ${
+                    tab === 'signin'
+                      ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Sign In
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center">
+                <button
+                  type="button"
+                  onClick={() => setTab('signin')}
+                  className="flex items-center text-slate-500 hover:text-slate-800 text-xs font-bold transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-1" />
+                  Back to Sign In
+                </button>
+              </div>
+            )}
 
             <form
               onSubmit={async (e) => {
@@ -276,7 +295,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700">Password</label>
+                <label className="block text-xs font-bold text-slate-700">
+                  {tab === 'forgot_password' ? 'New Password' : 'Password'}
+                </label>
                 <div className="relative">
                   <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                   <input
@@ -284,11 +305,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
+                    placeholder={tab === 'forgot_password' ? 'Enter a new password' : 'Enter your password'}
                     className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
               </div>
+
+              {tab === 'signin' && (
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setTab('forgot_password')}
+                    className="text-indigo-600 hover:text-indigo-700 text-xs font-semibold"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -304,6 +337,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                   <>
                     <KeyRound className="w-4 h-4" />
                     <span>Sign In 🚀</span>
+                  </>
+                ) : tab === 'forgot_password' ? (
+                  <>
+                    <KeyRound className="w-4 h-4" />
+                    <span>Send OTP to Reset 🚀</span>
                   </>
                 ) : (
                   <>
