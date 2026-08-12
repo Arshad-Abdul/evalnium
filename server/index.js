@@ -227,6 +227,11 @@ async function initDatabase() {
     } catch {
       // Column already exists
     }
+    try {
+      await pool.query(`ALTER TABLE users ADD COLUMN password_hash VARCHAR(255);`);
+    } catch {
+      // Column already exists
+    }
 
     await syncCandidatesToUsersTable();
 
