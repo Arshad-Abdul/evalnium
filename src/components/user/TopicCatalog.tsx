@@ -52,7 +52,8 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                           quiz.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           quiz.topic.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTopic = selectedTopic === 'All' || quiz.topic === selectedTopic;
-    const matchesDifficulty = selectedDifficulty === 'All' || quiz.difficulty === selectedDifficulty;
+    const effectiveDifficulty = quiz.difficulty || 'Medium';
+    const matchesDifficulty = selectedDifficulty === 'All' || effectiveDifficulty === selectedDifficulty;
     return matchesSearch && matchesTopic && matchesDifficulty;
   });
 

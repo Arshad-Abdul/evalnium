@@ -47,7 +47,12 @@ export function getStoredQuizzes(): Quiz[] {
       return INITIAL_QUIZZES;
     }
     const parsed = JSON.parse(data);
-    return Array.isArray(parsed) ? parsed : INITIAL_QUIZZES;
+    if (!Array.isArray(parsed)) return INITIAL_QUIZZES;
+    // Normalize missing difficulty (old cached records may have null)
+    return parsed.map(q => ({
+      ...q,
+      difficulty: q.difficulty || 'Medium',
+    }));
   } catch (err) {
     console.error('Error reading quizzes from storage:', err);
     return INITIAL_QUIZZES;
