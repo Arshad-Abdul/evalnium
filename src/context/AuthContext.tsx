@@ -54,12 +54,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return `http://${host}:5050/api/users`;
   };
 
-  const registerCandidate = async (name: string, email: string): Promise<UserProfile> => {
+  const registerCandidate = async (name: string, email: string, password?: string): Promise<UserProfile> => {
     const uid = `usr_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     const payload = {
       uid,
       name: name.trim() || 'Candidate',
       email: email.trim().toLowerCase(),
+      password: password || '',
     };
     
     const res = await fetch(`${getApiUrl()}/register`, {
@@ -73,11 +74,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error(data.error || 'Failed to register candidate');
     }
 
+    const resData = await res.json();
+
     const newUser: UserProfile = {
-      uid: payload.uid,
-      name: payload.name,
-      email: payload.email,
-      role: 'candidate',
+      uid: resData.user.uid,
+      name: resData.user.name,
+      email: resData.user.email,
+      role: resData.user.role,
       totalExamsTaken: 0,
       createdAt: new Date().toISOString()
     };
@@ -97,11 +100,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const loginCandidate = async (email: string): Promise<UserProfile> => {
+  const loginCandidate = async (email: string, password?: string): Promise<UserProfile> => {
     const res = await fetch(`${getApiUrl()}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      body: JSON.stringify({ 
+        email: email.trim().toLowerCase(),
+        password: password || ''
+      }),
     });
 
     if (!res.ok) {

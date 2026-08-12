@@ -4,6 +4,7 @@ import express from 'express';
 import cors from 'cors';
 import mysql from 'mysql2/promise';
 import nodemailer from 'nodemailer';
+import bcrypt from 'bcryptjs';
 
 const app = express();
 app.use(cors());
@@ -392,19 +393,34 @@ app.get('/api/users/check', async (req, res) => {
 
 app.post('/api/users/register', async (req, res) => {
   try {
-    const { name, email, uid } = req.body;
-    if (!email || !name || !uid) return res.status(400).json({ error: 'Missing required fields' });
+    const { name, email, uid, password } = req.body;
+    if (!email || !name || !uid || !password) return res.status(400).json({ error: 'Missing required fields' });
 
     const normalizedEmail = email.toLowerCase().trim();
     const createdAt = new Date().toISOString();
+    
+    // Hash the password securely
+    const passwordHash = await bcrypt.hash(password, 10);
 
     await pool.query(
-      `INSERT INTO users (uid, name, email, role, is_verified, created_at) VALUES (?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE name = ?, is_verified = 1`,
-      [uid, name.trim(), normalizedEmail, 'candidate', 1, createdAt, name.trim()]
+      `INSERT INTO users (uid, name, email, role, is_verified, created_at, password_hash) VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE name = ?, is_verified = 1, password_hash = ?`,
+      [uid, name.trim(), normalizedEmail, 'candidate', 1, createdAt, passwordHash, name.trim(), passwordHash]
     );
 
-    res.json({ success: true });
+    // Fetch the actual user record to get their real UID (in case it was an existing user)
+    const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
+    const user = rows[0];
+
+    res.json({ 
+      success: true, 
+      user: {
+        uid: user.uid,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -412,17 +428,29 @@ app.post('/api/users/register', async (req, res) => {
 
 app.post('/api/users/login', async (req, res) => {
   try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: 'Email is required' });
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
 
     const normalizedEmail = email.toLowerCase().trim();
     const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
     
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'Account not found' });
+      return res.status(404).json({ error: 'Account not found. Please create an account first.' });
     }
 
     const user = rows[0];
+    
+    // Handle old users who don't have a password set yet
+    if (!user.password_hash) {
+      return res.status(403).json({ error: 'Your account does not have a password set yet. Please use the "Create Account" tab to verify your email and create a password. (Your existing exam history will be preserved).' });
+    }
+
+    // Verify password
+    const isMatch = await bcrypt.compare(password, user.password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Incorrect password entered.' });
+    }
+
     res.json({
       uid: user.uid,
       name: user.name,

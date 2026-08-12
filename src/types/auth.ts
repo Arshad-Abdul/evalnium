@@ -17,8 +17,8 @@ export interface UserProfile {
 export interface AuthContextType {
   currentUser: UserProfile | null;
   isAdminAuthenticated: boolean;
-  registerCandidate: (name: string, email: string) => Promise<UserProfile>;
-  loginCandidate: (email: string, name?: string) => Promise<UserProfile>;
+  registerCandidate: (name: string, email: string, password?: string) => Promise<UserProfile>;
+  loginCandidate: (email: string, password?: string) => Promise<UserProfile>;
   checkCandidateExists: (email: string) => Promise<boolean>;
   loginAdmin: (passcode: string) => boolean;
   logoutAdmin: () => void;

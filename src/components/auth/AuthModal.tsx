@@ -14,6 +14,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   // OTP Verification State
   const [step, setStep] = useState<'details' | 'otp_verify'>('details');
@@ -135,15 +136,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       setIsLoading(false);
     }
 
-    // OTP Verified! Complete registration / login
+    // OTP Verified! Complete registration
     try {
-      if (tab === 'register') {
-        await registerCandidate(name || 'Candidate', email);
-        setSuccessMsg('✅ Email Verified & Candidate Account Created Successfully!');
-      } else {
-        await loginCandidate(email, name);
-        setSuccessMsg('✅ Email Verified & Signed In Successfully!');
-      }
+      await registerCandidate(name || 'Candidate', email, password);
+      setSuccessMsg('✅ Email Verified & Candidate Account Created Successfully!');
     } catch (err: any) {
       setOtpError(err.message || 'Authentication failed');
       return;
@@ -221,21 +217,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 setOtpError(null);
                 
                 if (tab === 'signin') {
-                  if (!email) return;
+                  if (!email || !password) return;
                   
                   setIsLoading(true);
                   try {
-                    const exists = await checkCandidateExists(email);
-                    if (!exists) {
-                      setOtpError("Account not found. Please create an account first.");
-                      setIsLoading(false);
-                      return;
-                    }
-
-                    // Send OTP instead of bypassing security
-                    await handleSendOtp(e);
+                    await loginCandidate(email, password);
+                    setSuccessMsg(`Welcome Back! Sign-In Successful.`);
+                    setTimeout(() => {
+                      onClose();
+                      if (onSuccess) onSuccess();
+                    }, 1000);
                   } catch (err: any) {
                     setOtpError(err.message || 'Verification failed');
+                  } finally {
                     setIsLoading(false);
                   }
                 } else {
@@ -281,6 +275,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 </div>
               </div>
 
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700">Password</label>
+                <div className="relative">
+                  <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
               <button
                 type="submit"
                 disabled={isLoading}
@@ -293,8 +302,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                   </>
                 ) : tab === 'signin' ? (
                   <>
-                    <Key className="w-4 h-4" />
-                    <span>Send Verification OTP to Email 🚀</span>
+                    <KeyRound className="w-4 h-4" />
+                    <span>Sign In 🚀</span>
                   </>
                 ) : (
                   <>
