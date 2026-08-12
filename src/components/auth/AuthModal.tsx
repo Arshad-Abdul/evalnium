@@ -232,15 +232,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                       return;
                     }
 
-                    // Original flow: direct sign-in for loginCandidate without OTP
-                    await loginCandidate(email, name);
-                    setSuccessMsg(`Welcome Back! Instant Sign-In Successful.`);
-                    setTimeout(() => {
-                      onClose();
-                    }, 1000);
+                    // Send OTP instead of bypassing security
+                    await handleSendOtp(e);
                   } catch (err: any) {
-                    setOtpError(err.message || 'Login failed');
-                  } finally {
+                    setOtpError(err.message || 'Verification failed');
                     setIsLoading(false);
                   }
                 } else {
@@ -298,8 +293,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                   </>
                 ) : tab === 'signin' ? (
                   <>
-                    <KeyRound className="w-4 h-4" />
-                    <span>Instant Candidate Sign In 🚀</span>
+                    <Key className="w-4 h-4" />
+                    <span>Send Verification OTP to Email 🚀</span>
                   </>
                 ) : (
                   <>
