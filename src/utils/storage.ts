@@ -29,8 +29,13 @@ export async function syncQuizzesFromMySQL(): Promise<Quiz[] | null> {
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) {
-        localStorage.setItem(QUIZZES_KEY, JSON.stringify(data));
-        return data;
+        // Normalize missing difficulty
+        const normalizedData = data.map(q => ({
+          ...q,
+          difficulty: q.difficulty || 'Medium',
+        }));
+        localStorage.setItem(QUIZZES_KEY, JSON.stringify(normalizedData));
+        return normalizedData;
       }
     }
   } catch {
