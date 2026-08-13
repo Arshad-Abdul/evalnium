@@ -514,7 +514,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
       )}
 
       {/* Section Tabs Bar */}
-      {quiz.sectionalConfig && quiz.sectionalConfig.length > 0 && (
+      {quiz.timingMode === 'sectional' && quiz.sectionalConfig && quiz.sectionalConfig.length > 0 && (
         <div className="flex items-center space-x-2 bg-slate-900 text-white p-2.5 rounded-2xl border border-slate-800 overflow-x-auto">
           <span className="text-xs font-bold text-slate-400 px-2 uppercase font-mono flex-shrink-0">Paper Sections:</span>
           {quiz.sectionalConfig!.map((sec, idx) => {
