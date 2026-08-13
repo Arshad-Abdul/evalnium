@@ -4,7 +4,8 @@ import type { Announcement } from '../../types/announcement';
 import { QuizImporter } from './QuizImporter';
 import { McqPreviewEditor } from './McqPreviewEditor';
 import { AnnouncementManager } from './AnnouncementManager';
-import { Plus, Trash2, FileDown, Layers, Sparkles, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight } from 'lucide-react';
+import { CandidateResponseModal } from './CandidateResponseModal';
+import { Plus, Trash2, FileDown, Layers, Sparkles, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye } from 'lucide-react';
 import { getStoredResults } from '../../utils/storage';
 
 interface AdminDashboardProps {
@@ -104,6 +105,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const [parsedResult, setParsedResult] = useState<{ res: ParseResult; sourceName: string } | null>(null);
+  const [viewingResult, setViewingResult] = useState<QuizAttemptResult | null>(null);
 
   const allAttemptResults = getStoredResults().filter(r => !deletedResultIds.has(r.id));
 
@@ -533,13 +535,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                         <span className="font-semibold text-slate-800 text-xs">{r.quizTitle}</span>
                                         <span className="text-slate-400 text-[10px] font-mono">{new Date(r.attemptedAt).toLocaleDateString()}</span>
                                       </div>
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); handleDeleteResult(r.id, cand.candidateName); }}
-                                        className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 border border-rose-200 transition-all"
-                                        title="Delete this attempt"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
+                                      <div className="flex items-center space-x-2">
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); setViewingResult(r as QuizAttemptResult); }}
+                                          className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 border border-indigo-200 transition-all flex items-center space-x-1"
+                                          title="View detailed responses"
+                                        >
+                                          <Eye className="w-3.5 h-3.5" />
+                                          <span className="text-[10px] font-bold uppercase hidden sm:inline">Responses</span>
+                                        </button>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleDeleteResult(r.id, cand.candidateName); }}
+                                          className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 border border-rose-200 transition-all"
+                                          title="Delete this attempt"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
                                     </div>
                                   ))
                                 )}
@@ -821,6 +833,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           )}
         </div>
+      )}
+      
+      {viewingResult && (
+        <CandidateResponseModal
+          attemptResult={viewingResult}
+          quiz={quizzes.find(q => q.id === viewingResult.quizId) || null}
+          onClose={() => setViewingResult(null)}
+        />
       )}
     </div>
   );
