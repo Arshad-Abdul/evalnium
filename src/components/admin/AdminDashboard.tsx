@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { Quiz, ParseResult } from '../../types/quiz';
+import type { Quiz, ParseResult, QuizAttemptResult } from '../../types/quiz';
 import type { Announcement } from '../../types/announcement';
 import { QuizImporter } from './QuizImporter';
 import { McqPreviewEditor } from './McqPreviewEditor';
