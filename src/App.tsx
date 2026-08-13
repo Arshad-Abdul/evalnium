@@ -23,6 +23,7 @@ import { AuthModal } from './components/auth/AuthModal';
 import { QuizInstructionsModal } from './components/user/QuizInstructionsModal';
 import { ExamRunner } from './components/user/ExamRunner';
 import { ExamResultView } from './components/user/ExamResultView';
+import { ScrollToTopButton } from './components/common/ScrollToTopButton';
 import { AnnouncementBanner } from './components/user/AnnouncementBanner';
 import { RevisionHubModal } from './components/user/RevisionHubModal';
 import { CandidateDashboard } from './components/user/CandidateDashboard';
@@ -409,6 +410,8 @@ function MainAppContent() {
           </div>
         </div>
       </footer>
+
+      <ScrollToTopButton />
     </div>
   );
 }
