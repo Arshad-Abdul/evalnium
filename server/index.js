@@ -900,12 +900,12 @@ app.get('/api/admin/stats', async (req, res) => {
 
     // 3. Weekly Trends Comparison (using UTC_TIMESTAMP to align with client ISO strings)
     const [[{ attemptsThisWeek }]] = await pool.query(`
-      SELECT COUNT(*) as count 
+      SELECT COUNT(*) as attemptsThisWeek 
       FROM results 
       WHERE attempted_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY)
     `);
     const [[{ attemptsLastWeek }]] = await pool.query(`
-      SELECT COUNT(*) as count 
+      SELECT COUNT(*) as attemptsLastWeek 
       FROM results 
       WHERE attempted_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 14 DAY) AND attempted_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY)
     `);
