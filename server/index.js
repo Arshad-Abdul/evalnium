@@ -886,7 +886,7 @@ app.get('/api/admin/stats', async (req, res) => {
 
     // 1. Visitor Counts
     const [[{ totalVisitors }]] = await pool.query('SELECT COUNT(*) as total FROM site_visits');
-    const activeVisitorsCount = activeVisitors.size;
+    const activeVisitorsCount = Array.from(activeVisitors.values()).filter(v => v.role !== 'admin').length;
     const activeExamsCount = activeSessions.size;
 
     // 2. Top Performers (Top 5 average scores)
