@@ -246,6 +246,14 @@ async function initDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
     try { await pool.query(`CREATE INDEX idx_bookmarks_uid ON bookmarks(uid);`); } catch {}
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS site_visits (
+        ip_address VARCHAR(100),
+        visited_date DATE,
+        PRIMARY KEY (ip_address, visited_date)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
 
     console.log(`✅ All MySQL Database Tables & Indexes Verified & Ready!`);
   } catch (err) {
@@ -565,8 +573,9 @@ app.post('/api/users/sync', async (req, res) => {
 
 // Simple memory store for live exam sessions
 const activeSessions = new Map();
+const activeVisitors = new Map();
 
-// Clear stale sessions every 1 minute
+// Clear stale sessions and visitors
 setInterval(() => {
   const now = Date.now();
   for (const [key, session] of activeSessions.entries()) {
@@ -574,7 +583,12 @@ setInterval(() => {
       activeSessions.delete(key);
     }
   }
-}, 60 * 1000);
+  for (const [key, visitor] of activeVisitors.entries()) {
+    if (now - visitor.lastSeen > 40 * 1000) { // 40 seconds timeout
+      activeVisitors.delete(key);
+    }
+  }
+}, 30 * 1000);
 
 // 1. Quizzes (with Granular Admin Settings & Rules)
 app.get('/api/quizzes', async (req, res) => {
@@ -731,12 +745,13 @@ app.delete('/api/quizzes/:id', async (req, res) => {
 
 // --- Live Sessions Tracking ---
 app.post('/api/sessions/heartbeat', (req, res) => {
-  const { quizId, candidateName, candidateEmail, timeRemaining, percentageComplete } = req.body;
+  const { quizId, quizTitle, candidateName, candidateEmail, timeRemaining, percentageComplete } = req.body;
   if (!quizId || !candidateName) return res.status(400).json({ error: 'Missing required fields' });
   
   const sessionKey = `${quizId}_${candidateEmail || candidateName}`;
   activeSessions.set(sessionKey, {
     quizId,
+    quizTitle: quizTitle || 'CBT Exam',
     candidateName,
     candidateEmail,
     timeRemaining,
@@ -750,6 +765,51 @@ app.post('/api/sessions/heartbeat', (req, res) => {
 app.get('/api/sessions/live', (req, res) => {
   const sessions = Array.from(activeSessions.values());
   res.json(sessions);
+});
+
+// --- Global Page Visits & Online User Heartbeats ---
+app.post('/api/site/visit', async (req, res) => {
+  try {
+    let ip = req.ip || req.headers['x-forwarded-for'] || '127.0.0.1';
+    if (ip.substr(0, 7) === "::ffff:") {
+      ip = ip.substr(7);
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    
+    await pool.query(
+      `INSERT IGNORE INTO site_visits (ip_address, visited_date) VALUES (?, ?)`,
+      [ip, today]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/site/heartbeat', async (req, res) => {
+  const { clientId, name, role } = req.body;
+  if (!clientId) return res.status(400).json({ error: 'clientId required' });
+  
+  activeVisitors.set(clientId, {
+    name: name || 'Guest Candidate',
+    role: role || 'guest',
+    lastSeen: Date.now()
+  });
+  
+  try {
+    const [[{ total }]] = await pool.query('SELECT COUNT(*) as total FROM site_visits');
+    res.json({
+      success: true,
+      totalVisitors: total,
+      activeVisitorsCount: activeVisitors.size
+    });
+  } catch (err) {
+    res.json({
+      success: true,
+      totalVisitors: 0,
+      activeVisitorsCount: activeVisitors.size
+    });
+  }
 });
 
 // 2. Results / Leaderboard (with Pagination support)
@@ -824,12 +884,67 @@ app.get('/api/admin/stats', async (req, res) => {
     const [[{ passedAttempts }]] = await pool.query('SELECT COUNT(*) as passedAttempts FROM results WHERE passed = 1');
     const [recentResults] = await pool.query('SELECT * FROM results ORDER BY attempted_at DESC LIMIT 10');
 
+    // 1. Visitor Counts
+    const [[{ totalVisitors }]] = await pool.query('SELECT COUNT(*) as total FROM site_visits');
+    const activeVisitorsCount = activeVisitors.size;
+    const activeExamsCount = activeSessions.size;
+
+    // 2. Top Performers (Top 5 average scores)
+    const [topPerformers] = await pool.query(`
+      SELECT candidate_name as candidateName, candidate_email as candidateEmail, COUNT(*) as attemptsCount, AVG(percentage) as avgScore 
+      FROM results 
+      GROUP BY candidate_name, candidate_email 
+      ORDER BY avgScore DESC, attemptsCount DESC 
+      LIMIT 5
+    `);
+
+    // 3. Weekly Trends Comparison (using UTC_TIMESTAMP to align with client ISO strings)
+    const [[{ attemptsThisWeek }]] = await pool.query(`
+      SELECT COUNT(*) as count 
+      FROM results 
+      WHERE attempted_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY)
+    `);
+    const [[{ attemptsLastWeek }]] = await pool.query(`
+      SELECT COUNT(*) as count 
+      FROM results 
+      WHERE attempted_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 14 DAY) AND attempted_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY)
+    `);
+
+    // 4. Live Activity Feed
+    const liveSessionsList = Array.from(activeSessions.values()).map(s => ({
+      id: `live_${s.quizId}_${s.candidateEmail || s.candidateName}`,
+      type: 'live',
+      message: `${s.candidateName} is taking "${s.quizTitle || 'Exam'}" (${s.percentageComplete}% complete)`,
+      timestamp: new Date(s.lastSeen).toISOString()
+    }));
+
+    const completedList = recentResults.map(r => ({
+      id: `comp_${r.id}`,
+      type: 'completed',
+      message: `${r.candidate_name} completed "${r.quiz_title}" with ${r.percentage}% (${r.passed ? 'Passed ✓' : 'Failed ✗'})`,
+      timestamp: r.attempted_at
+    }));
+
+    const liveActivityFeed = [...liveSessionsList, ...completedList]
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 10);
+
     res.json({
       totalUsers,
       totalQuizzes,
       totalAttempts,
       avgScore: Math.round(avgScore * 10) / 10,
       passRate: totalAttempts > 0 ? Math.round((passedAttempts / totalAttempts) * 100) : 0,
+      totalVisitors,
+      activeVisitorsCount,
+      activeExamsCount,
+      topPerformers: topPerformers.map(t => ({
+        ...t,
+        avgScore: Math.round(t.avgScore * 10) / 10
+      })),
+      attemptsThisWeek,
+      attemptsLastWeek,
+      liveActivityFeed,
       recentResults: recentResults.map(r => ({
         id: r.id,
         quizTitle: r.quiz_title,

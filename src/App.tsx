@@ -44,6 +44,10 @@ function MainAppContent() {
   const [showRevisionHubModal, setShowRevisionHubModal] = useState<boolean>(false);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   
+  // Real-Time Visitor & Heartbeat Stats
+  const [totalVisitors, setTotalVisitors] = useState<number>(0);
+  const [activeVisitorsCount, setActiveVisitorsCount] = useState<number>(0);
+  
   // Passcode Protection Global State
   const [pendingPasscodeQuiz, setPendingPasscodeQuiz] = useState<Quiz | null>(null);
   const [passcodeInput, setPasscodeInput] = useState('');
@@ -84,6 +88,52 @@ function MainAppContent() {
       setCandidateName(currentUser.name);
     }
   }, [currentUser]);
+
+  // Client ID helper for heartbeat tracking
+  const getClientId = () => {
+    let id = localStorage.getItem('evalnium_client_id');
+    if (!id) {
+      id = 'client_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('evalnium_client_id', id);
+    }
+    return id;
+  };
+
+  const logPageVisit = async () => {
+    try {
+      const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
+      await fetch(`http://${host}:5050/api/site/visit`, { method: 'POST' });
+    } catch {}
+  };
+
+  const sendHeartbeat = async () => {
+    try {
+      const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
+      const clientId = getClientId();
+      const res = await fetch(`http://${host}:5050/api/site/heartbeat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId,
+          name: currentUser?.name || 'Guest Candidate',
+          role: currentUser?.role || (isAdminAuthenticated ? 'admin' : 'guest')
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTotalVisitors(data.totalVisitors || 0);
+        setActiveVisitorsCount(data.activeVisitorsCount || 0);
+      }
+    } catch {}
+  };
+
+  // Log visit and run heartbeat
+  useEffect(() => {
+    logPageVisit();
+    sendHeartbeat();
+    const heartbeatTimer = setInterval(sendHeartbeat, 20000);
+    return () => clearInterval(heartbeatTimer);
+  }, [currentUser, isAdminAuthenticated]);
 
   const handleTabChange = (tab: 'user' | 'dashboard' | 'leaderboard' | 'admin') => {
     if (tab === 'admin') {
@@ -385,11 +435,29 @@ function MainAppContent() {
         </div>
       )}
 
-      <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500 font-medium">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>Copyright © 2026 <strong>Arshad Abdul</strong>. All Rights Reserved.</span>
-          <div className="flex items-center space-x-3 text-slate-400 font-mono">
-            <span>Evalnium Assessment Platform v2.0</span>
+      <footer className="bg-white border-t border-slate-200 py-6 text-slate-500 font-medium">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
+          
+          {/* Copyright Section */}
+          <div className="text-xs text-center md:text-left text-slate-500">
+            <span>Copyright © 2026 <strong>Arshad Abdul</strong>. All Rights Reserved.</span>
+          </div>
+
+          {/* Global Community Scale Bar */}
+          <div className="flex items-center justify-center space-x-4 bg-slate-50 border border-slate-200/80 px-4 py-1.5 rounded-full text-xs shadow-2xs">
+            <span className="flex items-center space-x-1.5 font-bold text-slate-700">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>{activeVisitorsCount || 1} Online</span>
+            </span>
+            <span className="text-slate-300">|</span>
+            <span className="flex items-center space-x-1.5 text-slate-600 font-medium">
+              <span>👁️ {totalVisitors ? totalVisitors.toLocaleString() : '1'} Visits</span>
+            </span>
+          </div>
+
+          {/* Platform Version & Admin Link */}
+          <div className="flex items-center space-x-3 text-slate-400 font-mono text-[11px] justify-center md:justify-end">
+            <span>Evalnium Platform v2.0</span>
             {(!currentUser || currentUser.role === 'admin') && (
               <>
                 <span>•</span>
@@ -408,6 +476,7 @@ function MainAppContent() {
               </>
             )}
           </div>
+          
         </div>
       </footer>
 

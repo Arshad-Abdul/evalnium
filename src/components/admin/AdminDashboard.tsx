@@ -5,7 +5,7 @@ import { QuizImporter } from './QuizImporter';
 import { McqPreviewEditor } from './McqPreviewEditor';
 import { AnnouncementManager } from './AnnouncementManager';
 import { CandidateResponseModal } from './CandidateResponseModal';
-import { Plus, Trash2, FileDown, Layers, Sparkles, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye } from 'lucide-react';
+import { Plus, Trash2, FileDown, Layers, Sparkles, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, Trophy } from 'lucide-react';
 import { getStoredResults } from '../../utils/storage';
 
 interface AdminDashboardProps {
@@ -27,19 +27,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onSaveAnnouncement = () => {},
   onDeleteAnnouncement = () => {},
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'import' | 'manage' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users'>('import');
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'import' | 'manage' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users'>('overview');
   const [liveSessions, setLiveSessions] = useState<any[]>([]);
   const [registeredUsers, setRegisteredUsers] = useState<Array<{ uid: string; name: string; email: string; role: string; createdAt: string }>>([]);
   const [expandedCandidate, setExpandedCandidate] = useState<string | null>(null);
   const [deletedResultIds, setDeletedResultIds] = useState<Set<string>>(new Set());
+  
+  // Executive Dashboard Stats State
+  const [stats, setStats] = useState<any | null>(null);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   const getApiBaseUrl = () => {
     const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
     return `http://${host}:5050/api`;
   };
 
+  const fetchAdminStats = async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/admin/stats`);
+      if (res.ok) {
+        setStats(await res.json());
+      }
+    } catch (e) {
+      console.error('Error fetching admin stats:', e);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
   useEffect(() => {
-    if (activeSubTab === 'live') {
+    if (activeSubTab === 'overview') {
+      fetchAdminStats();
+      const interval = setInterval(fetchAdminStats, 5000); // 5s live updates
+      return () => clearInterval(interval);
+    } else if (activeSubTab === 'live') {
       const fetchLive = async () => {
         try {
           const res = await fetch(`${getApiBaseUrl()}/sessions/live`);
@@ -277,6 +298,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
           <button
+            onClick={() => setActiveSubTab('overview')}
+            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeSubTab === 'overview'
+                ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Overview
+          </button>
+          
+          <button
             onClick={() => setActiveSubTab('import')}
             className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
               activeSubTab === 'import'
@@ -358,6 +390,211 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </button>
         </div>
       </div>
+
+      {activeSubTab === 'overview' && (
+        <div className="space-y-6">
+          {loadingStats && !stats ? (
+            <div className="p-12 text-center text-slate-400 text-xs font-medium bg-white rounded-3xl border border-slate-200">
+              Loading Executive Command Center stats...
+            </div>
+          ) : stats ? (
+            <>
+              {/* Analytics Metric Cards Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Total Visitors */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden flex flex-col justify-between h-28">
+                  <div className="flex items-center justify-between text-slate-500">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Total Visits</span>
+                    <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
+                      <Eye className="w-4.5 h-4.5" />
+                    </div>
+                  </div>
+                  <div className="mt-1">
+                    <span className="text-2xl font-black text-slate-900 font-mono">{(stats.totalVisitors || 0).toLocaleString()}</span>
+                    <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Unique Visitors Daily</p>
+                  </div>
+                </div>
+
+                {/* Candidates Online */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden flex flex-col justify-between h-28">
+                  <div className="flex items-center justify-between text-slate-500">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Candidates Online</span>
+                    <div className="flex items-center space-x-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping absolute" />
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    </div>
+                  </div>
+                  <div className="mt-1">
+                    <span className="text-2xl font-black text-emerald-600 font-mono">{stats.activeVisitorsCount || 1}</span>
+                    <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Active Heartbeats</p>
+                  </div>
+                </div>
+
+                {/* Live Exams */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden flex flex-col justify-between h-28">
+                  <div className="flex items-center justify-between text-slate-500">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Live Exams Running</span>
+                    <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+                      <Clock className="w-4.5 h-4.5" />
+                    </div>
+                  </div>
+                  <div className="mt-1">
+                    <span className="text-2xl font-black text-indigo-600 font-mono">{stats.activeExamsCount || 0}</span>
+                    <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Candidates currently in CBT</p>
+                  </div>
+                </div>
+
+                {/* Platform Average */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden flex flex-col justify-between h-28">
+                  <div className="flex items-center justify-between text-slate-500">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Platform Average</span>
+                    <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
+                      <Trophy className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="mt-1">
+                    <span className="text-2xl font-black text-amber-600 font-mono">{stats.avgScore || 0}%</span>
+                    <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Pass Rate: {stats.passRate || 0}%</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Weekly Trend and Top Performers Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Left 2-Cols: Weekly trend & Top Candidates */}
+                <div className="lg:col-span-2 space-y-6">
+                  
+                  {/* Attempts Weekly Trend Card */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
+                      <Activity className="w-4 h-4 text-indigo-600" />
+                      <span>Exams Attempts Weekly Trend</span>
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                        <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wide">This Week</p>
+                        <p className="text-2xl font-black text-slate-800 font-mono mt-1">{stats.attemptsThisWeek || 0}</p>
+                        <p className="text-[10px] text-slate-500 font-semibold mt-0.5">Attempts in past 7 days</p>
+                      </div>
+                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                        <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wide">Last Week</p>
+                        <p className="text-2xl font-black text-slate-500 font-mono mt-1">{stats.attemptsLastWeek || 0}</p>
+                        <p className="text-[10px] text-slate-500 font-semibold mt-0.5">Attempts 7-14 days ago</p>
+                      </div>
+                    </div>
+
+                    {/* Performance percentage increase indicator */}
+                    {(() => {
+                      const diff = (stats.attemptsThisWeek || 0) - (stats.attemptsLastWeek || 0);
+                      const pct = stats.attemptsLastWeek > 0 ? Math.round((diff / stats.attemptsLastWeek) * 100) : 0;
+                      return (
+                        <div className="mt-4 flex items-center space-x-2 text-xs font-semibold">
+                          {diff >= 0 ? (
+                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-lg">
+                              ▲ +{pct}% Weekly Growth
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-rose-100 text-rose-800 rounded-lg">
+                              ▼ {Math.abs(pct)}% Weekly Drop
+                            </span>
+                          )}
+                          <span className="text-slate-500 font-medium">compared to last week's attempt load.</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Top 5 Smartest Candidates Card */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                        <Trophy className="w-5 h-5 text-amber-500" />
+                        <span>Top 5 Platform Performers (Smartest Candidates)</span>
+                      </h3>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">Highest average scores computed across all verification tests</p>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase">
+                          <tr>
+                            <th className="p-3 text-center">Rank</th>
+                            <th className="p-3">Candidate</th>
+                            <th className="p-3 text-center">Tests Taken</th>
+                            <th className="p-3 text-right">Average Score %</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-medium">
+                          {(!stats.topPerformers || stats.topPerformers.length === 0) ? (
+                            <tr>
+                              <td colSpan={4} className="p-6 text-center text-slate-400">
+                                No candidate attempts recorded yet to rank.
+                              </td>
+                            </tr>
+                          ) : (
+                            stats.topPerformers.map((cand: any, idx: number) => (
+                              <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                <td className="p-3 text-center font-bold font-mono">
+                                  {idx === 0 ? '🏆' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                                </td>
+                                <td className="p-3">
+                                  <div>
+                                    <div className="text-slate-900 font-bold">{cand.candidateName}</div>
+                                    <div className="text-slate-400 text-[10px] font-mono">{cand.candidateEmail}</div>
+                                  </div>
+                                </td>
+                                <td className="p-3 text-center font-mono text-slate-700">{cand.attemptsCount} attempts</td>
+                                <td className="p-3 text-right font-mono font-black text-indigo-600 text-sm">
+                                  {cand.avgScore}%
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Col: Scrolling Live Activity Feed */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs flex flex-col h-[400px]">
+                  <div className="mb-4">
+                    <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                      <Activity className="w-5 h-5 text-emerald-500 animate-pulse" />
+                      <span>Live Terminal Activity Feed</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">Real-time examination events & logins</p>
+                  </div>
+
+                  <div className="flex-1 bg-slate-950 rounded-2xl p-4 font-mono text-[11px] overflow-y-auto text-slate-300 border border-slate-800 space-y-3 shadow-inner">
+                    {(!stats.liveActivityFeed || stats.liveActivityFeed.length === 0) ? (
+                      <p className="text-slate-500 text-center py-20">Waiting for live activities...</p>
+                    ) : (
+                      stats.liveActivityFeed.map((act: any) => (
+                        <div key={act.id} className="border-b border-slate-900 pb-2 last:border-0">
+                          <div className="flex items-center justify-between gap-2 text-[9px] text-slate-500">
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase ${
+                              act.type === 'live' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900' : 'bg-indigo-950 text-indigo-400 border border-indigo-900'
+                            }`}>
+                              {act.type}
+                            </span>
+                            <span>{new Date(act.timestamp).toLocaleTimeString()}</span>
+                          </div>
+                          <p className={`mt-1 font-semibold ${act.type === 'live' ? 'text-emerald-400' : 'text-slate-200'}`}>
+                            {act.message}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            </>
+          ) : null}
+        </div>
+      )}
 
       {activeSubTab === 'import' && <QuizImporter onParsedResult={handleParsed} />}
 

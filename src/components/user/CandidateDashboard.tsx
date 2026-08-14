@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { Quiz, QuizAttemptResult } from '../../types/quiz';
 import { useAuth } from '../../context/AuthContext';
-import { Award, Trophy, Target, TrendingUp, BookOpen, Clock, CheckCircle2, AlertTriangle, ArrowRight, Play, Eye, X } from 'lucide-react';
+import { Award, Trophy, Target, TrendingUp, BookOpen, Clock, CheckCircle2, AlertTriangle, ArrowRight, Play, Eye, X, Sparkles } from 'lucide-react';
 import { PDFCertificateModal } from './PDFCertificateModal';
 import { ExamResultView } from './ExamResultView';
 
@@ -40,6 +40,47 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
   const totalCorrectCount = myAttempts.reduce((acc, curr) => acc + (curr.correctAnswers || 0), 0);
   const totalAttemptedQuestionsCount = myAttempts.reduce((acc, curr) => acc + ((curr.correctAnswers || 0) + (curr.wrongAnswers || 0)), 0);
   const accuracyRate = totalAttemptedQuestionsCount > 0 ? Math.round((totalCorrectCount / totalAttemptedQuestionsCount) * 100) : 0;
+
+  // Platform Average score calculation
+  const platformScoreSum = attemptsHistory.reduce((acc, curr) => acc + curr.percentage, 0);
+  const platformAvgPercentage = attemptsHistory.length > 0 ? Math.round((platformScoreSum / attemptsHistory.length) * 10) / 10 : 0;
+
+  // Streak calculation: consecutive days with at least 1 test attempt
+  const calculateStreak = (attempts: QuizAttemptResult[]) => {
+    if (attempts.length === 0) return 0;
+    
+    // Sort attempts by date descending
+    const sorted = [...attempts].sort((a, b) => new Date(b.attemptedAt).getTime() - new Date(a.attemptedAt).getTime());
+    
+    // Get unique dates in local date format (YYYY-MM-DD)
+    const dates = Array.from(new Set(sorted.map(a => new Date(a.attemptedAt).toLocaleDateString('en-CA'))));
+    if (dates.length === 0) return 0;
+    
+    const today = new Date().toLocaleDateString('en-CA');
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
+    
+    // If first date isn't today or yesterday, streak is broken
+    if (dates[0] !== today && dates[0] !== yesterday) return 0;
+    
+    let streak = 0;
+    let currentDate = new Date(dates[0]);
+    
+    for (let i = 0; i < dates.length; i++) {
+      const d = new Date(dates[i]);
+      const diffTime = Math.abs(currentDate.getTime() - d.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0 || diffDays === 1) {
+        streak++;
+        currentDate = d;
+      } else {
+        break;
+      }
+    }
+    return streak;
+  };
+  
+  const currentStreak = calculateStreak(myAttempts);
 
   // Topic Mastery Breakdown Calculation
   const topicStatsMap: Record<string, { totalPct: number; count: number }> = {};
@@ -82,6 +123,12 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
                 {currentUser?.targetExam && (
                   <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
                     Target: {currentUser.targetExam}
+                  </span>
+                )}
+                {currentStreak > 0 && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold flex items-center space-x-1 animate-pulse">
+                    <span>🔥</span>
+                    <span>{currentStreak} Day Streak</span>
                   </span>
                 )}
               </div>
@@ -165,6 +212,42 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
         </div>
 
       </div>
+
+      {/* Platform Comparison Banner */}
+      {totalAttemptsCount > 0 && (
+        <div className="bg-indigo-50 border border-indigo-200/80 rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center space-x-4">
+            <div className="p-3 rounded-2xl bg-indigo-600 text-white shadow-md shadow-indigo-600/20 flex-shrink-0">
+              <Sparkles className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-indigo-900">Platform Performance Comparison</h4>
+              <p className="text-xs text-indigo-700 font-medium mt-0.5">
+                {averagePercentage >= platformAvgPercentage ? (
+                  <>
+                    You are performing <span className="font-extrabold text-indigo-900">{(averagePercentage - platformAvgPercentage).toFixed(1)}% higher</span> than the platform average! Keep it up.
+                  </>
+                ) : (
+                  <>
+                    You are <span className="font-extrabold text-indigo-900">{(platformAvgPercentage - averagePercentage).toFixed(1)}% behind</span> the platform average. A little more revision will push you ahead!
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-4 bg-white/60 border border-indigo-100 rounded-2xl px-4 py-2 font-mono text-xs">
+            <div className="text-center">
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Your Avg</p>
+              <p className="text-sm font-black text-indigo-900 mt-0.5">{averagePercentage}%</p>
+            </div>
+            <div className="w-px h-8 bg-indigo-100" />
+            <div className="text-center">
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Platform Avg</p>
+              <p className="text-sm font-black text-slate-700 mt-0.5">{platformAvgPercentage}%</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Dashboard Section Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

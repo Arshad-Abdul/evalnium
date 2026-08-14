@@ -248,6 +248,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           quizId: quiz.id,
+          quizTitle: quiz.title,
           candidateName,
           candidateEmail: currentUser?.email,
           timeRemaining: timeRemainingSeconds,
