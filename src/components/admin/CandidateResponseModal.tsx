@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Check, XCircle, MinusCircle, AlertCircle } from 'lucide-react';
-import type { Quiz, QuizAttemptResult, Question } from '../../types/quiz';
+import type { Quiz, QuizAttemptResult } from '../../types/quiz';
 
 interface CandidateResponseModalProps {
   attemptResult: QuizAttemptResult;

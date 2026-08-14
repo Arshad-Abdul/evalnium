@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Question, UserAnswer } from '../../types/quiz';
+import { translateToHindi } from '../../utils/translator';
 import { Bookmark } from 'lucide-react';
 import { AudioPlayerButton } from '../common/AudioPlayerButton';
 
@@ -34,35 +35,49 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
   const [autoHindiText, setAutoHindiText] = React.useState<string>('');
   const [autoHindiOptions, setAutoHindiOptions] = React.useState<Record<string, string>>({});
+  const [autoHindiListI, setAutoHindiListI] = React.useState<string[]>([]);
+  const [autoHindiListII, setAutoHindiListII] = React.useState<string[]>([]);
 
   React.useEffect(() => {
     let isMounted = true;
     if (languageMode === 'hi' || languageMode === 'dual') {
       const srcText = question.questionEnglish || question.questionText;
       if (srcText && !question.questionHindi) {
-        import('../../utils/translator').then(({ translateToHindi }) => {
-          translateToHindi(srcText).then((res) => {
-            if (isMounted) setAutoHindiText(res);
-          });
+        translateToHindi(srcText).then((res) => {
+          if (isMounted && res) setAutoHindiText(res);
         });
       }
 
-      import('../../utils/translator').then(({ translateToHindi }) => {
-        question.options.forEach((opt) => {
-          if (opt.text && opt.text.trim()) {
-            translateToHindi(opt.text).then((translated) => {
-              if (isMounted && translated) {
-                setAutoHindiOptions((prev) => ({ ...prev, [opt.id]: translated }));
-              }
-            });
-          }
-        });
+      question.options.forEach((opt) => {
+        if (opt.text && opt.text.trim()) {
+          translateToHindi(opt.text).then((translated) => {
+            if (isMounted && translated) {
+              setAutoHindiOptions((prev) => ({ ...prev, [opt.id]: translated }));
+            }
+          });
+        }
       });
+
+        if (question.listI && question.listI.length > 0) {
+          Promise.all(question.listI.map(item => item ? translateToHindi(item) : Promise.resolve(''))).then((resList) => {
+            if (isMounted && resList.some(Boolean)) {
+              setAutoHindiListI(resList);
+            }
+          });
+        }
+
+        if (question.listII && question.listII.length > 0) {
+          Promise.all(question.listII.map(item => item ? translateToHindi(item) : Promise.resolve(''))).then((resList) => {
+            if (isMounted && resList.some(Boolean)) {
+              setAutoHindiListII(resList);
+            }
+          });
+        }
     }
     return () => {
       isMounted = false;
     };
-  }, [question.id, question.questionHindi, question.questionEnglish, question.questionText, question.options, languageMode]);
+  }, [question.id, question.questionHindi, question.questionEnglish, question.questionText, question.options, question.listI, question.listII, languageMode]);
 
   const isMultiSelect = question.questionType === 'multiple_select';
   const correctOptionIds = question.correctOptionIds || [question.correctOptionId];
@@ -71,13 +86,16 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     : selectedOptionId === question.correctOptionId;
 
   const renderQuestionText = () => {
+    const englishQ = question.questionEnglish || question.questionText;
+    const hindiQ = question.questionHindi || autoHindiText;
+
     if (languageMode === 'en') {
-      return <div className="text-base sm:text-lg font-bold text-slate-900 leading-snug">{question.questionEnglish || question.questionText}</div>;
+      return <div className="text-base sm:text-lg font-bold text-slate-900 leading-snug">{englishQ}</div>;
     }
     if (languageMode === 'hi') {
       return (
         <div className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
-          {question.questionHindi || autoHindiText || question.questionText}
+          {hindiQ || englishQ}
         </div>
       );
     }
@@ -86,17 +104,17 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
         <div className="space-y-2">
           <div className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
             <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded mr-2">EN</span>
-            {question.questionEnglish || question.questionText}
+            {englishQ}
           </div>
           <div className="text-base sm:text-lg font-bold text-slate-800 leading-snug pt-1">
             <span className="text-xs font-mono font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded mr-2">HI</span>
-            {question.questionHindi || autoHindiText || 'हिन्दी रूपान्तरण उपलब्ध हो रहा है...'}
+            {hindiQ || 'हिन्दी रूपान्तरण उपलब्ध हो रहा है...'}
           </div>
         </div>
       );
     }
 
-    return <div className="text-base sm:text-lg font-bold text-slate-900 leading-snug whitespace-pre-line">{question.questionText}</div>;
+    return <div className="text-base sm:text-lg font-bold text-slate-900 leading-snug whitespace-pre-line">{englishQ}</div>;
   };
 
   return (
@@ -147,11 +165,24 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 <span className="text-indigo-950 font-extrabold block border-b border-indigo-200 pb-1 uppercase tracking-wider">
                   List I
                 </span>
-                {question.listI.map((item, idx) => item ? (
-                  <div key={idx} className="p-2 rounded-xl bg-white border border-indigo-100 font-bold text-slate-800 shadow-2xs">
-                    {item}
-                  </div>
-                ) : null)}
+                {question.listI.map((item, idx) => {
+                  if (!item) return null;
+                  const hindiItem = autoHindiListI[idx];
+                  return (
+                    <div key={idx} className="p-2 rounded-xl bg-white border border-indigo-100 font-bold text-slate-800 shadow-2xs">
+                      {languageMode === 'en' && item}
+                      {languageMode === 'hi' && (hindiItem || item)}
+                      {languageMode === 'dual' && (
+                        <div className="space-y-0.5">
+                          <div>{item}</div>
+                          {hindiItem && hindiItem !== item && (
+                            <div className="text-[11px] font-semibold text-amber-800">{hindiItem}</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
@@ -160,11 +191,24 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 <span className="text-indigo-950 font-extrabold block border-b border-indigo-200 pb-1 uppercase tracking-wider">
                   List II
                 </span>
-                {question.listII.map((item, idx) => item ? (
-                  <div key={idx} className="p-2 rounded-xl bg-white border border-indigo-100 font-bold text-slate-800 shadow-2xs">
-                    {item}
-                  </div>
-                ) : null)}
+                {question.listII.map((item, idx) => {
+                  if (!item) return null;
+                  const hindiItem = autoHindiListII[idx];
+                  return (
+                    <div key={idx} className="p-2 rounded-xl bg-white border border-indigo-100 font-bold text-slate-800 shadow-2xs">
+                      {languageMode === 'en' && item}
+                      {languageMode === 'hi' && (hindiItem || item)}
+                      {languageMode === 'dual' && (
+                        <div className="space-y-0.5">
+                          <div>{item}</div>
+                          {hindiItem && hindiItem !== item && (
+                            <div className="text-[11px] font-semibold text-amber-800">{hindiItem}</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

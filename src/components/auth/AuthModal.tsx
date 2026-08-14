@@ -9,7 +9,7 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  const { registerCandidate, loginCandidate, resetPassword, checkCandidateExists } = useAuth();
+  const { registerCandidate, loginCandidate, resetPassword } = useAuth();
   const [tab, setTab] = useState<'signin' | 'register' | 'forgot_password'>('register');
 
   const [name, setName] = useState('');

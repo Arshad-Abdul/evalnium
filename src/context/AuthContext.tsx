@@ -4,8 +4,9 @@ import type { UserProfile } from '../types/auth';
 interface AuthContextType {
   currentUser: UserProfile | null;
   isAdminAuthenticated: boolean;
-  registerCandidate: (name: string, email: string) => Promise<UserProfile>;
+  registerCandidate: (name: string, email: string, password?: string) => Promise<UserProfile>;
   loginCandidate: (email: string, name?: string) => Promise<UserProfile>;
+  resetPassword: (email: string, otp: string, newPassword: string) => Promise<void>;
   checkCandidateExists: (email: string) => Promise<boolean>;
   loginAdmin: (passcode: string) => boolean;
   logoutAdmin: () => void;

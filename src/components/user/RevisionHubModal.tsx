@@ -140,6 +140,46 @@ export const RevisionHubModal: React.FC<RevisionHubModalProps> = ({ isOpen, onCl
 
                 <h4 className="font-bold text-slate-900 text-sm leading-snug whitespace-pre-line">{q.questionText}</h4>
 
+                {/* Question Image / Diagram */}
+                {q.imageUrl && (
+                  <div className="my-2 rounded-xl overflow-hidden border border-slate-200 shadow-xs max-w-sm bg-slate-50 p-1.5">
+                    <img src={q.imageUrl} alt="Question Diagram" className="w-full object-contain max-h-56 rounded-lg" />
+                  </div>
+                )}
+
+                {/* Match the Following List I vs List II Box */}
+                {q.questionType === 'match_following' && (q.listI || q.listII) && (
+                  <div className="my-2 p-3 rounded-xl bg-indigo-50/70 border border-indigo-200 shadow-xs">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      {q.listI && q.listI.some(Boolean) && (
+                        <div className="space-y-1">
+                          <span className="text-indigo-950 font-extrabold block border-b border-indigo-200 pb-1 uppercase tracking-wider text-[11px]">
+                            List I
+                          </span>
+                          {q.listI.map((item, i) => item ? (
+                            <div key={i} className="p-2 rounded-lg bg-white border border-indigo-100 font-bold text-slate-800 shadow-2xs text-xs">
+                              {item}
+                            </div>
+                          ) : null)}
+                        </div>
+                      )}
+
+                      {q.listII && q.listII.some(Boolean) && (
+                        <div className="space-y-1">
+                          <span className="text-indigo-950 font-extrabold block border-b border-indigo-200 pb-1 uppercase tracking-wider text-[11px]">
+                            List II
+                          </span>
+                          {q.listII.map((item, i) => item ? (
+                            <div key={i} className="p-2 rounded-lg bg-white border border-indigo-100 font-bold text-slate-800 shadow-2xs text-xs">
+                              {item}
+                            </div>
+                          ) : null)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                   {q.options.map((opt) => (
                     <div

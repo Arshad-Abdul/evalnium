@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { QuizAttemptResult, Quiz, Question, UserAnswer } from '../../types/quiz';
 import { getStoredResults } from '../../utils/storage';
+import { translateToHindi } from '../../utils/translator';
 import confetti from 'canvas-confetti';
 import { Trophy, AlertCircle, RotateCcw, Home, HelpCircle, BookOpen, Languages, Target, UserCheck, Clock } from 'lucide-react';
 import { AudioPlayerButton } from '../common/AudioPlayerButton';
@@ -21,6 +22,13 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
   const [filterType, setFilterType] = useState<'all' | 'correct' | 'wrong' | 'skipped'>('all');
   const [languageMode, setLanguageMode] = useState<'dual' | 'en' | 'hi'>('dual');
   const [allAttempts, setAllAttempts] = useState<QuizAttemptResult[]>([]);
+  const [autoHindiMap, setAutoHindiMap] = useState<Record<string, {
+    questionText?: string;
+    options: Record<string, string>;
+    listI?: string[];
+    listII?: string[];
+    explanation?: string;
+  }>>({});
 
   useEffect(() => {
     const history = getStoredResults();
@@ -38,6 +46,102 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
       }
     }
   }, [result.passed]);
+
+  // Auto-translate questions to Hindi if not present
+  useEffect(() => {
+    let isMounted = true;
+    if (languageMode === 'hi' || languageMode === 'dual') {
+      quiz.questions.forEach((q) => {
+        const srcQ = q.questionEnglish || q.questionText;
+        if (srcQ && !q.questionHindi) {
+          translateToHindi(srcQ).then((translated) => {
+            if (isMounted && translated) {
+              setAutoHindiMap((prev) => ({
+                ...prev,
+                [q.id]: {
+                  ...(prev[q.id] || { options: {} }),
+                  questionText: translated,
+                }
+              }));
+            }
+          });
+        }
+
+        // Translate Options
+        if (q.options) {
+          q.options.forEach((opt) => {
+            if (opt.text && opt.text.trim()) {
+              translateToHindi(opt.text).then((translated) => {
+                if (isMounted && translated) {
+                  setAutoHindiMap((prev) => {
+                    const current = prev[q.id] || { options: {} };
+                    return {
+                      ...prev,
+                      [q.id]: {
+                        ...current,
+                        options: {
+                          ...current.options,
+                          [opt.id]: translated,
+                        }
+                      }
+                    };
+                  });
+                }
+              });
+            }
+          });
+        }
+
+        // Translate List I & List II
+        if (q.listI && q.listI.length > 0) {
+          Promise.all(q.listI.map(item => item ? translateToHindi(item) : Promise.resolve(''))).then(resList => {
+            if (isMounted && resList.some(Boolean)) {
+              setAutoHindiMap((prev) => ({
+                ...prev,
+                [q.id]: {
+                  ...(prev[q.id] || { options: {} }),
+                  listI: resList,
+                }
+              }));
+            }
+          });
+        }
+
+        if (q.listII && q.listII.length > 0) {
+          Promise.all(q.listII.map(item => item ? translateToHindi(item) : Promise.resolve(''))).then(resList => {
+            if (isMounted && resList.some(Boolean)) {
+              setAutoHindiMap((prev) => ({
+                ...prev,
+                [q.id]: {
+                  ...(prev[q.id] || { options: {} }),
+                  listII: resList,
+                }
+              }));
+            }
+          });
+        }
+
+        // Translate Explanation
+        if (q.explanation && !q.explanationHindi) {
+          translateToHindi(q.explanation).then((translated) => {
+            if (isMounted && translated) {
+              setAutoHindiMap((prev) => ({
+                ...prev,
+                [q.id]: {
+                  ...(prev[q.id] || { options: {} }),
+                  explanation: translated,
+                }
+              }));
+            }
+          });
+        }
+      });
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [quiz.questions, languageMode]);
 
   // Calculate Percentile Rank & Topper Comparison
   const quizAttempts = allAttempts.filter(a => a.quizId === quiz.id);
@@ -127,33 +231,37 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
   });
 
   const renderQuestionText = (q: Question) => {
-    if (languageMode === 'en' && q.questionEnglish) {
-      return <h4 className="text-base font-bold text-slate-900">{q.questionEnglish}</h4>;
+    const hindiQ = q.questionHindi || autoHindiMap[q.id]?.questionText;
+    const englishQ = q.questionEnglish || q.questionText;
+
+    if (languageMode === 'en') {
+      return <h4 className="text-base font-bold text-slate-900 leading-snug">{englishQ}</h4>;
     }
-    if (languageMode === 'hi' && q.questionHindi) {
-      return <h4 className="text-base font-bold text-slate-900">{q.questionHindi}</h4>;
+    if (languageMode === 'hi') {
+      return (
+        <h4 className="text-base font-bold text-slate-900 leading-snug">
+          {hindiQ || englishQ}
+        </h4>
+      );
     }
-    if (languageMode === 'dual' && (q.questionEnglish || q.questionHindi)) {
+    if (languageMode === 'dual') {
       return (
         <div className="space-y-1.5">
-          {q.questionEnglish && (
-            <div className="text-base font-bold text-slate-900">
-              <span className="text-[10px] font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded mr-2">EN</span>
-              {q.questionEnglish}
-            </div>
-          )}
-          {q.questionHindi && (
-            <div className="text-base font-bold text-slate-800">
-              <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded mr-2">HI</span>
-              {q.questionHindi}
-            </div>
-          )}
+          <div className="text-base font-bold text-slate-900 leading-snug">
+            <span className="text-[10px] font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded mr-2">EN</span>
+            {englishQ}
+          </div>
+          <div className="text-base font-bold text-slate-800 leading-snug">
+            <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded mr-2">HI</span>
+            {hindiQ || 'हिन्दी रूपान्तरण उपलब्ध हो रहा है...'}
+          </div>
         </div>
       );
     }
 
-    return <h4 className="text-base font-bold text-slate-900 whitespace-pre-line">{q.questionText}</h4>;
+    return <h4 className="text-base font-bold text-slate-900 whitespace-pre-line leading-snug">{englishQ}</h4>;
   };
+
 
   const timeMinutes = Math.floor(result.timeSpentSeconds / 60);
   const timeSeconds = result.timeSpentSeconds % 60;
@@ -451,6 +559,72 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
 
                 {renderQuestionText(q)}
 
+                {/* Question Image / Diagram Preview */}
+                {q.imageUrl && (
+                  <div className="my-3 rounded-2xl overflow-hidden border border-slate-200 shadow-xs max-w-lg bg-slate-50 p-2">
+                    <img src={q.imageUrl} alt={`Question ${idx + 1} Diagram`} className="w-full object-contain max-h-72 rounded-xl" />
+                  </div>
+                )}
+
+                {/* Match the Following List I vs List II Box */}
+                {q.questionType === 'match_following' && (q.listI || q.listII) && (
+                  <div className="my-3 p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200 shadow-xs">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                      {q.listI && q.listI.some(Boolean) && (
+                        <div className="space-y-1.5">
+                          <span className="text-indigo-950 font-extrabold block border-b border-indigo-200 pb-1 uppercase tracking-wider">
+                            List I
+                          </span>
+                          {q.listI.map((item, itemIdx) => {
+                            if (!item) return null;
+                            const hindiItem = autoHindiMap[q.id]?.listI?.[itemIdx];
+                            return (
+                              <div key={itemIdx} className="p-2.5 rounded-xl bg-white border border-indigo-100 font-bold text-slate-800 shadow-2xs">
+                                {languageMode === 'en' && item}
+                                {languageMode === 'hi' && (hindiItem || item)}
+                                {languageMode === 'dual' && (
+                                  <div className="space-y-0.5">
+                                    <div>{item}</div>
+                                    {hindiItem && hindiItem !== item && (
+                                      <div className="text-[11px] font-semibold text-amber-800">{hindiItem}</div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {q.listII && q.listII.some(Boolean) && (
+                        <div className="space-y-1.5">
+                          <span className="text-indigo-950 font-extrabold block border-b border-indigo-200 pb-1 uppercase tracking-wider">
+                            List II
+                          </span>
+                          {q.listII.map((item, itemIdx) => {
+                            if (!item) return null;
+                            const hindiItem = autoHindiMap[q.id]?.listII?.[itemIdx];
+                            return (
+                              <div key={itemIdx} className="p-2.5 rounded-xl bg-white border border-indigo-100 font-bold text-slate-800 shadow-2xs">
+                                {languageMode === 'en' && item}
+                                {languageMode === 'hi' && (hindiItem || item)}
+                                {languageMode === 'dual' && (
+                                  <div className="space-y-0.5">
+                                    <div>{item}</div>
+                                    {hindiItem && hindiItem !== item && (
+                                      <div className="text-[11px] font-semibold text-amber-800">{hindiItem}</div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Options Breakdown */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
                   {q.options.map((opt) => {
@@ -460,6 +634,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                       : selectedOptId === opt.id;
                     const correctIds = q.correctOptionIds || [q.correctOptionId];
                     const isRightAnswer = correctIds.includes(opt.id);
+                    const hindiOptText = autoHindiMap[q.id]?.options?.[opt.id];
 
                     let optStyle = 'bg-slate-50 border-slate-200 text-slate-600';
 
@@ -474,8 +649,8 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                         key={opt.id}
                         className={`p-3 rounded-xl border flex items-center justify-between text-xs transition-all ${optStyle}`}
                       >
-                        <div className="flex items-center space-x-2">
-                          <span className={`w-6 h-6 rounded-md font-mono font-bold flex items-center justify-center ${
+                        <div className="flex items-center space-x-2.5">
+                          <span className={`w-6 h-6 rounded-md font-mono font-bold flex items-center justify-center flex-shrink-0 ${
                             isRightAnswer
                               ? 'bg-emerald-600 text-white'
                               : isCandidateChoice
@@ -484,11 +659,20 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                           }`}>
                             {opt.id}
                           </span>
-                          <span>{opt.text}</span>
+                          <div className="flex flex-col text-left">
+                            <span className="font-semibold">
+                              {languageMode === 'hi' && hindiOptText ? hindiOptText : opt.text}
+                            </span>
+                            {languageMode === 'dual' && hindiOptText && hindiOptText !== opt.text && (
+                              <span className="text-[11px] font-semibold text-amber-800 pt-0.5">
+                                {hindiOptText}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         {isCandidateChoice && (
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-white border border-slate-300 font-bold text-slate-700">
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-white border border-slate-300 font-bold text-slate-700 flex-shrink-0">
                             Your Choice
                           </span>
                         )}
@@ -503,9 +687,31 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                     <HelpCircle className="w-4 h-4 text-indigo-600" />
                     <span>Explanation & Answer Key Rationale:</span>
                   </span>
-                  <p className="text-slate-800 leading-relaxed font-medium">
-                    {q.explanation || `Option (${q.correctOptionId}): "${q.options.find(o => o.id === q.correctOptionId)?.text || ''}" is the correct answer.`}
-                  </p>
+                  <div className="text-slate-800 leading-relaxed font-medium space-y-1">
+                    {(() => {
+                      const defaultExp = `Option (${q.correctOptionId}): "${q.options.find(o => o.id === q.correctOptionId)?.text || ''}" is the correct answer.`;
+                      const rawExp = q.explanation || defaultExp;
+                      const hindiExp = q.explanationHindi || autoHindiMap[q.id]?.explanation;
+
+                      if (languageMode === 'en') {
+                        return <p>{rawExp}</p>;
+                      }
+                      if (languageMode === 'hi') {
+                        return <p>{hindiExp || rawExp}</p>;
+                      }
+                      return (
+                        <div className="space-y-1">
+                          <p>{rawExp}</p>
+                          {hindiExp && hindiExp !== rawExp && (
+                            <p className="text-indigo-950 font-semibold pt-1 border-t border-indigo-100/60">
+                              <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1 py-0.2 rounded mr-1.5">HI</span>
+                              {hindiExp}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
             );
