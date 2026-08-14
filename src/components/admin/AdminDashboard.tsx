@@ -5,7 +5,7 @@ import { QuizImporter } from './QuizImporter';
 import { McqPreviewEditor } from './McqPreviewEditor';
 import { AnnouncementManager } from './AnnouncementManager';
 import { CandidateResponseModal } from './CandidateResponseModal';
-import { Plus, Trash2, FileDown, Layers, Sparkles, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, Trophy } from 'lucide-react';
+import { Plus, Trash2, FileDown, Layers, Sparkles, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, Trophy, LogOut } from 'lucide-react';
 import { getStoredResults } from '../../utils/storage';
 
 interface AdminDashboardProps {
@@ -16,6 +16,7 @@ interface AdminDashboardProps {
   onTogglePublish: (quiz: Quiz) => void;
   onSaveAnnouncement?: (announcement: Announcement) => void;
   onDeleteAnnouncement?: (id: string) => void;
+  onLogout?: () => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -26,6 +27,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onTogglePublish,
   onSaveAnnouncement = () => {},
   onDeleteAnnouncement = () => {},
+  onLogout,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'import' | 'manage' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users'>('overview');
   const [liveSessions, setLiveSessions] = useState<any[]>([]);
@@ -287,9 +289,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               MySQL 5050 Live
             </span>
           </div>
-          <h1 className="text-2xl font-black text-slate-900 flex items-center space-x-2 mt-1">
-            <Sparkles className="w-6 h-6 text-indigo-600" />
-            <span>Admin Examination Command Studio</span>
+          <h1 className="text-2xl font-black text-slate-900 flex flex-wrap items-center gap-3 mt-1">
+            <div className="flex items-center space-x-2">
+              <Sparkles className="w-6 h-6 text-indigo-600" />
+              <span>Admin Examination Command Studio</span>
+            </div>
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-700 border border-slate-200 hover:border-rose-200 text-[10px] font-extrabold uppercase transition-all flex items-center space-x-1"
+                title="Lock Admin Studio and Log Out"
+              >
+                <LogOut className="w-3 h-3 text-rose-500" />
+                <span>Lock Studio</span>
+              </button>
+            )}
           </h1>
           <p className="text-xs text-slate-500 font-medium mt-1">
             Convert documents into exams, configure sectional rules, edit live test papers, and inspect candidate statistics.

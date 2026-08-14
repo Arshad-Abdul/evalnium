@@ -303,6 +303,7 @@ function MainAppContent() {
               onTogglePublish={handleTogglePublish}
               onSaveAnnouncement={handleSaveAnnouncement}
               onDeleteAnnouncement={handleDeleteAnnouncement}
+              onLogout={handleAdminLogout}
             />
           ) : activeTab === 'dashboard' ? (
             <CandidateDashboard
