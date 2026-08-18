@@ -57,6 +57,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  // Load registered users immediately on mount so their emails are ready for Whitelist autocomplete
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
   useEffect(() => {
     if (activeSubTab === 'overview') {
       fetchAdminStats();
@@ -272,6 +277,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         sourceFileName={parsedResult.sourceName}
         onBack={() => setParsedResult(null)}
         onSaveQuiz={handleSaveAndClear}
+        registeredEmails={registeredUsers.map(u => u.email)}
       />
     );
   }

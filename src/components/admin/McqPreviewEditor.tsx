@@ -9,6 +9,7 @@ interface McqPreviewEditorProps {
   sourceFileName: string;
   onBack: () => void;
   onSaveQuiz: (quiz: Quiz) => void;
+  registeredEmails?: string[];
 }
 
 export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
@@ -16,6 +17,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   sourceFileName,
   onBack,
   onSaveQuiz,
+  registeredEmails = [],
 }) => {
   const [title, setTitle] = useState(parseResult.title || sourceFileName.replace(/\.[^/.]+$/, ''));
   const [topic, setTopic] = useState(parseResult.topic || 'General Knowledge');
@@ -35,9 +37,12 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   
   // --- Privacy & Access Controls ---
   const [accessCode, setAccessCode] = useState<string>(parseResult.accessCode || '');
-  const [allowedEmailsText, setAllowedEmailsText] = useState<string>(
-    parseResult.allowedEmails ? parseResult.allowedEmails.join(', ') : ''
+  const [allowedEmails, setAllowedEmails] = useState<string[]>(
+    parseResult.allowedEmails || []
   );
+  const [emailInput, setEmailInput] = useState<string>('');
+  const [emailSuggestions, setEmailSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
 
   // --- Granular Admin Settings & Rules ---
   const [enableCertificate, setEnableCertificate] = useState(typeof parseResult.enableCertificate === 'boolean' ? parseResult.enableCertificate : true);
@@ -266,7 +271,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       author: 'Admin Importer',
       
       accessCode: accessCode.trim() || undefined,
-      allowedEmails: allowedEmailsText.trim() ? allowedEmailsText.split(',').map(e => e.trim()).filter(e => e) : undefined,
+      allowedEmails: allowedEmails.length > 0 ? allowedEmails : undefined,
 
       // Granular Admin Controls
       enableCertificate,
@@ -331,6 +336,51 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   };
 
   const validCount = questions.filter(q => q.questionText && q.options.length >= 2).length;
+
+  // Whitelist Tag Input Helper Actions
+  const handleEmailInputChange = (val: string) => {
+    setEmailInput(val);
+    if (!val.trim()) {
+      setEmailSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const typed = val.toLowerCase().trim();
+    if (registeredEmails) {
+      const matches = registeredEmails.filter(
+        (email) => email.toLowerCase().includes(typed) && !allowedEmails.includes(email)
+      );
+      setEmailSuggestions(matches);
+      setShowSuggestions(matches.length > 0);
+    }
+  };
+
+  const addEmailTag = (email: string) => {
+    const cleanEmail = email.trim();
+    if (!cleanEmail) return;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (emailRegex.test(cleanEmail) && !allowedEmails.includes(cleanEmail)) {
+      setAllowedEmails([...allowedEmails, cleanEmail]);
+      setEmailInput('');
+      setEmailSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  const removeEmailTag = (emailToRemove: string) => {
+    setAllowedEmails(allowedEmails.filter((email) => email !== emailToRemove));
+  };
+
+  const handleEmailKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addEmailTag(emailInput);
+    } else if (e.key === 'Backspace' && !emailInput && allowedEmails.length > 0) {
+      removeEmailTag(allowedEmails[allowedEmails.length - 1]);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -1186,15 +1236,53 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-700 flex flex-col">
               <span>🎯 Allowed Emails Whitelist (Optional)</span>
-              <span className="text-[10px] font-normal text-slate-500">Comma-separated emails. Exam hides from others.</span>
+              <span className="text-[10px] font-normal text-slate-500">Add candidates allowed to attempt. Leave empty for public.</span>
             </label>
-            <textarea
-              value={allowedEmailsText}
-              onChange={(e) => setAllowedEmailsText(e.target.value)}
-              placeholder="student1@gmail.com, student2@gmail.com"
-              rows={2}
-              className="w-full p-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 focus:outline-none focus:border-rose-400 bg-white"
-            />
+            
+            {/* Tag Container */}
+            <div className="flex flex-wrap gap-1.5 p-2 border border-slate-200 rounded-xl bg-white focus-within:border-rose-400 min-h-[42px] items-center relative transition-all">
+              {allowedEmails.map((email) => (
+                <span 
+                  key={email} 
+                  className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-100 text-xs font-bold text-indigo-700 animate-in zoom-in-95 duration-150"
+                >
+                  <span>{email}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeEmailTag(email)}
+                    className="text-indigo-400 hover:text-indigo-600 transition-colors cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </span>
+              ))}
+              
+              <input
+                type="text"
+                value={emailInput}
+                onChange={(e) => handleEmailInputChange(e.target.value)}
+                onKeyDown={handleEmailKeyDown}
+                placeholder={allowedEmails.length === 0 ? "type email and press Enter..." : ""}
+                className="flex-1 min-w-[150px] border-none outline-none text-sm font-semibold text-slate-900 bg-transparent p-1 focus:ring-0"
+              />
+
+              {/* Floating Dropdown Autocomplete */}
+              {showSuggestions && emailSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl max-h-48 overflow-y-auto z-50 p-2 space-y-1 animate-in slide-in-from-top-2 duration-200">
+                  <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-2 py-1">Registered Candidates</p>
+                  {emailSuggestions.map((email) => (
+                    <button
+                      key={email}
+                      type="button"
+                      onClick={() => addEmailTag(email)}
+                      className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:text-white hover:bg-indigo-600 rounded-xl transition-all cursor-pointer"
+                    >
+                      {email}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
