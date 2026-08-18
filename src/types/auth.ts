@@ -21,7 +21,7 @@ export interface AuthContextType {
   loginCandidate: (email: string, password?: string) => Promise<UserProfile>;
   resetPassword: (email: string, otp: string, newPassword: string) => Promise<void>;
   checkCandidateExists: (email: string) => Promise<boolean>;
-  loginAdmin: (passcode: string) => boolean;
+  loginAdmin: (passcode: string) => Promise<boolean>;
   logoutAdmin: () => void;
   logoutCandidate: () => void;
   updateUserProfile: (updates: Partial<UserProfile>) => void;

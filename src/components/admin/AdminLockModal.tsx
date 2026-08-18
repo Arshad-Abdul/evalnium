@@ -16,9 +16,9 @@ export const AdminLockModal: React.FC<AdminLockModalProps> = ({
   const [showPass, setShowPass] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = loginAdmin(passcode);
+    const success = await loginAdmin(passcode);
     if (success) {
       setErrorMsg(null);
       onUnlock();

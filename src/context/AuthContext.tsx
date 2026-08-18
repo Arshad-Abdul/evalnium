@@ -8,47 +8,41 @@ interface AuthContextType {
   loginCandidate: (email: string, name?: string) => Promise<UserProfile>;
   resetPassword: (email: string, otp: string, newPassword: string) => Promise<void>;
   checkCandidateExists: (email: string) => Promise<boolean>;
-  loginAdmin: (passcode: string) => boolean;
+  loginAdmin: (passcode: string) => Promise<boolean>;
   logoutAdmin: () => void;
   logoutCandidate: () => void;
   updateUserProfile: (updates: Partial<UserProfile>) => void;
 }
 
-const AUTH_USER_KEY = 'evalnium_current_user_v1';
-const ADMIN_AUTH_KEY = 'evalnium_admin_auth_v1';
-const MASTER_ADMIN_PASSCODE = 'evalnium_admin_2026';
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
-    try {
-      const saved = localStorage.getItem(AUTH_USER_KEY);
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(ADMIN_AUTH_KEY) === 'true';
-    } catch {
-      return false;
-    }
-  });
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
 
   useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(currentUser));
-    } else {
-      localStorage.removeItem(AUTH_USER_KEY);
-    }
-  }, [currentUser]);
-
-  useEffect(() => {
-    localStorage.setItem(ADMIN_AUTH_KEY, isAdminAuthenticated ? 'true' : 'false');
-  }, [isAdminAuthenticated]);
+    const verifySession = async () => {
+      try {
+        const res = await fetch(`${getApiUrl()}/me`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.currentUser) {
+            setCurrentUser(data.currentUser);
+          }
+          if (data.isAdminAuthenticated) {
+            setIsAdminAuthenticated(true);
+          }
+        }
+      } catch (err) {
+        console.error('Session recovery failed:', err);
+      }
+    };
+    verifySession();
+  }, []);
 
   const getApiUrl = () => {
     const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
@@ -68,6 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      credentials: 'include',
     });
 
     if (!res.ok) {
@@ -109,6 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: email.trim().toLowerCase(),
         password: password || ''
       }),
+      credentials: 'include',
     });
 
     if (!res.ok) {
@@ -158,18 +154,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrentUser(updated);
   };
 
-  const loginAdmin = (passcode: string): boolean => {
-    if (passcode.trim() === MASTER_ADMIN_PASSCODE || passcode.trim() === 'admin123') {
-      setIsAdminAuthenticated(true);
-      if (currentUser) {
-        setCurrentUser({ ...currentUser, role: 'admin' });
+  const loginAdmin = async (passcode: string): Promise<boolean> => {
+    try {
+      const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
+      const res = await fetch(`http://${host}:5050/api/admin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passcode }),
+        credentials: 'include',
+      });
+      if (res.ok) {
+        setIsAdminAuthenticated(true);
+        if (currentUser) {
+          setCurrentUser({ ...currentUser, role: 'admin' });
+        }
+        return true;
       }
-      return true;
+      return false;
+    } catch {
+      return false;
     }
-    return false;
   };
 
   const logoutAdmin = () => {
+    const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
+    fetch(`http://${host}:5050/api/users/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    }).catch(e => console.error('Logout request failed:', e));
+
     setIsAdminAuthenticated(false);
     if (currentUser) {
       setCurrentUser({ ...currentUser, role: 'candidate' });
@@ -177,6 +191,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logoutCandidate = () => {
+    const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
+    fetch(`http://${host}:5050/api/users/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    }).catch(e => console.error('Logout request failed:', e));
+
     setCurrentUser(null);
   };
 

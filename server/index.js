@@ -2,12 +2,23 @@ import dotenv from 'dotenv';
 dotenv.config();
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import mysql from 'mysql2/promise';
 import nodemailer from 'nodemailer';
 import bcrypt from 'bcryptjs';
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || origin.indexOf('localhost') !== -1 || origin.indexOf('127.0.0.1') !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
+app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
 
 const DB_CONFIG = {
@@ -425,6 +436,14 @@ app.post('/api/users/register', async (req, res) => {
     const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
     const user = rows[0];
 
+    // Set HTTP-Only session cookie
+    res.cookie('evalnium_session', JSON.stringify({ uid: user.uid, email: user.email }), {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000 // 1 day
+    });
+
     res.json({ 
       success: true, 
       user: {
@@ -463,6 +482,14 @@ app.post('/api/users/login', async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({ error: 'Incorrect password entered.' });
     }
+
+    // Set HTTP-Only session cookie
+    res.cookie('evalnium_session', JSON.stringify({ uid: user.uid, email: user.email }), {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000 // 1 day
+    });
 
     res.json({
       uid: user.uid,
@@ -513,6 +540,81 @@ app.post('/api/users/reset-password', async (req, res) => {
     otpStore.delete(normalizedEmail);
 
     res.json({ success: true, message: 'Password reset successfully!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- SESSION COOKIES CORE ROUTING ---
+
+// Admin Login passcode verification endpoint (sets 5-day httpOnly cookie)
+app.post('/api/admin/login', (req, res) => {
+  try {
+    const { passcode } = req.body;
+    if (!passcode) return res.status(400).json({ error: 'Passcode is required' });
+
+    if (passcode.trim() === 'evalnium_admin_2026' || passcode.trim() === 'admin123') {
+      res.cookie('evalnium_admin_session', 'true', {
+        httpOnly: true,
+        secure: false, // Set to true in HTTPS environments
+        sameSite: 'lax',
+        maxAge: 5 * 24 * 60 * 60 * 1000 // 5 days
+      });
+      return res.json({ success: true });
+    }
+    
+    res.status(401).json({ error: 'Incorrect passcode entered.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// RESTORE session details from browser HTTP cookies
+app.get('/api/users/me', async (req, res) => {
+  try {
+    const sessionCookie = req.cookies.evalnium_session;
+    const adminCookie = req.cookies.evalnium_admin_session;
+
+    let currentUser = null;
+    let isAdminAuthenticated = false;
+
+    if (adminCookie === 'true') {
+      isAdminAuthenticated = true;
+    }
+
+    if (sessionCookie) {
+      try {
+        const session = JSON.parse(sessionCookie);
+        const [rows] = await pool.query(
+          'SELECT uid, name, email, role, target_exam as targetExam, phone, institution, created_at as createdAt FROM users WHERE uid = ?',
+          [session.uid]
+        );
+        if (rows.length > 0) {
+          currentUser = rows[0];
+          if (isAdminAuthenticated) {
+            currentUser.role = 'admin';
+          }
+        }
+      } catch (parseErr) {
+        console.error('Failed to parse session cookie:', parseErr.message);
+      }
+    }
+
+    res.json({
+      currentUser,
+      isAdminAuthenticated
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// CLEAR both candidate & admin sessions on sign out
+app.post('/api/users/logout', (req, res) => {
+  try {
+    res.clearCookie('evalnium_session');
+    res.clearCookie('evalnium_admin_session');
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
