@@ -10,11 +10,8 @@ import bcrypt from 'bcryptjs';
 const app = express();
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || origin.indexOf('localhost') !== -1 || origin.indexOf('127.0.0.1') !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+    // Dynamically allow any origin that makes the request to support credentials sharing
+    callback(null, true);
   },
   credentials: true
 }));
