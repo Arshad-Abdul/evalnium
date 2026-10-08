@@ -264,33 +264,59 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
             </div>
           </div>
 
-          {/* SVG Score Line Chart */}
+          {/* Performance Trajectory Chart */}
           {myAttempts.length === 0 ? (
-            <div className="h-48 flex items-center justify-center text-slate-400 text-xs font-medium border-2 border-dashed border-slate-200 rounded-2xl">
+            <div className="h-56 flex items-center justify-center text-slate-400 text-xs font-medium border-2 border-dashed border-slate-200 rounded-2xl">
               No test attempts logged yet. Complete a CBT exam to view your visual score chart!
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="h-48 w-full flex items-end justify-between gap-2 pt-4 px-2 border-b border-slate-200">
+              {/* Chart Grid with Y-Axis and Bars */}
+              <div className="relative h-56 w-full flex items-end justify-between gap-2 pt-6 pb-2 px-2 border-b border-slate-200 bg-slate-50/50 rounded-2xl border border-slate-100">
+                {/* Horizontal Grid lines */}
+                <div className="absolute inset-x-2 top-6 bottom-8 flex flex-col justify-between pointer-events-none opacity-40">
+                  <div className="border-b border-dashed border-slate-300 w-full flex justify-end">
+                    <span className="text-[9px] font-mono font-bold text-slate-400 -mt-2.5 mr-1">100%</span>
+                  </div>
+                  <div className="border-b border-dashed border-slate-300 w-full flex justify-end">
+                    <span className="text-[9px] font-mono font-bold text-slate-400 -mt-2.5 mr-1">60%</span>
+                  </div>
+                  <div className="border-b border-dashed border-slate-300 w-full flex justify-end">
+                    <span className="text-[9px] font-mono font-bold text-slate-400 -mt-2.5 mr-1">0%</span>
+                  </div>
+                </div>
+
                 {myAttempts.slice(-10).map((attempt, idx) => {
-                  const heightPct = Math.max(10, attempt.percentage);
+                  const pct = Math.round(attempt.percentage);
+                  const barHeight = Math.min(100, Math.max(8, pct));
                   return (
-                    <div key={attempt.id || idx} className="flex-1 flex flex-col items-center gap-2 group relative">
+                    <div key={attempt.id || idx} className="h-full flex-1 flex flex-col items-center justify-end group relative z-10">
                       
                       {/* Tooltip on hover */}
-                      <div className="absolute -top-10 bg-slate-900 text-white text-[10px] font-mono font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20 shadow-md">
-                        {attempt.quizTitle}: {attempt.percentage}%
+                      <div className="absolute -top-6 bg-slate-900 text-white text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30 shadow-lg border border-slate-700">
+                        <span className="font-bold text-indigo-300">{attempt.quizTitle}</span>: {pct}%
+                        <span className="block text-[9px] text-slate-400">{attempt.passed ? '✅ Passed' : '❌ Needs Revision'}</span>
                       </div>
 
-                      {/* Score Value Bar */}
-                      <div
-                        className={`w-full max-w-[36px] rounded-t-xl transition-all ${
-                          attempt.passed ? 'bg-gradient-to-t from-emerald-600 to-emerald-400' : 'bg-gradient-to-t from-rose-600 to-rose-400'
-                        }`}
-                        style={{ height: `${heightPct}%` }}
-                      />
+                      {/* Percentage Badge */}
+                      <span className="text-[10px] font-mono font-bold mb-1 text-slate-700 transition-transform group-hover:scale-110">
+                        {pct}%
+                      </span>
 
-                      <span className="text-[10px] font-mono font-bold text-slate-600">
+                      {/* Score Value Bar Track */}
+                      <div className="w-full max-w-[38px] h-36 bg-slate-200/70 rounded-xl relative flex items-end overflow-hidden p-0.5 border border-slate-200 shadow-inner">
+                        <div
+                          className={`w-full rounded-lg transition-all duration-700 shadow-sm ${
+                            attempt.passed
+                              ? 'bg-gradient-to-t from-emerald-600 via-emerald-500 to-emerald-400'
+                              : 'bg-gradient-to-t from-rose-600 via-rose-500 to-rose-400'
+                          }`}
+                          style={{ height: `${barHeight}%` }}
+                        />
+                      </div>
+
+                      {/* Attempt sequence number */}
+                      <span className="text-[10px] font-mono font-bold text-slate-600 mt-1.5">
                         #{idx + 1}
                       </span>
                     </div>
@@ -301,13 +327,13 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
               <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
                 <span>Attempt Sequence (Recent 10)</span>
                 <div className="flex items-center space-x-4">
-                  <span className="flex items-center space-x-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                    <span>Passed (≥60%)</span>
+                  <span className="flex items-center space-x-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-xs" />
+                    <span className="font-semibold text-slate-700">Passed (≥60%)</span>
                   </span>
-                  <span className="flex items-center space-x-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                    <span>Needs Improvement</span>
+                  <span className="flex items-center space-x-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-xs" />
+                    <span className="font-semibold text-slate-700">Needs Improvement (&lt;60%)</span>
                   </span>
                 </div>
               </div>

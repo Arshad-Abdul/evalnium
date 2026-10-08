@@ -25,7 +25,7 @@ const shouldSkipApiCall = () => {
 export async function syncQuizzesFromMySQL(): Promise<Quiz[] | null> {
   if (shouldSkipApiCall()) return null;
   try {
-    const res = await fetch(`${getApiBaseUrl()}/quizzes`, { signal: AbortSignal.timeout(2500) });
+    const res = await fetch(`${getApiBaseUrl()}/quizzes`, { signal: AbortSignal.timeout(6000) });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -120,7 +120,7 @@ export function deleteQuiz(id: string): Quiz[] {
 export async function syncResultsFromMySQL(): Promise<QuizAttemptResult[] | null> {
   if (shouldSkipApiCall()) return null;
   try {
-    const res = await fetch(`${getApiBaseUrl()}/results`, { signal: AbortSignal.timeout(2500) });
+    const res = await fetch(`${getApiBaseUrl()}/results`, { signal: AbortSignal.timeout(6000) });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -208,7 +208,7 @@ export function getStoredAnnouncements(): Announcement[] {
 export async function syncAnnouncementsFromMySQL(): Promise<Announcement[] | null> {
   if (shouldSkipApiCall()) return null;
   try {
-    const res = await fetch(`${getApiBaseUrl()}/announcements`, { signal: AbortSignal.timeout(2500) });
+    const res = await fetch(`${getApiBaseUrl()}/announcements`, { signal: AbortSignal.timeout(6000) });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) {
