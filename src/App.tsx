@@ -110,13 +110,21 @@ function MainAppContent() {
     try {
       const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
       const clientId = getClientId();
+      const currentPage = examPhase === 'running' 
+        ? `Taking Exam: ${selectedQuiz?.title || 'CBT Assessment'}` 
+        : (activeTab === 'dashboard' ? 'Candidate Dashboard' : (activeTab === 'leaderboard' ? 'Live Rankings' : (activeTab === 'admin' ? 'Admin Studio' : 'Exam Catalog')));
+
       const res = await fetch(`http://${host}:5050/api/site/heartbeat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId,
           name: currentUser?.name || 'Guest Candidate',
-          role: currentUser?.role || (isAdminAuthenticated ? 'admin' : 'guest')
+          email: currentUser?.email || null,
+          role: currentUser?.role || (isAdminAuthenticated ? 'admin' : 'guest'),
+          isRegistered: Boolean(currentUser),
+          currentPage,
+          clientCountry: 'India'
         })
       });
       if (res.ok) {

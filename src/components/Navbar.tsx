@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, GraduationCap, Trophy, LogOut, LogIn, ChevronDown, Bookmark, User, Clock, Sparkles } from 'lucide-react';
+import { ShieldCheck, BookOpen, Trophy, LogOut, LogIn, ChevronDown, Bookmark, User, Clock, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { AuthModal } from './auth/AuthModal';
 import { EditProfileModal } from './auth/EditProfileModal';
+import { EvalniumLogo } from './brand/EvalniumLogo';
 
 interface NavbarProps {
   activeTab: 'user' | 'dashboard' | 'leaderboard' | 'admin';
@@ -24,9 +25,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenRevisionHub,
 }) => {
   const { currentUser, logoutCandidate } = useAuth();
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
-  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [showEditProfileModal, setShowEditProfileModal] = useState<boolean>(false);
+  const [showUserDropdown, setShowUserDropdown] = useState<boolean>(false);
   const [clockString, setClockString] = useState<string>('');
 
   useEffect(() => {
@@ -47,132 +48,115 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800/80 text-white shadow-xl">
+      <header className="sticky top-0 z-40 bg-slate-900 border-b border-slate-800 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          
-          {/* Brand Logo & Live Clock Ticker */}
+
+          {/* Institutional Brand Seal & System Clock */}
           <div className="flex items-center space-x-4">
             <div
-              className="flex items-center space-x-3 cursor-pointer group"
+              className="cursor-pointer select-none"
               onClick={() => setActiveTab(currentUser ? 'dashboard' : 'user')}
             >
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-blue-600 to-indigo-500 flex items-center justify-center text-white font-black text-base shadow-md shadow-indigo-500/25 group-hover:scale-105 transition-all border border-indigo-400/30">
-                E
-              </div>
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="font-extrabold text-base sm:text-lg tracking-tight text-white font-sans">
-                    EVALNIUM
-                  </span>
-                  <span className="px-1.5 py-0.5 text-[9px] font-extrabold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded font-mono uppercase tracking-widest">
-                    PRO CBT
-                  </span>
-                </div>
-                <p className="text-[10px] text-slate-400 font-medium hidden sm:block">National Examination Engine</p>
-              </div>
+              <EvalniumLogo size="sm" inverted={true} showSubtext={true} />
             </div>
 
-            {/* Live System Clock Ticker 🕒 */}
-            <div className="hidden lg:flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/60 font-mono text-[11px] font-bold text-slate-300">
-              <Clock className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-              <span>{clockString || '02:15:00 PM'}</span>
+            {/* Precision Tabular Examination Clock */}
+            <div className="hidden lg:flex items-center space-x-2 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 font-mono text-[11px] text-slate-300 tabular-nums">
+              <Clock className="w-3.5 h-3.5 text-slate-400" />
+              <span>{clockString || '00:00:00 • Standard Time'}</span>
             </div>
           </div>
 
-          {/* Center Navigation Tabs */}
-          <div className="flex items-center bg-slate-800/90 p-1 rounded-xl border border-slate-700/80">
+          {/* Institutional Segmented Navigation Bar */}
+          <nav className="flex items-center bg-slate-950 p-1 rounded-md border border-slate-800">
             {currentUser && (
               <button
                 onClick={() => setActiveTab('dashboard')}
-                className={`flex items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  activeTab === 'dashboard'
-                    ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-                }`}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${activeTab === 'dashboard'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                  }`}
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">My Dashboard</span>
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Candidate Dashboard</span>
               </button>
             )}
 
             <button
               onClick={() => setActiveTab('user')}
-              className={`flex items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                activeTab === 'user'
-                  ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-              }`}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${activeTab === 'user'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
-              <GraduationCap className="w-3.5 h-3.5" />
+              <BookOpen className="w-3.5 h-3.5" />
               <span>Exam Catalog ({totalQuizzesCount})</span>
             </button>
 
             <button
               onClick={() => setActiveTab('leaderboard')}
-              className={`flex items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                activeTab === 'leaderboard'
-                  ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-              }`}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${activeTab === 'leaderboard'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               <Trophy className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">Live Ranks</span>
+              <span className="hidden sm:inline">Rankings</span>
             </button>
 
             {isAdminVisible && (
               <button
                 onClick={() => setActiveTab('admin')}
-                className={`flex items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  activeTab === 'admin'
-                    ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-                }`}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${activeTab === 'admin'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                  }`}
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Admin Studio</span>
               </button>
             )}
-          </div>
+          </nav>
 
-          {/* Right Action Bar */}
-          <div className="flex items-center space-x-2 sm:space-x-3">
-            
+          {/* Right Action Controls */}
+          <div className="flex items-center space-x-2">
+
             {onOpenRevisionHub && (
               <button
                 onClick={onOpenRevisionHub}
-                className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 border border-slate-700/60 transition-all flex items-center space-x-1 text-xs font-bold"
+                className="px-2.5 py-1.5 rounded bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700/80 border border-slate-700 transition-colors flex items-center space-x-1.5 text-xs font-medium"
                 title="Bookmarked Questions Revision Hub"
               >
-                <Bookmark className="w-4 h-4 text-amber-400" />
-                <span className="hidden md:inline">Bookmarks</span>
+                <Bookmark className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden md:inline">Saved Questions</span>
               </button>
             )}
 
-            {/* Candidate User Pill */}
+            {/* Candidate User Profile Menu */}
             {currentUser ? (
               <div className="relative">
                 <button
                   onClick={() => setShowUserDropdown(!showUserDropdown)}
-                  className="flex items-center space-x-2 p-1.5 pr-3 rounded-xl bg-slate-800 hover:bg-slate-700/90 border border-slate-700/80 transition-all"
+                  className="flex items-center space-x-2 p-1 pl-1.5 pr-2.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors"
                 >
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-500 to-blue-600 font-extrabold text-white text-xs flex items-center justify-center">
+                  <div className="w-6 h-6 rounded bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center border border-slate-600">
                     {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
                   </div>
                   <div className="text-left hidden md:block">
-                    <p className="text-xs font-bold text-white leading-none">{currentUser.name}</p>
-                    <span className="text-[9px] font-mono text-indigo-300 font-bold uppercase tracking-wider">
-                      {currentUser.role === 'admin' && isAdminAuthenticated ? 'SYSTEM ADMIN' : 'CANDIDATE'}
+                    <p className="text-xs font-semibold text-slate-100 leading-tight">{currentUser.name}</p>
+                    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-wider block">
+                      {currentUser.role === 'admin' && isAdminAuthenticated ? 'ADMINISTRATOR' : 'CANDIDATE'}
                     </span>
                   </div>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  <ChevronDown className="w-3 h-3 text-slate-400 ml-0.5" />
                 </button>
 
-                {/* Profile Dropdown */}
+                {/* Dropdown Menu */}
                 {showUserDropdown && (
-                  <div className="absolute right-0 mt-2 w-52 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-2 z-50 space-y-1">
-                    <div className="px-3 py-2 border-b border-slate-800">
-                      <p className="text-xs font-bold text-white">{currentUser.name}</p>
-                      <p className="text-[10px] text-slate-400 truncate">{currentUser.email}</p>
+                  <div className="absolute right-0 mt-1.5 w-56 bg-slate-900 border border-slate-700 rounded-md shadow-lg p-1.5 z-50 space-y-1">
+                    <div className="px-2.5 py-2 border-b border-slate-800">
+                      <p className="text-xs font-semibold text-white">{currentUser.name}</p>
+                      <p className="text-[11px] text-slate-400 truncate">{currentUser.email}</p>
                     </div>
 
                     <button
@@ -180,9 +164,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                         setShowUserDropdown(false);
                         setShowEditProfileModal(true);
                       }}
-                      className="w-full px-3 py-2 rounded-xl text-left text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 flex items-center space-x-2"
+                      className="w-full px-2.5 py-1.5 rounded text-left text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 flex items-center space-x-2 transition-colors"
                     >
-                      <User className="w-4 h-4 text-indigo-400" />
+                      <User className="w-3.5 h-3.5 text-blue-400" />
                       <span>Edit Candidate Profile</span>
                     </button>
 
@@ -193,9 +177,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                         logoutCandidate();
                         onCandidateLogout?.();
                       }}
-                      className="w-full px-3 py-2 rounded-xl text-left text-xs font-bold text-rose-400 hover:bg-rose-500/10 flex items-center space-x-2"
+                      className="w-full px-2.5 py-1.5 rounded text-left text-xs font-medium text-rose-400 hover:bg-rose-500/10 flex items-center space-x-2 transition-colors"
                     >
-                      <LogOut className="w-4 h-4 text-rose-400" />
+                      <LogOut className="w-3.5 h-3.5 text-rose-400" />
                       <span>Sign Out</span>
                     </button>
                   </div>
@@ -204,10 +188,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             ) : (
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-indigo-600/25 flex items-center space-x-1.5 transition-all"
+                className="px-3.5 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs shadow-sm flex items-center space-x-1.5 transition-colors"
               >
                 <LogIn className="w-3.5 h-3.5" />
-                <span>Student Sign In</span>
+                <span>Candidate Sign In</span>
               </button>
             )}
 
@@ -216,7 +200,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </header>
 
-      {/* Auth & Profile Modals */}
+      {/* Authentication & Profile Modals */}
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       <EditProfileModal isOpen={showEditProfileModal} onClose={() => setShowEditProfileModal(false)} />
     </>

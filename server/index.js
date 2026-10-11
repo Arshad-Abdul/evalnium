@@ -35,6 +35,72 @@ const otpStore = new Map();
 // Rate Limiter Store: email -> { count, windowStart }
 const otpRateLimitStore = new Map();
 
+// --- CENTRAL IN-MEMORY EVENT ACTIVITY FEED BUFFER & AUDIT LOG PIPELINE ---
+const globalActivityLog = [];
+
+async function recordAuditLog({
+  eventType = 'info',
+  severity = 'info', // 'info' | 'success' | 'warning' | 'danger'
+  actorName = 'System',
+  actorEmail = null,
+  actorRole = 'student',
+  actionTitle = '',
+  detailsText = '',
+  ipAddress = '127.0.0.1'
+}) {
+  const nowIso = new Date().toISOString();
+  
+  // 1. Maintain in-memory buffer for real-time live terminal streaming
+  const memoryItem = {
+    id: `act_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    type: eventType,
+    severity: severity,
+    message: actionTitle,
+    actorName: actorName,
+    actorEmail: actorEmail,
+    timestamp: nowIso
+  };
+  globalActivityLog.unshift(memoryItem);
+  if (globalActivityLog.length > 60) {
+    globalActivityLog.pop();
+  }
+
+  // 2. Persist permanently to MySQL activity_audit_logs table
+  if (pool) {
+    try {
+      await pool.query(
+        `INSERT INTO activity_audit_logs (
+          event_type, severity, actor_name, actor_email, actor_role, action_title, details_text, ip_address, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          eventType,
+          severity,
+          actorName || 'Anonymous',
+          actorEmail || null,
+          actorRole || 'student',
+          actionTitle,
+          detailsText || '',
+          ipAddress || '127.0.0.1',
+          nowIso
+        ]
+      );
+    } catch (err) {
+      console.error('Failed to persist audit log into MySQL:', err.message);
+    }
+  }
+
+  return memoryItem;
+}
+
+function logActivityEvent(type, message) {
+  return recordAuditLog({
+    eventType: type,
+    actionTitle: message,
+    severity: type === 'proctoring' || type === 'danger' ? 'danger' : type === 'completed' ? 'success' : 'info'
+  });
+}
+
+
 function createMailTransporter() {
   const user = process.env.SMTP_USER || 'arsnaz1234@gmail.com';
   const pass = (process.env.SMTP_PASS || 'uzviogcsymqzxbar').replace(/\s+/g, '');
@@ -127,6 +193,8 @@ async function initDatabase() {
       `ALTER TABLE quizzes ADD COLUMN allow_manual_early_move TINYINT(1) DEFAULT 0;`,
       `ALTER TABLE quizzes ADD COLUMN result_announcement_datetime VARCHAR(100) DEFAULT NULL;`,
       `ALTER TABLE quizzes ADD COLUMN max_tab_switches INT DEFAULT 3;`,
+      `ALTER TABLE visitor_logs ADD COLUMN visit_count INT DEFAULT 1;`,
+      `ALTER TABLE visitor_logs ADD COLUMN duration_seconds INT DEFAULT 0;`,
     ];
 
     for (const alterSql of columnsToAdd) {
@@ -217,7 +285,31 @@ async function initDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS visitor_logs (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        session_id VARCHAR(100) NOT NULL UNIQUE,
+        ip_address VARCHAR(50),
+        country VARCHAR(100) DEFAULT 'India',
+        candidate_name VARCHAR(150) DEFAULT 'Anonymous Guest',
+        candidate_email VARCHAR(150) DEFAULT NULL,
+        is_registered TINYINT(1) DEFAULT 0,
+        browser VARCHAR(50) DEFAULT 'Chrome',
+        os VARCHAR(50) DEFAULT 'Windows',
+        device_type VARCHAR(50) DEFAULT 'Desktop',
+        current_page VARCHAR(255) DEFAULT 'Home / Catalog',
+        first_seen VARCHAR(100),
+        last_seen VARCHAR(100)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
     // Performance Indexing
+    try {
+      await pool.query(`CREATE INDEX idx_visitor_last_seen ON visitor_logs(last_seen);`);
+      await pool.query(`CREATE INDEX idx_visitor_ip ON visitor_logs(ip_address);`);
+    } catch {
+      // Indexes already exist
+    }
     try {
       await pool.query(`CREATE INDEX idx_results_quiz_id ON results(quiz_id);`);
       await pool.query(`CREATE INDEX idx_results_candidate_name ON results(candidate_name);`);
@@ -253,8 +345,8 @@ async function initDatabase() {
         UNIQUE KEY unique_user_question (uid, question_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
-    try { await pool.query(`CREATE INDEX idx_bookmarks_uid ON bookmarks(uid);`); } catch {}
-    
+    try { await pool.query(`CREATE INDEX idx_bookmarks_uid ON bookmarks(uid);`); } catch { }
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS site_visits (
         ip_address VARCHAR(100),
@@ -263,7 +355,132 @@ async function initDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    console.log(`✅ All MySQL Database Tables & Indexes Verified & Ready!`);
+    // 1. Promotional Banners Table & Seed
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS banners (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        subtitle TEXT,
+        image_url LONGTEXT NOT NULL,
+        badge_text VARCHAR(100) DEFAULT 'HOT ANNOUNCEMENT',
+        cta_text VARCHAR(100) DEFAULT 'Take Test Now',
+        cta_link TEXT,
+        quiz_id VARCHAR(100) DEFAULT NULL,
+        is_active TINYINT(1) DEFAULT 1,
+        display_order INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // Seed initial banners if table is empty
+    const [bannerRows] = await pool.query('SELECT COUNT(*) as count FROM banners');
+    if (bannerRows[0].count === 0) {
+      await pool.query(`
+        INSERT INTO banners (title, subtitle, image_url, badge_text, cta_text, cta_link, quiz_id, is_active, display_order)
+        VALUES 
+        (
+          'NTA UGC NET / JRF 2026 Paper 1 Live Mock Series',
+          'Comprehensive Bilingual Assessment covering Teaching & Research Aptitude, Logical Reasoning, and Higher Education with Instant NTA-Standard Diagnostics.',
+          'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1200&auto=format&fit=crop&q=80',
+          'ALL-INDIA LIVE CBT',
+          'Start Paper 1 Mock',
+          '/',
+          NULL,
+          1,
+          1
+        ),
+        (
+          'Library & Information Science (LIS) Mega Assessment 2026',
+          'Full-length examination testing Digital Libraries, Cataloguing & Metadata Standards, Knowledge Organization, and Information Retrieval.',
+          'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=1200&auto=format&fit=crop&q=80',
+          'LIS SPECIAL SERIES',
+          'Explore LIS Catalog',
+          '/',
+          NULL,
+          1,
+          2
+        ),
+        (
+          'Precision Computer-Based Testing Simulation with Official Transcripts',
+          'Experience the exact NTA 5-button question palette, non-jittering timers, section switching restrictions, and QR-verifiable performance transcripts.',
+          'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1200&auto=format&fit=crop&q=80',
+          'OFFICIAL CBT RADAR',
+          'View Leaderboards',
+          '/',
+          NULL,
+          1,
+          3
+        );
+      `);
+      console.log(`✅ Default showcase promotional banners seeded.`);
+    }
+
+    // 2. Question Discussions & Doubts Forum Table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS question_discussions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        quiz_id VARCHAR(100) NOT NULL,
+        question_id VARCHAR(100) NOT NULL,
+        user_name VARCHAR(150) NOT NULL,
+        user_email VARCHAR(150),
+        role VARCHAR(50) DEFAULT 'candidate',
+        comment TEXT NOT NULL,
+        likes_count INT DEFAULT 0,
+        is_pinned TINYINT(1) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+    try { await pool.query(`CREATE INDEX idx_discussions_quiz_q ON question_discussions(quiz_id, question_id);`); } catch { }
+
+    // 3. Live Proctoring & Anti-Cheating Logs Table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS proctoring_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        session_id VARCHAR(100) NOT NULL,
+        quiz_id VARCHAR(100) NOT NULL,
+        candidate_name VARCHAR(150),
+        candidate_email VARCHAR(150),
+        violation_type VARCHAR(100) NOT NULL,
+        details TEXT,
+        snapshot_base64 LONGTEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+    try { await pool.query(`CREATE INDEX idx_proctoring_quiz ON proctoring_logs(quiz_id);`); } catch { }
+
+    // 4. Permanent Activity Audit Logs Table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS activity_audit_logs (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        event_type VARCHAR(50) NOT NULL,
+        severity VARCHAR(20) DEFAULT 'info',
+        actor_name VARCHAR(150),
+        actor_email VARCHAR(150),
+        actor_role VARCHAR(50) DEFAULT 'student',
+        action_title VARCHAR(255) NOT NULL,
+        details_text TEXT,
+        ip_address VARCHAR(50),
+        created_at VARCHAR(100) NOT NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+    try { await pool.query(`CREATE INDEX idx_audit_created_at ON activity_audit_logs(created_at);`); } catch { }
+    try { await pool.query(`CREATE INDEX idx_audit_event_type ON activity_audit_logs(event_type);`); } catch { }
+    try { await pool.query(`CREATE INDEX idx_audit_severity ON activity_audit_logs(severity);`); } catch { }
+    try { await pool.query(`CREATE INDEX idx_audit_actor_email ON activity_audit_logs(actor_email);`); } catch { }
+
+    // Seed initial audit log if empty
+    const [auditCountRows] = await pool.query('SELECT COUNT(*) as count FROM activity_audit_logs');
+    if (auditCountRows[0].count === 0) {
+      const nowIso = new Date().toISOString();
+      await pool.query(`
+        INSERT INTO activity_audit_logs (event_type, severity, actor_name, actor_email, actor_role, action_title, details_text, ip_address, created_at)
+        VALUES 
+        ('admin_action', 'success', 'Admin System', 'system@evalnium.com', 'admin', '🛡️ Evalnium Secure CBT Engine & MySQL Tables Initialized', 'Database verified with active indexes on results, quizzes, users, banners, and audit logs.', '127.0.0.1', ?),
+        ('admin_action', 'info', 'Admin System', 'system@evalnium.com', 'admin', '🎯 All-India Mock Test Series Armed & Ready', 'NTA UGC NET Paper 1 and specialized assessment catalogs prepared for testing.', '127.0.0.1', ?)
+      `, [nowIso, nowIso]);
+    }
+
+    console.log(`✅ All MySQL Database Tables & Indexes (Banners, Discussions, Proctoring, Audit Logs) Verified & Ready!`);
   } catch (err) {
     console.error('❌ Failed to initialize MySQL Database:', err);
   }
@@ -281,7 +498,7 @@ async function syncCandidatesToUsersTable() {
     for (const r of results) {
       const name = r.candidate_name.trim();
       let email = (r.candidate_email || '').trim().toLowerCase();
-      
+
       if (!email || email === 'not provided') {
         const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '');
         email = `${slug || 'candidate'}@evalnium.app`;
@@ -419,7 +636,7 @@ app.post('/api/users/register', async (req, res) => {
 
     const normalizedEmail = email.toLowerCase().trim();
     const createdAt = new Date().toISOString();
-    
+
     // Hash the password securely
     const passwordHash = await bcrypt.hash(password, 10);
 
@@ -441,8 +658,19 @@ app.post('/api/users/register', async (req, res) => {
       maxAge: 24 * 60 * 60 * 1000 // 1 day
     });
 
-    res.json({ 
-      success: true, 
+    recordAuditLog({
+      eventType: 'user_register',
+      severity: 'success',
+      actorName: user.name,
+      actorEmail: user.email,
+      actorRole: user.role || 'student',
+      actionTitle: `👤 Candidate Registration: ${user.name} (${user.email})`,
+      detailsText: `New candidate profile created with UID: ${user.uid}`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
+
+    res.json({
+      success: true,
       user: {
         uid: user.uid,
         name: user.name,
@@ -462,13 +690,13 @@ app.post('/api/users/login', async (req, res) => {
 
     const normalizedEmail = email.toLowerCase().trim();
     const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
-    
+
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Account not found. Please create an account first.' });
     }
 
     const user = rows[0];
-    
+
     // Handle old users who don't have a password set yet
     if (!user.password_hash) {
       return res.status(403).json({ error: 'Your account does not have a password set yet. Please use the "Create Account" tab to verify your email and create a password. (Your existing exam history will be preserved).' });
@@ -486,6 +714,17 @@ app.post('/api/users/login', async (req, res) => {
       secure: false,
       sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000 // 1 day
+    });
+
+    recordAuditLog({
+      eventType: 'user_login',
+      severity: 'info',
+      actorName: user.name,
+      actorEmail: user.email,
+      actorRole: user.role || 'student',
+      actionTitle: `🔑 User Login: ${user.name} signed into student portal`,
+      detailsText: `Authenticated via secure password verification. Target Exam: ${user.target_exam || 'General'}`,
+      ipAddress: req.ip || '127.0.0.1'
     });
 
     res.json({
@@ -509,7 +748,7 @@ app.post('/api/users/reset-password', async (req, res) => {
     if (!email || !otp || !newPassword) return res.status(400).json({ error: 'Email, OTP, and new password are required' });
 
     const normalizedEmail = email.toLowerCase().trim();
-    
+
     // Check if account exists
     const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
     if (rows.length === 0) {
@@ -532,7 +771,7 @@ app.post('/api/users/reset-password', async (req, res) => {
     // OTP Verified! Hash new password and save
     const passwordHash = await bcrypt.hash(newPassword, 10);
     await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [passwordHash, normalizedEmail]);
-    
+
     // Clear OTP
     otpStore.delete(normalizedEmail);
 
@@ -559,7 +798,7 @@ app.post('/api/admin/login', (req, res) => {
       });
       return res.json({ success: true });
     }
-    
+
     res.status(401).json({ error: 'Incorrect passcode entered.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -693,7 +932,7 @@ setInterval(() => {
 app.get('/api/quizzes', async (req, res) => {
   try {
     const [quizRows] = await pool.query('SELECT * FROM quizzes ORDER BY created_at DESC');
-    
+
     const quizzes = [];
     for (const q of quizRows) {
       const [qRows] = await pool.query('SELECT * FROM questions WHERE quiz_id = ?', [q.id]);
@@ -771,7 +1010,7 @@ app.post('/api/quizzes', async (req, res) => {
   let connection;
   try {
     const q = req.body;
-    
+
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
@@ -790,7 +1029,7 @@ app.post('/api/quizzes', async (req, res) => {
         q.id, q.title, q.description, q.topic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.isPublished ? 1 : 0, q.createdAt, q.updatedAt, q.author || 'Admin',
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
         q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.maxTabSwitches || 3,
-        
+
         q.title, q.description, q.topic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.isPublished ? 1 : 0, q.updatedAt,
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
         q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.maxTabSwitches || 3
@@ -820,6 +1059,17 @@ app.post('/api/quizzes', async (req, res) => {
     }
 
     await connection.commit();
+
+    recordAuditLog({
+      eventType: 'admin_action',
+      severity: 'info',
+      actorName: 'Admin',
+      actorRole: 'admin',
+      actionTitle: `🛠️ Quiz Saved: "${q.title}" (${q.questions?.length || 0} questions)`,
+      detailsText: `Category: ${q.category}, Time Limit: ${q.timeLimitMinutes}m, Pass: ${q.passingPercentage}%`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
+
     res.json({ success: true });
   } catch (err) {
     if (connection) {
@@ -836,6 +1086,17 @@ app.post('/api/quizzes', async (req, res) => {
 app.delete('/api/quizzes/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM quizzes WHERE id = ?', [req.params.id]);
+
+    recordAuditLog({
+      eventType: 'admin_action',
+      severity: 'warning',
+      actorName: 'Admin',
+      actorRole: 'admin',
+      actionTitle: `🗑️ Quiz Deleted (ID: ${req.params.id})`,
+      detailsText: `Quiz ${req.params.id} permanently removed from database.`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -846,8 +1107,10 @@ app.delete('/api/quizzes/:id', async (req, res) => {
 app.post('/api/sessions/heartbeat', (req, res) => {
   const { quizId, quizTitle, candidateName, candidateEmail, timeRemaining, percentageComplete } = req.body;
   if (!quizId || !candidateName) return res.status(400).json({ error: 'Missing required fields' });
-  
+
   const sessionKey = `${quizId}_${candidateEmail || candidateName}`;
+  const isNewSession = !activeSessions.has(sessionKey);
+
   activeSessions.set(sessionKey, {
     quizId,
     quizTitle: quizTitle || 'CBT Exam',
@@ -857,7 +1120,20 @@ app.post('/api/sessions/heartbeat', (req, res) => {
     percentageComplete,
     lastSeen: Date.now()
   });
-  
+
+  if (isNewSession) {
+    recordAuditLog({
+      eventType: 'exam_start',
+      severity: 'info',
+      actorName: candidateName,
+      actorEmail: candidateEmail || null,
+      actorRole: 'student',
+      actionTitle: `📝 Exam Started: ${candidateName} initiated "${quizTitle || 'CBT Exam'}"`,
+      detailsText: `Candidate launched exam session. Initial time remaining: ${timeRemaining || 'standard'}.`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
+  }
+
   res.json({ success: true });
 });
 
@@ -874,7 +1150,7 @@ app.post('/api/site/visit', async (req, res) => {
       ip = ip.substr(7);
     }
     const today = new Date().toISOString().slice(0, 10);
-    
+
     await pool.query(
       `INSERT IGNORE INTO site_visits (ip_address, visited_date) VALUES (?, ?)`,
       [ip, today]
@@ -885,17 +1161,81 @@ app.post('/api/site/visit', async (req, res) => {
   }
 });
 
+function parseUserAgent(uaString) {
+  if (!uaString) return { browser: 'Chrome', os: 'Windows', deviceType: 'Desktop' };
+  
+  let browser = 'Chrome';
+  if (uaString.includes('Firefox')) browser = 'Firefox';
+  else if (uaString.includes('Edg/')) browser = 'Microsoft Edge';
+  else if (uaString.includes('Safari') && !uaString.includes('Chrome')) browser = 'Safari';
+  else if (uaString.includes('OPR') || uaString.includes('Opera')) browser = 'Opera';
+  
+  let os = 'Windows';
+  let deviceType = 'Desktop';
+  if (uaString.includes('Windows')) os = 'Windows';
+  else if (uaString.includes('Android')) { os = 'Android'; deviceType = 'Mobile'; }
+  else if (uaString.includes('iPhone') || uaString.includes('iPad')) { os = 'iOS'; deviceType = uaString.includes('iPad') ? 'Tablet' : 'Mobile'; }
+  else if (uaString.includes('Macintosh') || uaString.includes('Mac OS')) os = 'macOS';
+  else if (uaString.includes('Linux')) os = 'Linux';
+  
+  return { browser, os, deviceType };
+}
+
 app.post('/api/site/heartbeat', async (req, res) => {
-  const { clientId, name, role } = req.body;
-  if (!clientId) return res.status(400).json({ error: 'clientId required' });
-  
-  activeVisitors.set(clientId, {
-    name: name || 'Guest Candidate',
-    role: role || 'guest',
-    lastSeen: Date.now()
-  });
-  
   try {
+    const { clientId, name, email, role, isRegistered, currentPage, clientCountry } = req.body;
+    if (!clientId) return res.status(400).json({ error: 'clientId required' });
+
+    let rawIp = req.ip || req.headers['x-forwarded-for'] || '127.0.0.1';
+    if (rawIp.substr(0, 7) === "::ffff:") {
+      rawIp = rawIp.substr(7);
+    }
+    if (rawIp === '::1') rawIp = '127.0.0.1';
+
+    const userAgentStr = req.headers['user-agent'] || '';
+    const { browser, os, deviceType } = parseUserAgent(userAgentStr);
+    const country = clientCountry || (rawIp.startsWith('10.') || rawIp.startsWith('192.168.') || rawIp.startsWith('127.') ? 'Local Network (India)' : 'India');
+    const nowIso = new Date().toISOString();
+
+    activeVisitors.set(clientId, {
+      name: name || 'Guest Candidate',
+      email: email || null,
+      role: role || 'guest',
+      isRegistered: Boolean(isRegistered),
+      ip: rawIp,
+      country: country,
+      browser: browser,
+      os: os,
+      deviceType: deviceType,
+      currentPage: currentPage || 'Exam Portal',
+      lastSeen: Date.now()
+    });
+
+    // Save or Update in visitor_logs table in MySQL
+    await pool.query(
+      `INSERT INTO visitor_logs (
+        session_id, ip_address, country, candidate_name, candidate_email, is_registered,
+        browser, os, device_type, current_page, first_seen, last_seen, visit_count, duration_seconds
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0)
+      ON DUPLICATE KEY UPDATE
+        ip_address = VALUES(ip_address),
+        country = VALUES(country),
+        candidate_name = IF(VALUES(candidate_name) NOT IN ('Guest Candidate', 'Anonymous Guest', ''), VALUES(candidate_name), visitor_logs.candidate_name),
+        candidate_email = IF(VALUES(candidate_email) IS NOT NULL AND VALUES(candidate_email) != '', VALUES(candidate_email), visitor_logs.candidate_email),
+        is_registered = IF(VALUES(is_registered) = 1, 1, visitor_logs.is_registered),
+        browser = VALUES(browser),
+        os = VALUES(os),
+        device_type = VALUES(device_type),
+        current_page = VALUES(current_page),
+        last_seen = VALUES(last_seen),
+        visit_count = IFNULL(visitor_logs.visit_count, 0) + 1,
+        duration_seconds = GREATEST(0, IFNULL(TIMESTAMPDIFF(SECOND, STR_TO_DATE(SUBSTRING(visitor_logs.first_seen, 1, 19), '%Y-%m-%dT%T'), STR_TO_DATE(SUBSTRING(VALUES(last_seen), 1, 19), '%Y-%m-%dT%T')), 0))`,
+      [
+        clientId, rawIp, country, name || 'Guest Candidate', email || null, isRegistered ? 1 : 0,
+        browser, os, deviceType, currentPage || 'Exam Portal', nowIso, nowIso
+      ]
+    );
+
     const [[{ total }]] = await pool.query('SELECT COUNT(*) as total FROM site_visits');
     res.json({
       success: true,
@@ -908,6 +1248,295 @@ app.post('/api/site/heartbeat', async (req, res) => {
       totalVisitors: 0,
       activeVisitorsCount: activeVisitors.size
     });
+  }
+});
+
+// Visitor Intelligence Logs & Real-Time Radar with Comprehensive Historical Analytics
+app.get('/api/admin/visitors', async (req, res) => {
+  try {
+    const range = req.query.range || 'all';
+    const now = new Date();
+    
+    // Start of today in local/UTC
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const yesterdayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).toISOString();
+    const yesterdayEnd = todayStart;
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+
+    let whereClause = '';
+    let whereParams = [];
+
+    if (range === 'today') {
+      whereClause = 'WHERE last_seen >= ?';
+      whereParams = [todayStart];
+    } else if (range === 'yesterday') {
+      whereClause = 'WHERE last_seen >= ? AND last_seen < ?';
+      whereParams = [yesterdayStart, yesterdayEnd];
+    } else if (range === '7days') {
+      whereClause = 'WHERE last_seen >= ?';
+      whereParams = [sevenDaysAgo];
+    } else if (range === '30days') {
+      whereClause = 'WHERE last_seen >= ?';
+      whereParams = [thirtyDaysAgo];
+    }
+
+    const [rows] = await pool.query(`
+      SELECT * FROM visitor_logs 
+      ${whereClause}
+      ORDER BY last_seen DESC 
+      LIMIT 500
+    `, whereParams);
+
+    // Summary KPIs
+    const [[summaryCounts]] = await pool.query(`
+      SELECT 
+        COUNT(*) as totalStoredSessions,
+        SUM(IF(last_seen >= ?, 1, 0)) as todayCount,
+        SUM(IF(last_seen >= ? AND last_seen < ?, 1, 0)) as yesterdayCount,
+        SUM(IF(last_seen >= ?, 1, 0)) as last7DaysCount,
+        SUM(IF(last_seen >= ?, 1, 0)) as last30DaysCount,
+        SUM(IF(is_registered = 1, 1, 0)) as registeredTotal,
+        SUM(IF(is_registered = 0, 1, 0)) as guestTotal,
+        SUM(IF(device_type = 'Desktop', 1, 0)) as desktopTotal,
+        SUM(IF(device_type IN ('Mobile', 'Tablet'), 1, 0)) as mobileTotal,
+        AVG(duration_seconds) as avgDurationSeconds
+      FROM visitor_logs
+    `, [todayStart, yesterdayStart, yesterdayEnd, sevenDaysAgo, thirtyDaysAgo]);
+
+    // 14-day daily traffic trend
+    const [dailyTrend] = await pool.query(`
+      SELECT 
+        SUBSTRING(last_seen, 1, 10) as date,
+        COUNT(*) as total,
+        SUM(IF(is_registered = 1, 1, 0)) as registered,
+        SUM(IF(is_registered = 0, 1, 0)) as guests
+      FROM visitor_logs
+      WHERE last_seen >= ?
+      GROUP BY SUBSTRING(last_seen, 1, 10)
+      ORDER BY date ASC
+    `, [fourteenDaysAgo]);
+
+    // Top Pages visited
+    const [topPages] = await pool.query(`
+      SELECT current_page as page, COUNT(*) as count 
+      FROM visitor_logs 
+      ${whereClause}
+      GROUP BY current_page 
+      ORDER BY count DESC 
+      LIMIT 8
+    `, whereParams);
+
+    // Top Countries / Geographies
+    const [topCountries] = await pool.query(`
+      SELECT country, COUNT(*) as count 
+      FROM visitor_logs 
+      ${whereClause}
+      GROUP BY country 
+      ORDER BY count DESC 
+      LIMIT 8
+    `, whereParams);
+
+    const nowMs = Date.now();
+    const activeList = Array.from(activeVisitors.entries())
+      .filter(([_, v]) => nowMs - v.lastSeen < 60000)
+      .map(([id, v]) => ({
+        sessionId: id,
+        ...v
+      }));
+
+    res.json({
+      activeVisitors: activeList,
+      recentVisitorLogs: rows.map(r => ({
+        id: r.id,
+        sessionId: r.session_id,
+        ipAddress: r.ip_address,
+        country: r.country,
+        candidateName: r.candidate_name,
+        candidateEmail: r.candidate_email,
+        isRegistered: Boolean(r.is_registered),
+        browser: r.browser,
+        os: r.os,
+        deviceType: r.device_type,
+        currentPage: r.current_page,
+        firstSeen: r.first_seen,
+        lastSeen: r.last_seen,
+        visitCount: r.visit_count || 1,
+        durationSeconds: r.duration_seconds || 0
+      })),
+      summary: {
+        totalStoredSessions: summaryCounts?.totalStoredSessions || 0,
+        todayCount: summaryCounts?.todayCount || 0,
+        yesterdayCount: summaryCounts?.yesterdayCount || 0,
+        last7DaysCount: summaryCounts?.last7DaysCount || 0,
+        last30DaysCount: summaryCounts?.last30DaysCount || 0,
+        registeredTotal: summaryCounts?.registeredTotal || 0,
+        guestTotal: summaryCounts?.guestTotal || 0,
+        desktopTotal: summaryCounts?.desktopTotal || 0,
+        mobileTotal: summaryCounts?.mobileTotal || 0,
+        avgDurationSeconds: Math.round(summaryCounts?.avgDurationSeconds || 0)
+      },
+      dailyTrend,
+      topPages,
+      topCountries
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Purge Old Visitor Telemetry Logs
+app.delete('/api/admin/visitors/purge', async (req, res) => {
+  try {
+    const { days } = req.query;
+    if (days === 'all') {
+      await pool.query('TRUNCATE TABLE visitor_logs');
+      return res.json({ success: true, message: 'All visitor telemetry logs have been cleared successfully.' });
+    }
+    const daysNum = parseInt(days || '30', 10);
+    const cutoffDate = new Date(Date.now() - daysNum * 24 * 60 * 60 * 1000).toISOString();
+    const [result] = await pool.query('DELETE FROM visitor_logs WHERE last_seen < ?', [cutoffDate]);
+    res.json({ success: true, deletedCount: result.affectedRows, message: `Purged logs older than ${daysNum} days.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// 1.5 PERMANENT ACTIVITY AUDIT LOGS & ARCHIVE API
+// ==========================================
+app.get('/api/admin/audit-logs', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page || '1', 10);
+    const limit = parseInt(req.query.limit || '25', 10);
+    const offset = Math.max(0, (page - 1) * limit);
+
+    const { eventType, severity, range, search } = req.query;
+
+    const whereConditions = [];
+    const queryParams = [];
+
+    // Filter by Event Type
+    if (eventType && eventType !== 'all') {
+      whereConditions.push('event_type = ?');
+      queryParams.push(eventType);
+    }
+
+    // Filter by Severity
+    if (severity && severity !== 'all') {
+      whereConditions.push('severity = ?');
+      queryParams.push(severity);
+    }
+
+    // Filter by Date Range
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const yesterdayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).toISOString();
+    const yesterdayEnd = todayStart;
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    if (range === 'today') {
+      whereConditions.push('created_at >= ?');
+      queryParams.push(todayStart);
+    } else if (range === 'yesterday') {
+      whereConditions.push('created_at >= ? AND created_at < ?');
+      queryParams.push(yesterdayStart, yesterdayEnd);
+    } else if (range === '7days') {
+      whereConditions.push('created_at >= ?');
+      queryParams.push(sevenDaysAgo);
+    } else if (range === '30days') {
+      whereConditions.push('created_at >= ?');
+      queryParams.push(thirtyDaysAgo);
+    }
+
+    // Keyword Search
+    if (search && search.trim()) {
+      const q = `%${search.trim().toLowerCase()}%`;
+      whereConditions.push('(LOWER(actor_name) LIKE ? OR LOWER(actor_email) LIKE ? OR LOWER(action_title) LIKE ? OR LOWER(details_text) LIKE ? OR ip_address LIKE ?)');
+      queryParams.push(q, q, q, q, q);
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    // Total Count matching filters
+    const [[{ totalCount }]] = await pool.query(
+      `SELECT COUNT(*) as totalCount FROM activity_audit_logs ${whereClause}`,
+      queryParams
+    );
+
+    // Fetch Paginated Logs
+    const [rows] = await pool.query(
+      `SELECT * FROM activity_audit_logs ${whereClause} ORDER BY id DESC LIMIT ? OFFSET ?`,
+      [...queryParams, limit, offset]
+    );
+
+    // Global Summary Counts across all logs
+    const [[summaryCounts]] = await pool.query(`
+      SELECT 
+        COUNT(*) as totalStored,
+        SUM(IF(severity = 'info', 1, 0)) as infoCount,
+        SUM(IF(severity = 'success', 1, 0)) as successCount,
+        SUM(IF(severity = 'warning', 1, 0)) as warningCount,
+        SUM(IF(severity = 'danger', 1, 0)) as dangerCount,
+        SUM(IF(event_type = 'exam_submit', 1, 0)) as examSubmitCount,
+        SUM(IF(event_type = 'exam_start', 1, 0)) as examStartCount,
+        SUM(IF(event_type = 'proctoring_alert', 1, 0)) as proctoringCount,
+        SUM(IF(event_type IN ('user_login', 'user_register'), 1, 0)) as authCount
+      FROM activity_audit_logs
+    `);
+
+    res.json({
+      logs: rows.map(r => ({
+        id: r.id,
+        eventType: r.event_type,
+        severity: r.severity,
+        actorName: r.actor_name,
+        actorEmail: r.actor_email,
+        actorRole: r.actor_role,
+        actionTitle: r.action_title,
+        detailsText: r.details_text,
+        ipAddress: r.ip_address,
+        createdAt: r.created_at
+      })),
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit) || 1
+      },
+      summary: {
+        totalStored: summaryCounts?.totalStored || 0,
+        infoCount: summaryCounts?.infoCount || 0,
+        successCount: summaryCounts?.successCount || 0,
+        warningCount: summaryCounts?.warningCount || 0,
+        dangerCount: summaryCounts?.dangerCount || 0,
+        examSubmitCount: summaryCounts?.examSubmitCount || 0,
+        examStartCount: summaryCounts?.examStartCount || 0,
+        proctoringCount: summaryCounts?.proctoringCount || 0,
+        authCount: summaryCounts?.authCount || 0
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Purge Old Activity Audit Logs
+app.delete('/api/admin/audit-logs/purge', async (req, res) => {
+  try {
+    const { days } = req.query;
+    if (days === 'all') {
+      await pool.query('TRUNCATE TABLE activity_audit_logs');
+      return res.json({ success: true, message: 'All activity audit logs have been permanently cleared.' });
+    }
+    const daysNum = parseInt(days || '30', 10);
+    const cutoffDate = new Date(Date.now() - daysNum * 24 * 60 * 60 * 1000).toISOString();
+    const [result] = await pool.query('DELETE FROM activity_audit_logs WHERE created_at < ?', [cutoffDate]);
+    res.json({ success: true, deletedCount: result.affectedRows, message: `Purged activity audit logs older than ${daysNum} days.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -967,6 +1596,18 @@ app.post('/api/results', async (req, res) => {
         r.score, r.percentage, r.passed ? 1 : 0, r.timeSpentSeconds, r.correctAnswers, r.wrongAnswers, r.skippedQuestions, JSON.stringify(r.userAnswers || {})
       ]
     );
+
+    recordAuditLog({
+      eventType: 'exam_submit',
+      severity: r.passed ? 'success' : 'warning',
+      actorName: r.candidateName,
+      actorEmail: r.candidateEmail || null,
+      actorRole: 'student',
+      actionTitle: `🎯 Exam Completed: ${r.candidateName} completed "${r.quizTitle}" (${r.percentage}%)`,
+      detailsText: `Result: ${r.score}/${r.maxScore} (${r.percentage}%), Verdict: ${r.passed ? 'PASSED ✓' : 'FAILED ✗'}, Time Spent: ${r.timeSpentSeconds}s, Correct: ${r.correctAnswers}, Wrong: ${r.wrongAnswers}, Skipped: ${r.skippedQuestions}`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1009,24 +1650,35 @@ app.get('/api/admin/stats', async (req, res) => {
       WHERE attempted_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 14 DAY) AND attempted_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY)
     `);
 
-    // 4. Live Activity Feed
+    // 4. Live Activity Feed (Merges In-Memory Event Stream + Active Exam Sessions + Recent Database Submissions)
     const liveSessionsList = Array.from(activeSessions.values()).map(s => ({
       id: `live_${s.quizId}_${s.candidateEmail || s.candidateName}`,
       type: 'live',
-      message: `${s.candidateName} is taking "${s.quizTitle || 'Exam'}" (${s.percentageComplete}% complete)`,
+      message: `⚡ ${s.candidateName} is taking "${s.quizTitle || 'Exam'}" (${s.percentageComplete}% complete)`,
       timestamp: new Date(s.lastSeen).toISOString()
     }));
 
     const completedList = recentResults.map(r => ({
       id: `comp_${r.id}`,
       type: 'completed',
-      message: `${r.candidate_name} completed "${r.quiz_title}" with ${r.percentage}% (${r.passed ? 'Passed ✓' : 'Failed ✗'})`,
+      message: `🎯 ${r.candidate_name} completed "${r.quiz_title}" with ${r.percentage}% (${r.passed ? 'Passed ✓' : 'Failed ✗'})`,
       timestamp: r.attempted_at
     }));
 
-    const liveActivityFeed = [...liveSessionsList, ...completedList]
+    // Deduplicate any overlapping messages by unique signature
+    const seenSignatures = new Set();
+    const rawFeed = [...globalActivityLog, ...liveSessionsList, ...completedList];
+    const liveActivityFeed = rawFeed
+      .filter(item => {
+        const signature = `${item.type}_${item.message}`;
+        if (seenSignatures.has(signature)) return false;
+        seenSignatures.add(signature);
+        return true;
+      })
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, 10);
+      .slice(0, 15);
+
+
 
     res.json({
       totalUsers,
@@ -1145,6 +1797,293 @@ app.delete('/api/bookmarks/:questionId', async (req, res) => {
   try {
     await pool.query('DELETE FROM bookmarks WHERE uid = ? AND question_id = ?', [uid, req.params.questionId]);
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// 1. PROMOTIONAL BANNERS & SPOTLIGHT API
+// ==========================================
+app.get('/api/banners', async (req, res) => {
+  try {
+    const showAll = req.query.all === 'true';
+    const query = showAll
+      ? 'SELECT * FROM banners ORDER BY display_order ASC, id DESC'
+      : 'SELECT * FROM banners WHERE is_active = 1 ORDER BY display_order ASC, id DESC';
+    const [rows] = await pool.query(query);
+    res.json(rows.map(r => ({
+      id: r.id,
+      title: r.title,
+      subtitle: r.subtitle,
+      imageUrl: r.image_url,
+      badgeText: r.badge_text,
+      ctaText: r.cta_text,
+      ctaLink: r.cta_link,
+      quizId: r.quiz_id,
+      isActive: Boolean(r.is_active),
+      displayOrder: r.display_order,
+      createdAt: r.created_at,
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/banners', async (req, res) => {
+  const { title, subtitle, imageUrl, badgeText, ctaText, ctaLink, quizId, isActive = true, displayOrder = 0 } = req.body;
+  if (!title || !imageUrl) {
+    return res.status(400).json({ error: 'title and imageUrl are required' });
+  }
+  try {
+    const [result] = await pool.query(
+      `INSERT INTO banners (title, subtitle, image_url, badge_text, cta_text, cta_link, quiz_id, is_active, display_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        title,
+        subtitle || '',
+        imageUrl,
+        badgeText || 'ANNOUNCEMENT',
+        ctaText || 'Take Test Now',
+        ctaLink || '/',
+        quizId || null,
+        isActive ? 1 : 0,
+        parseInt(displayOrder || 0, 10),
+      ]
+    );
+    res.json({ success: true, id: result.insertId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/banners/:id', async (req, res) => {
+  const { id } = req.params;
+  const { title, subtitle, imageUrl, badgeText, ctaText, ctaLink, quizId, isActive, displayOrder } = req.body;
+  try {
+    await pool.query(
+      `UPDATE banners 
+       SET title = COALESCE(?, title),
+           subtitle = COALESCE(?, subtitle),
+           image_url = COALESCE(?, image_url),
+           badge_text = COALESCE(?, badge_text),
+           cta_text = COALESCE(?, cta_text),
+           cta_link = COALESCE(?, cta_link),
+           quiz_id = ?,
+           is_active = COALESCE(?, is_active),
+           display_order = COALESCE(?, display_order)
+       WHERE id = ?`,
+      [
+        title,
+        subtitle,
+        imageUrl,
+        badgeText,
+        ctaText,
+        ctaLink,
+        quizId !== undefined ? quizId : null,
+        isActive !== undefined ? (isActive ? 1 : 0) : null,
+        displayOrder !== undefined ? parseInt(displayOrder, 10) : null,
+        id,
+      ]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/banners/:id/toggle', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('UPDATE banners SET is_active = NOT is_active WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/banners/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM banners WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// 2. QUESTION DISCUSSIONS & DOUBTS FORUM API
+// ==========================================
+app.get('/api/discussions/:quizId/:questionId', async (req, res) => {
+  const { quizId, questionId } = req.params;
+  try {
+    const [rows] = await pool.query(
+      `SELECT * FROM question_discussions 
+       WHERE quiz_id = ? AND question_id = ? 
+       ORDER BY is_pinned DESC, id ASC`,
+      [quizId, questionId]
+    );
+    res.json(rows.map(r => ({
+      id: r.id,
+      quizId: r.quiz_id,
+      questionId: r.question_id,
+      userName: r.user_name,
+      userEmail: r.user_email,
+      role: r.role,
+      comment: r.comment,
+      likesCount: r.likes_count,
+      isPinned: Boolean(r.is_pinned),
+      createdAt: r.created_at,
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/discussions/:quizId/:questionId', async (req, res) => {
+  const { quizId, questionId } = req.params;
+  const { userName, userEmail, role = 'candidate', comment } = req.body;
+  if (!userName || !comment) {
+    return res.status(400).json({ error: 'userName and comment are required' });
+  }
+  try {
+    const [result] = await pool.query(
+      `INSERT INTO question_discussions (quiz_id, question_id, user_name, user_email, role, comment)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [quizId, questionId, userName.trim(), userEmail ? userEmail.trim() : null, role, comment.trim()]
+    );
+    res.json({ success: true, id: result.insertId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/discussions/:id/like', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('UPDATE question_discussions SET likes_count = likes_count + 1 WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/discussions/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM question_discussions WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// 3. LIVE PROCTORING & ANTI-CHEATING API
+// ==========================================
+app.post('/api/proctoring/log', async (req, res) => {
+  const { sessionId, quizId, candidateName, candidateEmail, violationType, details, snapshotBase64 } = req.body;
+  if (!quizId || !violationType) {
+    return res.status(400).json({ error: 'quizId and violationType are required' });
+  }
+  try {
+    await pool.query(
+      `INSERT INTO proctoring_logs (session_id, quiz_id, candidate_name, candidate_email, violation_type, details, snapshot_base64)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        sessionId || 'session_' + Date.now(),
+        quizId,
+        candidateName || 'Anonymous Candidate',
+        candidateEmail || null,
+        violationType,
+        details || '',
+        snapshotBase64 || null,
+      ]
+    );
+
+    recordAuditLog({
+      eventType: 'proctoring_alert',
+      severity: 'danger',
+      actorName: candidateName || 'Candidate',
+      actorEmail: candidateEmail || null,
+      actorRole: 'student',
+      actionTitle: `🚨 Anti-Cheating Alert: ${violationType} by ${candidateName || 'Candidate'}`,
+      detailsText: details || `Proctoring violation event logged for quiz ID: ${quizId}. Snapshot: ${Boolean(snapshotBase64)}`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/proctoring/logs/:quizId', async (req, res) => {
+  const { quizId } = req.params;
+  const { candidateEmail, sessionId } = req.query;
+  try {
+    let query = 'SELECT * FROM proctoring_logs WHERE quiz_id = ?';
+    const params = [quizId];
+    if (candidateEmail) {
+      query += ' AND candidate_email = ?';
+      params.push(candidateEmail);
+    } else if (sessionId) {
+      query += ' AND session_id = ?';
+      params.push(sessionId);
+    }
+    query += ' ORDER BY id DESC LIMIT 100';
+
+    const [rows] = await pool.query(query, params);
+    res.json(rows.map(r => ({
+      id: r.id,
+      sessionId: r.session_id,
+      quizId: r.quiz_id,
+      candidateName: r.candidate_name,
+      candidateEmail: r.candidate_email,
+      violationType: r.violation_type,
+      details: r.details,
+      snapshotBase64: r.snapshot_base64,
+      createdAt: r.created_at,
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// 4. CERTIFICATE VERIFICATION API
+// ==========================================
+app.get('/api/certificates/verify/:certId', async (req, res) => {
+  const { certId } = req.params;
+  try {
+    const [rows] = await pool.query(
+      `SELECT r.*, COALESCE(q.title, r.quiz_title) AS current_quiz_title 
+       FROM results r 
+       LEFT JOIN quizzes q ON r.quiz_id = q.id 
+       WHERE r.id = ? LIMIT 1`,
+      [certId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ valid: false, message: 'Certificate record not found in National Registry.' });
+    }
+
+    const r = rows[0];
+    res.json({
+      valid: true,
+      certificateId: r.id,
+      candidateName: r.candidate_name,
+      candidateEmail: r.candidate_email,
+      quizTitle: r.current_quiz_title || r.quiz_title,
+      score: r.score,
+      maxScore: r.max_score,
+      percentage: r.percentage,
+      passed: Boolean(r.passed),
+      attemptedAt: r.attempted_at,
+      issuedBy: 'Evalnium National Testing & Assessment Authority',
+      verificationUrl: `https://evalnium.app/verify/${r.id}`,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

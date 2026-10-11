@@ -5,6 +5,7 @@ import { saveBookmarkedQuestion } from './RevisionHubModal';
 import { ExamHeader } from '../exam/ExamHeader';
 import { QuestionPalette } from '../exam/QuestionPalette';
 import { QuestionCard } from '../exam/QuestionCard';
+import { ProctoringMonitor } from '../exam/ProctoringMonitor';
 import { useAuth } from '../../context/AuthContext';
 
 interface ExamRunnerProps {
@@ -485,8 +486,17 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         questionTimeRemainingSeconds={quiz.timingMode === 'question' ? questionTimeRemainingSeconds : undefined}
         sectionTimeRemainingSeconds={quiz.timingMode === 'sectional' ? sectionTimeRemainingSeconds : undefined}
         currentSectionName={quiz.timingMode === 'sectional' && quiz.sectionalConfig?.[currentSectionIdx] ? quiz.sectionalConfig[currentSectionIdx].sectionName : undefined}
-        onOpenSubmitModal={() => setShowSubmitModal(true)}
       />
+
+      {/* Live AI Proctoring Radar & Anti-Cheating Monitor */}
+      <div className="flex justify-end">
+        <ProctoringMonitor
+          quizId={quiz.id}
+          candidateName={candidateName}
+          candidateEmail={currentUser?.email}
+          enableCameraProctoring={quiz.enableAntiCheating !== false}
+        />
+      </div>
 
       {/* Anti-Cheating Tab Switch Warning Banner */}
       {showAntiCheatWarning && (

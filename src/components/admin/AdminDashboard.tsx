@@ -4,8 +4,10 @@ import type { Announcement } from '../../types/announcement';
 import { QuizImporter } from './QuizImporter';
 import { McqPreviewEditor } from './McqPreviewEditor';
 import { AnnouncementManager } from './AnnouncementManager';
+import { BannerManager } from './BannerManager';
+import { AuditLogsManager } from './AuditLogsManager';
 import { CandidateResponseModal } from './CandidateResponseModal';
-import { Plus, Trash2, FileDown, Layers, Sparkles, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, Trophy, LogOut } from 'lucide-react';
+import { Plus, Trash2, FileDown, Layers, Sparkles, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, Trophy, LogOut, Globe, Radio, Laptop, Smartphone, Monitor, ShieldCheck, UserCheck, Search, Filter, RefreshCw, Compass, MapPin, Download, Image as ImageIcon, BarChart2, Calendar, TrendingUp, History, Terminal } from 'lucide-react';
 import { getStoredResults } from '../../utils/storage';
 
 interface AdminDashboardProps {
@@ -29,11 +31,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onDeleteAnnouncement = () => {},
   onLogout,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'import' | 'manage' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users'>('overview');
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'import' | 'manage' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users' | 'visitors' | 'banners' | 'audit'>('overview');
   const [liveSessions, setLiveSessions] = useState<any[]>([]);
   const [registeredUsers, setRegisteredUsers] = useState<Array<{ uid: string; name: string; email: string; role: string; createdAt: string }>>([]);
   const [expandedCandidate, setExpandedCandidate] = useState<string | null>(null);
   const [deletedResultIds, setDeletedResultIds] = useState<Set<string>>(new Set());
+  
+  // Visitor Telemetry State
+  const [visitorsData, setVisitorsData] = useState<{
+    activeVisitors: any[];
+    recentVisitorLogs: any[];
+    summary?: {
+      totalStoredSessions: number;
+      todayCount: number;
+      yesterdayCount: number;
+      last7DaysCount: number;
+      last30DaysCount: number;
+      registeredTotal: number;
+      guestTotal: number;
+      desktopTotal: number;
+      mobileTotal: number;
+      avgDurationSeconds: number;
+    };
+    dailyTrend?: Array<{ date: string; total: number; registered: number; guests: number }>;
+    topPages?: Array<{ page: string; count: number }>;
+    topCountries?: Array<{ country: string; count: number }>;
+  } | null>(null);
+  const [loadingVisitors, setLoadingVisitors] = useState(false);
+  const [visitorFilter, setVisitorFilter] = useState<'all' | 'registered' | 'guest' | 'active'>('all');
+  const [visitorTimeRange, setVisitorTimeRange] = useState<'all' | 'today' | 'yesterday' | '7days' | '30days'>('all');
+  const [visitorSearch, setVisitorSearch] = useState('');
+  const [purgingLogs, setPurgingLogs] = useState(false);
   
   // Executive Dashboard Stats State
   const [stats, setStats] = useState<any | null>(null);
@@ -62,6 +90,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fetchUsers();
   }, []);
 
+  const fetchVisitors = async (rangeOverride?: string) => {
+    try {
+      const activeRange = rangeOverride !== undefined ? rangeOverride : visitorTimeRange;
+      const res = await fetch(`${getApiBaseUrl()}/admin/visitors?range=${activeRange}`);
+      if (res.ok) {
+        setVisitorsData(await res.json());
+      }
+    } catch (e) {
+      console.error('Error fetching visitor telemetry:', e);
+    } finally {
+      setLoadingVisitors(false);
+    }
+  };
+
+  const handlePurgeLogs = async (days: string) => {
+    const confirmMsg = days === 'all'
+      ? '⚠️ Are you sure you want to permanently clear ALL visitor history telemetry logs?'
+      : `⚠️ Are you sure you want to purge visitor history logs older than ${days} days?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      setPurgingLogs(true);
+      const res = await fetch(`${getApiBaseUrl()}/admin/visitors/purge?days=${days}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        alert(data.message || 'Visitor logs purged successfully.');
+        fetchVisitors();
+      }
+    } catch (err) {
+      console.error('Error purging visitor logs:', err);
+      alert('Failed to purge visitor logs.');
+    } finally {
+      setPurgingLogs(false);
+    }
+  };
+
   useEffect(() => {
     if (activeSubTab === 'overview') {
       fetchAdminStats();
@@ -80,10 +146,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       fetchLive();
       const interval = setInterval(fetchLive, 5000);
       return () => clearInterval(interval);
+    } else if (activeSubTab === 'visitors') {
+      setLoadingVisitors(true);
+      fetchVisitors();
+      const interval = setInterval(() => fetchVisitors(), 5000);
+      return () => clearInterval(interval);
     } else if (activeSubTab === 'users') {
       fetchUsers();
     }
-  }, [activeSubTab]);
+  }, [activeSubTab, visitorTimeRange]);
 
   const fetchUsers = async () => {
     try {
@@ -375,6 +446,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveSubTab('banners')}
+            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center space-x-1 transition-all ${
+              activeSubTab === 'banners'
+                ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <ImageIcon className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Showcase Banners</span>
+          </button>
+
+          <button
             onClick={() => setActiveSubTab('announcements')}
             className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center space-x-1 transition-all ${
               activeSubTab === 'announcements'
@@ -387,6 +470,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveSubTab('visitors')}
+            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all ${
+              activeSubTab === 'visitors'
+                ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Visitor Radar</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block ml-0.5" />
+          </button>
+
+          <button
             onClick={() => setActiveSubTab('mysql')}
             className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center space-x-1 transition-all ${
               activeSubTab === 'mysql'
@@ -396,6 +492,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           >
             <Database className="w-3.5 h-3.5 text-emerald-600" />
             <span>Database Studio</span>
+          </button>
+          <button
+            onClick={() => setActiveSubTab('audit')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all ${
+              activeSubTab === 'audit'
+                ? 'bg-slate-950 text-emerald-400 shadow-xs border border-slate-800'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Terminal className="w-3.5 h-3.5 text-emerald-500" />
+            <span>Audit & Terminal</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block ml-0.5" />
           </button>
           <button
             onClick={() => setActiveSubTab('live')}
@@ -579,12 +687,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 {/* Right Col: Scrolling Live Activity Feed */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs flex flex-col h-[400px]">
-                  <div className="mb-4">
-                    <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
-                      <Activity className="w-5 h-5 text-emerald-500 animate-pulse" />
-                      <span>Live Terminal Activity Feed</span>
-                    </h3>
-                    <p className="text-xs text-slate-500 font-medium mt-0.5">Real-time examination events & logins</p>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                        <Activity className="w-5 h-5 text-emerald-500 animate-pulse" />
+                        <span>Live Terminal Activity Feed</span>
+                      </h3>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">Real-time examination events & logins</p>
+                    </div>
+                    <button
+                      onClick={() => setActiveSubTab('audit')}
+                      className="px-2.5 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold border border-indigo-200 transition-colors flex items-center space-x-1"
+                      title="Open dedicated Audit Logs & Terminal Vault with filters and pagination"
+                    >
+                      <Terminal className="w-3 h-3 text-indigo-600" />
+                      <span>Open Vault ↗</span>
+                    </button>
                   </div>
 
                   <div className="flex-1 bg-slate-950 rounded-2xl p-4 font-mono text-[11px] overflow-y-auto text-slate-300 border border-slate-800 space-y-3 shadow-inner">
@@ -992,6 +1110,633 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
+      {/* SubTab: Visitor Intelligence & Live Device Radar */}
+      {activeSubTab === 'visitors' && (
+        <div className="space-y-6">
+          {/* Header & Control Bar */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 space-y-6">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-mono font-bold uppercase tracking-wider border border-indigo-200">
+                    REAL-TIME & HISTORICAL ARCHIVE
+                  </span>
+                  <span className="flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold border border-emerald-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Live Radar Pulse</span>
+                  </span>
+                </div>
+                <h2 className="text-xl font-black text-slate-900 flex items-center space-x-2 mt-1.5">
+                  <Globe className="w-5 h-5 text-indigo-600" />
+                  <span>Visitor Intelligence & Historical Traffic Radar</span>
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Comprehensive real-time telemetry and permanent database session history of student traffic, device fingerprints, exam paths, and session durations.
+                </p>
+              </div>
+
+              {/* Time Range Filter Buttons & Action Buttons */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Date Range Selector */}
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+                  {[
+                    { id: 'all', label: 'All Time' },
+                    { id: 'today', label: 'Today' },
+                    { id: 'yesterday', label: 'Yesterday' },
+                    { id: '7days', label: 'Last 7 Days' },
+                    { id: '30days', label: 'Last 30 Days' },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setVisitorTimeRange(tab.id as any)}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                        visitorTimeRange === tab.id
+                          ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => {
+                    setLoadingVisitors(true);
+                    fetchVisitors();
+                  }}
+                  disabled={loadingVisitors}
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-300 flex items-center space-x-1.5 transition-all disabled:opacity-50"
+                  title="Refresh visitor logs"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-slate-600 ${loadingVisitors ? 'animate-spin' : ''}`} />
+                  <span>Refresh</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (!visitorsData?.recentVisitorLogs?.length) return;
+                    const headers = ['ID', 'Session ID', 'IP Address', 'Country', 'Candidate Name', 'Candidate Email', 'Is Registered', 'OS', 'Browser', 'Device Type', 'Current Page', 'Visit Count', 'Duration (Seconds)', 'First Seen', 'Last Seen'];
+                    const rows = visitorsData.recentVisitorLogs.map(v => [
+                      v.id,
+                      `"${v.sessionId}"`,
+                      `"${v.ipAddress || ''}"`,
+                      `"${v.country || ''}"`,
+                      `"${v.candidateName || ''}"`,
+                      `"${v.candidateEmail || ''}"`,
+                      v.isRegistered ? 'YES' : 'NO',
+                      `"${v.os || ''}"`,
+                      `"${v.browser || ''}"`,
+                      `"${v.deviceType || ''}"`,
+                      `"${v.currentPage || ''}"`,
+                      v.visitCount || 1,
+                      v.durationSeconds || 0,
+                      `"${v.firstSeen || ''}"`,
+                      `"${v.lastSeen || ''}"`,
+                    ]);
+                    const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', `evalnium_visitor_telemetry_${visitorTimeRange}_${Date.now()}.csv`);
+                    link.click();
+                  }}
+                  disabled={!visitorsData?.recentVisitorLogs?.length}
+                  className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs flex items-center space-x-1.5 transition-all disabled:opacity-50"
+                  title="Export telemetry data as CSV"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export CSV</span>
+                </button>
+
+                {/* Purge Menu */}
+                <button
+                  onClick={() => {
+                    const days = prompt("Purge historical visitor logs older than N days (enter number of days, e.g., '30', '7', or 'all'):", "30");
+                    if (days) handlePurgeLogs(days.trim());
+                  }}
+                  disabled={purgingLogs}
+                  className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 flex items-center space-x-1.5 transition-all disabled:opacity-50"
+                  title="Purge old visitor records"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                  <span>{purgingLogs ? 'Purging...' : 'Purge Logs'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Top 5 KPI Metrics */}
+            {(() => {
+              const activeCount = visitorsData?.activeVisitors?.length || 0;
+              const summary = visitorsData?.summary;
+              const totalLogs = visitorsData?.recentVisitorLogs?.length || 0;
+              const registeredCount = visitorsData?.recentVisitorLogs?.filter(v => v.isRegistered).length || 0;
+              const guestCount = totalLogs - registeredCount;
+              const desktopCount = visitorsData?.recentVisitorLogs?.filter(v => v.deviceType === 'Desktop').length || 0;
+              const mobileCount = visitorsData?.recentVisitorLogs?.filter(v => v.deviceType === 'Mobile' || v.deviceType === 'Tablet').length || 0;
+              const avgDuration = summary?.avgDurationSeconds || 0;
+              const avgDurationStr = avgDuration > 60 ? `${Math.floor(avgDuration / 60)}m ${avgDuration % 60}s` : `${avgDuration}s`;
+
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                  {/* Active Now */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-500">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Live Heartbeats</span>
+                      <span className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700">
+                        <Radio className="w-4 h-4" />
+                      </span>
+                    </div>
+                    <div className="mt-2">
+                      <div className="flex items-baseline space-x-2">
+                        <span className="text-2xl font-black text-slate-900 font-mono">{activeCount}</span>
+                        <span className="text-xs font-bold text-emerald-600 flex items-center space-x-1">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block" />
+                          <span>Active Now</span>
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-medium mt-0.5">Heartbeat in past 60s</p>
+                    </div>
+                  </div>
+
+                  {/* Filtered Period Traffic */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-500">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                        {visitorTimeRange === 'all' ? 'All-Time Traffic' : visitorTimeRange === 'today' ? "Today's Visits" : visitorTimeRange === 'yesterday' ? "Yesterday's Visits" : visitorTimeRange === '7days' ? 'Past 7 Days' : 'Past 30 Days'}
+                      </span>
+                      <span className="p-1.5 rounded-lg bg-indigo-100 text-indigo-700">
+                        <Users className="w-4 h-4" />
+                      </span>
+                    </div>
+                    <div className="mt-2">
+                      <div className="flex items-baseline space-x-2">
+                        <span className="text-2xl font-black text-slate-900 font-mono">{totalLogs}</span>
+                        <span className="text-[10px] font-bold text-indigo-600 font-mono">Sessions</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                        Total stored: {summary?.totalStoredSessions || totalLogs} in archive
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Registered vs Guest */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-500">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">User Identity</span>
+                      <span className="p-1.5 rounded-lg bg-amber-100 text-amber-700">
+                        <ShieldCheck className="w-4 h-4" />
+                      </span>
+                    </div>
+                    <div className="mt-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-bold text-indigo-700 font-mono">{registeredCount} Member</span>
+                        <span className="text-slate-300">/</span>
+                        <span className="text-sm font-bold text-slate-600 font-mono">{guestCount} Guest</span>
+                      </div>
+                      <div className="w-full bg-slate-200 rounded-full h-1.5 mt-1.5 overflow-hidden">
+                        <div
+                          className="bg-indigo-600 h-1.5 rounded-full"
+                          style={{ width: `${totalLogs ? Math.round((registeredCount / totalLogs) * 100) : 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Avg Session Duration */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-500">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Avg Duration</span>
+                      <span className="p-1.5 rounded-lg bg-teal-100 text-teal-700">
+                        <Clock className="w-4 h-4" />
+                      </span>
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-2xl font-black text-slate-900 font-mono">{avgDurationStr}</span>
+                      <p className="text-[10px] text-slate-500 font-medium mt-0.5">Time spent on portal</p>
+                    </div>
+                  </div>
+
+                  {/* Device Platform */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-500">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Device Platform</span>
+                      <span className="p-1.5 rounded-lg bg-cyan-100 text-cyan-700">
+                        <Laptop className="w-4 h-4" />
+                      </span>
+                    </div>
+                    <div className="mt-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-bold text-slate-800 font-mono">{desktopCount} Desktop</span>
+                        <span className="text-slate-300">/</span>
+                        <span className="text-sm font-bold text-slate-600 font-mono">{mobileCount} Mobile</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-medium mt-0.5">Form factor footprint</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 14-Day Daily Activity Trend Visualizer */}
+            {visitorsData?.dailyTrend && visitorsData.dailyTrend.length > 0 && (
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <TrendingUp className="w-4 h-4 text-indigo-600" />
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono">
+                      14-Day Traffic Velocity & Daily Volume
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-3 text-[10px] font-bold">
+                    <span className="flex items-center space-x-1 text-indigo-700">
+                      <span className="w-2.5 h-2.5 rounded-xs bg-indigo-600 inline-block" />
+                      <span>Registered Members</span>
+                    </span>
+                    <span className="flex items-center space-x-1 text-slate-500">
+                      <span className="w-2.5 h-2.5 rounded-xs bg-slate-300 inline-block" />
+                      <span>Guests</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-7 sm:grid-cols-14 gap-2 pt-2 items-end min-h-[90px]">
+                  {(() => {
+                    const maxVal = Math.max(...visitorsData.dailyTrend.map(d => d.total || 1), 1);
+                    return visitorsData.dailyTrend.map((d, i) => {
+                      const heightPct = Math.max(Math.round((d.total / maxVal) * 100), 12);
+                      const regPct = d.total ? Math.round((d.registered / d.total) * 100) : 0;
+                      const dateShort = d.date ? d.date.substring(5) : '';
+
+                      return (
+                        <div key={i} className="flex flex-col items-center group">
+                          <span className="text-[9px] font-mono font-bold text-slate-600 mb-1 group-hover:text-indigo-600 transition-colors">
+                            {d.total}
+                          </span>
+                          <div
+                            className="w-full max-w-[28px] rounded-t-lg bg-slate-200 overflow-hidden flex flex-col justify-end transition-all hover:brightness-95"
+                            style={{ height: `${heightPct}px` }}
+                            title={`${d.date}: ${d.total} visits (${d.registered} registered, ${d.guests} guests)`}
+                          >
+                            <div className="w-full bg-slate-300" style={{ height: `${100 - regPct}%` }} />
+                            <div className="w-full bg-indigo-600" style={{ height: `${regPct}%` }} />
+                          </div>
+                          <span className="text-[9px] font-mono text-slate-400 mt-1 truncate max-w-[40px]">
+                            {dateShort}
+                          </span>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* Quick Analytics Breakdown: Top Pages & Geographies */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Top Pages */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono flex items-center space-x-1.5">
+                    <Compass className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Top Visited Examination Pages</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">Ranked</span>
+                </div>
+
+                <div className="space-y-2">
+                  {visitorsData?.topPages && visitorsData.topPages.length > 0 ? (
+                    visitorsData.topPages.slice(0, 5).map((p, idx) => {
+                      const total = visitorsData?.recentVisitorLogs?.length || 1;
+                      const pct = Math.round((p.count / total) * 100);
+                      return (
+                        <div key={idx} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs font-semibold">
+                            <span className="text-slate-800 font-mono truncate max-w-[240px]">{p.page || 'Home / Catalog'}</span>
+                            <span className="text-slate-500 font-mono text-[11px]">{p.count} visits ({pct}%)</span>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                            <div className="bg-indigo-500 h-1.5 rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">No page data recorded yet.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Top Countries / Geographies */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono flex items-center space-x-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-rose-500" />
+                    <span>Geographic Footprint & Origins</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">Regions</span>
+                </div>
+
+                <div className="space-y-2">
+                  {visitorsData?.topCountries && visitorsData.topCountries.length > 0 ? (
+                    visitorsData.topCountries.slice(0, 5).map((c, idx) => {
+                      const total = visitorsData?.recentVisitorLogs?.length || 1;
+                      const pct = Math.round((c.count / total) * 100);
+                      return (
+                        <div key={idx} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs font-semibold">
+                            <span className="text-slate-800 truncate max-w-[240px]">📍 {c.country || 'India'}</span>
+                            <span className="text-slate-500 font-mono text-[11px]">{c.count} sessions ({pct}%)</span>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                            <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">No geographic data recorded yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Search and Filters Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Filter by IP, Name, Email, Country, OS, Browser, Page..."
+                  value={visitorSearch}
+                  onChange={(e) => setVisitorSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-indigo-500 focus:bg-white transition-all"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+                <button
+                  onClick={() => setVisitorFilter('all')}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    visitorFilter === 'all'
+                      ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  All Logs
+                </button>
+                <button
+                  onClick={() => setVisitorFilter('active')}
+                  className={`px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1 ${
+                    visitorFilter === 'active'
+                      ? 'bg-white text-emerald-700 shadow-xs border border-slate-200'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                  <span>Active Now</span>
+                </button>
+                <button
+                  onClick={() => setVisitorFilter('registered')}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    visitorFilter === 'registered'
+                      ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Registered Users
+                </button>
+                <button
+                  onClick={() => setVisitorFilter('guest')}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    visitorFilter === 'guest'
+                      ? 'bg-white text-slate-800 shadow-xs border border-slate-200'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Guests
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Telemetry Matrix Table */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 font-mono flex items-center space-x-2">
+                <Radio className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Live Telemetry & Historical Session Grid</span>
+              </h3>
+              <span className="text-[11px] font-mono text-slate-400">Auto-polling every 5 seconds</span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-600 border-collapse">
+                <thead className="bg-slate-50/80 text-[10px] uppercase font-mono tracking-wider text-slate-500 border-b border-slate-200 font-bold">
+                  <tr>
+                    <th className="px-4 py-3">Pulse</th>
+                    <th className="px-4 py-3">Visitor Identity</th>
+                    <th className="px-4 py-3">IP Address & Origin</th>
+                    <th className="px-4 py-3">Device & Environment</th>
+                    <th className="px-4 py-3">Current Location (Page)</th>
+                    <th className="px-4 py-3">Visits & Duration</th>
+                    <th className="px-4 py-3">First Seen</th>
+                    <th className="px-4 py-3">Last Active Pulse</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white font-medium">
+                  {(() => {
+                    const logs = visitorsData?.recentVisitorLogs || [];
+                    const activeMap = new Set((visitorsData?.activeVisitors || []).map(a => a.sessionId));
+
+                    const filtered = logs.filter(v => {
+                      const isActive = activeMap.has(v.sessionId);
+                      if (visitorFilter === 'active' && !isActive) return false;
+                      if (visitorFilter === 'registered' && !v.isRegistered) return false;
+                      if (visitorFilter === 'guest' && v.isRegistered) return false;
+
+                      if (visitorSearch.trim()) {
+                        const q = visitorSearch.toLowerCase();
+                        const matchName = (v.candidateName || '').toLowerCase().includes(q);
+                        const matchEmail = (v.candidateEmail || '').toLowerCase().includes(q);
+                        const matchIp = (v.ipAddress || '').toLowerCase().includes(q);
+                        const matchCountry = (v.country || '').toLowerCase().includes(q);
+                        const matchOs = (v.os || '').toLowerCase().includes(q);
+                        const matchBrowser = (v.browser || '').toLowerCase().includes(q);
+                        const matchPage = (v.currentPage || '').toLowerCase().includes(q);
+                        if (!matchName && !matchEmail && !matchIp && !matchCountry && !matchOs && !matchBrowser && !matchPage) {
+                          return false;
+                        }
+                      }
+                      return true;
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={8} className="px-4 py-12 text-center text-slate-400 font-medium">
+                            <div className="flex flex-col items-center justify-center space-y-2">
+                              <Globe className="w-8 h-8 text-slate-300 stroke-1" />
+                              <p className="text-xs font-bold text-slate-600">No visitor records matching your current filter.</p>
+                              <p className="text-[11px] text-slate-400">Heartbeats will automatically record as visitors navigate the portal.</p>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return filtered.map((v, idx) => {
+                      const isActive = activeMap.has(v.sessionId);
+                      const lastSeenDate = v.lastSeen ? new Date(v.lastSeen) : null;
+                      const firstSeenDate = v.firstSeen ? new Date(v.firstSeen) : null;
+                      const secsSince = lastSeenDate ? Math.round((Date.now() - lastSeenDate.getTime()) / 1000) : 9999;
+
+                      let timeAgoStr = 'Unknown';
+                      if (secsSince < 10) timeAgoStr = 'Just now';
+                      else if (secsSince < 60) timeAgoStr = `${secsSince}s ago`;
+                      else if (secsSince < 3600) timeAgoStr = `${Math.floor(secsSince / 60)}m ago`;
+                      else if (secsSince < 86400) timeAgoStr = `${Math.floor(secsSince / 3600)}h ago`;
+                      else timeAgoStr = `${Math.floor(secsSince / 86400)}d ago`;
+
+                      const durationSec = v.durationSeconds || 0;
+                      const durationDisplay = durationSec > 60
+                        ? `${Math.floor(durationSec / 60)}m ${durationSec % 60}s`
+                        : `${durationSec}s`;
+
+                      const DeviceIcon = v.deviceType === 'Mobile' ? Smartphone : v.deviceType === 'Tablet' ? Smartphone : Laptop;
+
+                      return (
+                        <tr
+                          key={v.id || idx}
+                          className={`hover:bg-slate-50 transition-colors ${isActive ? 'bg-emerald-50/20' : ''}`}
+                        >
+                          {/* Pulse / Status */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {isActive ? (
+                              <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-bold">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping inline-block" />
+                                <span>LIVE</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 text-[10px] font-mono">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" />
+                                <span>Offline</span>
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Candidate / Visitor Identity */}
+                          <td className="px-4 py-3">
+                            {v.isRegistered ? (
+                              <div className="space-y-0.5">
+                                <div className="flex items-center space-x-1.5">
+                                  <span className="font-bold text-slate-900">{v.candidateName || 'Registered User'}</span>
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                    Member
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-slate-500 font-mono">{v.candidateEmail || 'No email stored'}</div>
+                              </div>
+                            ) : (
+                              <div className="space-y-0.5">
+                                <div className="flex items-center space-x-1.5">
+                                  <span className="font-semibold text-slate-700">{v.candidateName || 'Guest Visitor'}</span>
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                                    Guest
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-slate-400 font-mono truncate max-w-[140px]" title={v.sessionId}>
+                                  ID: {v.sessionId?.substring(0, 14)}...
+                                </div>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* IP Address & Country */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="space-y-0.5">
+                              <div className="font-mono font-bold text-slate-800 text-[11px]">
+                                {v.ipAddress || '127.0.0.1'}
+                              </div>
+                              <div className="flex items-center space-x-1 text-[10px] text-slate-500">
+                                <MapPin className="w-3 h-3 text-rose-500" />
+                                <span className="font-semibold">{v.country || 'India 🇮🇳'}</span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Device & Environment */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="flex items-center space-x-2">
+                              <div className="p-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
+                                <DeviceIcon className="w-3.5 h-3.5" />
+                              </div>
+                              <div>
+                                <div className="font-bold text-slate-800 text-[11px]">
+                                  {v.os || 'Windows'} • {v.browser || 'Chrome'}
+                                </div>
+                                <div className="text-[10px] text-slate-400">
+                                  {v.deviceType || 'Desktop'}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Active Location (Current Page) */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-mono text-[11px] border border-slate-200">
+                              <Compass className="w-3 h-3 text-indigo-500" />
+                              <span className="font-bold">{v.currentPage || '/'}</span>
+                            </div>
+                          </td>
+
+                          {/* Visits & Duration */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="space-y-0.5">
+                              <div className="font-mono font-bold text-slate-800 text-[11px] flex items-center space-x-1.5">
+                                <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px]">
+                                  {v.visitCount || 1} {v.visitCount === 1 ? 'pulse' : 'pulses'}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-slate-500 font-mono flex items-center space-x-1">
+                                <Clock className="w-3 h-3 text-slate-400" />
+                                <span>{durationDisplay}</span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* First Seen */}
+                          <td className="px-4 py-3 whitespace-nowrap text-[11px] font-mono text-slate-500">
+                            {firstSeenDate
+                              ? `${firstSeenDate.toLocaleDateString()} ${firstSeenDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                              : 'N/A'}
+                          </td>
+
+                          {/* Last Active Pulse */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="space-y-0.5">
+                              <div className="font-mono font-bold text-slate-800 text-[11px]">
+                                {timeAgoStr}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {lastSeenDate
+                                  ? `${lastSeenDate.toLocaleDateString()} ${lastSeenDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                  : 'N/A'}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeSubTab === 'announcements' && (
         <AnnouncementManager
           announcements={announcements}
@@ -999,6 +1744,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           onSaveAnnouncement={onSaveAnnouncement}
           onDeleteAnnouncement={onDeleteAnnouncement}
         />
+      )}
+
+      {activeSubTab === 'banners' && (
+        <BannerManager quizzes={quizzes} />
+      )}
+
+      {activeSubTab === 'audit' && (
+        <AuditLogsManager />
       )}
 
       {/* SubTab: Exams Registry with Edit Button (Addressing Point #4!) */}

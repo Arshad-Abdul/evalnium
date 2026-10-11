@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { Quiz, QuizAttemptResult } from '../../types/quiz';
 import { useAuth } from '../../context/AuthContext';
-import { Award, Trophy, Target, TrendingUp, BookOpen, Clock, CheckCircle2, AlertTriangle, ArrowRight, Play, Eye, X, Sparkles } from 'lucide-react';
+import { Award, Trophy, Target, TrendingUp, BookOpen, Clock, CheckCircle2, AlertTriangle, ArrowRight, Play, Eye, X, Activity } from 'lucide-react';
 import { PDFCertificateModal } from './PDFCertificateModal';
 import { ExamResultView } from './ExamResultView';
 
@@ -48,28 +48,24 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
   // Streak calculation: consecutive days with at least 1 test attempt
   const calculateStreak = (attempts: QuizAttemptResult[]) => {
     if (attempts.length === 0) return 0;
-    
-    // Sort attempts by date descending
+
     const sorted = [...attempts].sort((a, b) => new Date(b.attemptedAt).getTime() - new Date(a.attemptedAt).getTime());
-    
-    // Get unique dates in local date format (YYYY-MM-DD)
     const dates = Array.from(new Set(sorted.map(a => new Date(a.attemptedAt).toLocaleDateString('en-CA'))));
     if (dates.length === 0) return 0;
-    
+
     const today = new Date().toLocaleDateString('en-CA');
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString('en-CA');
-    
-    // If first date isn't today or yesterday, streak is broken
+
     if (dates[0] !== today && dates[0] !== yesterday) return 0;
-    
+
     let streak = 0;
     let currentDate = new Date(dates[0]);
-    
+
     for (let i = 0; i < dates.length; i++) {
       const d = new Date(dates[i]);
       const diffTime = Math.abs(currentDate.getTime() - d.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       if (diffDays === 0 || diffDays === 1) {
         streak++;
         currentDate = d;
@@ -79,7 +75,7 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
     }
     return streak;
   };
-  
+
   const currentStreak = calculateStreak(myAttempts);
 
   // Topic Mastery Breakdown Calculation
@@ -104,185 +100,163 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
   }).sort((a, b) => a.avgPercentage - b.avgPercentage);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-      
-      {/* Top Candidate Welcome Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="space-y-6">
 
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
+      {/* Institutional Candidate Credentials Banner */}
+      <div className="portal-card p-6 sm:p-7 bg-white border border-slate-200">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-indigo-500 via-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-2xl sm:text-3xl shadow-lg shadow-indigo-500/30 border border-indigo-400/30">
+            <div className="w-14 h-14 rounded bg-slate-900 text-white font-bold text-xl flex items-center justify-center border border-slate-700 shadow-sm flex-shrink-0">
               {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
             </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-extrabold uppercase tracking-widest font-mono">
-                  VERIFIED STUDENT PROFILE
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-mono font-semibold uppercase">
+                  Authenticated Candidate
                 </span>
                 {currentUser?.targetExam && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
+                  <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-mono font-semibold">
                     Target: {currentUser.targetExam}
                   </span>
                 )}
                 {currentStreak > 0 && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold flex items-center space-x-1 animate-pulse">
-                    <span>🔥</span>
-                    <span>{currentStreak} Day Streak</span>
+                  <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-300 text-[10px] font-mono font-semibold">
+                    {currentStreak} Day Practice Streak
                   </span>
                 )}
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-1 text-white">
-                Welcome Back, {currentUser?.name || 'Candidate'}! 👋
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                Candidate Assessment Studio: {currentUser?.name || 'Candidate'}
               </h1>
-              <p className="text-xs text-slate-300 font-medium mt-1">
-                Track your National Rank performance, review topic mastery, and download merit certificates.
+              <p className="text-xs text-slate-500 font-normal">
+                National evaluation analytics, topic diagnostic mastery, and certified scorecards.
               </p>
             </div>
           </div>
 
           <button
             onClick={onNavigateToCatalog}
-            className="px-6 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 flex items-center space-x-2 transition-all cursor-pointer"
+            className="px-4 py-2.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs flex items-center space-x-2 transition-colors cursor-pointer flex-shrink-0"
           >
-            <Play className="w-4 h-4 fill-white" />
+            <Play className="w-3.5 h-3.5 fill-white" />
             <span>Launch CBT Exam Catalog</span>
           </button>
         </div>
       </div>
 
-      {/* 4 Performance KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        {/* Card 1: Total Tests */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-2 relative overflow-hidden">
+      {/* 4 Performance KPI Tiles */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+
+        {/* Tile 1: Total Tests */}
+        <div className="portal-card p-4 bg-white border border-slate-200 space-y-1">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-bold uppercase tracking-wider">Tests Completed</span>
-            <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
-              <BookOpen className="w-5 h-5" />
-            </div>
+            <span className="text-[11px] font-mono uppercase text-slate-500 font-medium">Tests Completed</span>
+            <BookOpen className="w-4 h-4 text-blue-600" />
           </div>
           <div className="flex items-baseline space-x-2">
-            <span className="text-3xl font-black text-slate-900 font-mono">{totalAttemptsCount}</span>
-            <span className="text-xs text-slate-500 font-semibold">Exams Taken</span>
+            <span className="text-2xl font-bold text-slate-900 font-mono">{totalAttemptsCount}</span>
+            <span className="text-[11px] text-slate-500 font-mono">Papers Logged</span>
           </div>
         </div>
 
-        {/* Card 2: Average Score */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-2 relative overflow-hidden">
+        {/* Tile 2: Average Score */}
+        <div className="portal-card p-4 bg-white border border-slate-200 space-y-1">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-bold uppercase tracking-wider">Average Score %</span>
-            <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
-              <TrendingUp className="w-5 h-5" />
-            </div>
+            <span className="text-[11px] font-mono uppercase text-slate-500 font-medium">Average Score</span>
+            <TrendingUp className="w-4 h-4 text-slate-600" />
           </div>
           <div className="flex items-baseline space-x-2">
-            <span className="text-3xl font-black text-indigo-600 font-mono">{averagePercentage}%</span>
-            <span className="text-xs text-slate-500 font-semibold">Overall Avg</span>
+            <span className="text-2xl font-bold text-slate-900 font-mono">{averagePercentage}%</span>
+            <span className="text-[11px] text-slate-500 font-mono">Mean Percentage</span>
           </div>
         </div>
 
-        {/* Card 3: Accuracy Rate */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-2 relative overflow-hidden">
+        {/* Tile 3: Accuracy Rate */}
+        <div className="portal-card p-4 bg-white border border-slate-200 space-y-1">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-bold uppercase tracking-wider">Accuracy Rate</span>
-            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
-              <Target className="w-5 h-5" />
-            </div>
+            <span className="text-[11px] font-mono uppercase text-slate-500 font-medium">Accuracy Ratio</span>
+            <Target className="w-4 h-4 text-emerald-600" />
           </div>
           <div className="flex items-baseline space-x-2">
-            <span className="text-3xl font-black text-emerald-600 font-mono">{accuracyRate}%</span>
-            <span className="text-xs text-slate-500 font-semibold">Correct Ratio</span>
+            <span className="text-2xl font-bold text-emerald-700 font-mono">{accuracyRate}%</span>
+            <span className="text-[11px] text-slate-500 font-mono">Correct Answers</span>
           </div>
         </div>
 
-        {/* Card 4: Passed Exams */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-2 relative overflow-hidden">
+        {/* Tile 4: Qualified Exams */}
+        <div className="portal-card p-4 bg-white border border-slate-200 space-y-1">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-bold uppercase tracking-wider">Passed Exams</span>
-            <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
-              <Trophy className="w-5 h-5" />
-            </div>
+            <span className="text-[11px] font-mono uppercase text-slate-500 font-medium">Qualified Exams</span>
+            <Trophy className="w-4 h-4 text-amber-600" />
           </div>
           <div className="flex items-baseline space-x-2">
-            <span className="text-3xl font-black text-amber-600 font-mono">{totalPassedCount}</span>
-            <span className="text-xs text-slate-500 font-semibold">Distinctions</span>
+            <span className="text-2xl font-bold text-amber-700 font-mono">{totalPassedCount}</span>
+            <span className="text-[11px] text-slate-500 font-mono">Pass Criteria Met</span>
           </div>
         </div>
 
       </div>
 
-      {/* Platform Comparison Banner */}
+      {/* Benchmark Summary Strip */}
       {totalAttemptsCount > 0 && (
-        <div className="bg-indigo-50 border border-indigo-200/80 rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
-          <div className="flex items-center space-x-4">
-            <div className="p-3 rounded-2xl bg-indigo-600 text-white shadow-md shadow-indigo-600/20 flex-shrink-0">
-              <Sparkles className="w-5 h-5 animate-pulse" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-indigo-900">Platform Performance Comparison</h4>
-              <p className="text-xs text-indigo-700 font-medium mt-0.5">
-                {averagePercentage >= platformAvgPercentage ? (
-                  <>
-                    You are performing <span className="font-extrabold text-indigo-900">{(averagePercentage - platformAvgPercentage).toFixed(1)}% higher</span> than the platform average! Keep it up.
-                  </>
-                ) : (
-                  <>
-                    You are <span className="font-extrabold text-indigo-900">{(platformAvgPercentage - averagePercentage).toFixed(1)}% behind</span> the platform average. A little more revision will push you ahead!
-                  </>
-                )}
-              </p>
-            </div>
+        <div className="portal-card p-4 bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center space-x-3">
+            <Activity className="w-4 h-4 text-blue-600 flex-shrink-0" />
+            <p className="text-xs text-slate-700 font-normal">
+              {averagePercentage >= platformAvgPercentage ? (
+                <>
+                  Your average score is <span className="font-semibold text-slate-900 font-mono">{(averagePercentage - platformAvgPercentage).toFixed(1)}% above</span> the platform cohort benchmark ({platformAvgPercentage}%).
+                </>
+              ) : (
+                <>
+                  Your average score is <span className="font-semibold text-slate-900 font-mono">{(platformAvgPercentage - averagePercentage).toFixed(1)}% below</span> the platform cohort benchmark ({platformAvgPercentage}%).
+                </>
+              )}
+            </p>
           </div>
-          <div className="flex items-center space-x-4 bg-white/60 border border-indigo-100 rounded-2xl px-4 py-2 font-mono text-xs">
-            <div className="text-center">
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Your Avg</p>
-              <p className="text-sm font-black text-indigo-900 mt-0.5">{averagePercentage}%</p>
-            </div>
-            <div className="w-px h-8 bg-indigo-100" />
-            <div className="text-center">
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Platform Avg</p>
-              <p className="text-sm font-black text-slate-700 mt-0.5">{platformAvgPercentage}%</p>
-            </div>
+          <div className="flex items-center space-x-3 font-mono text-xs text-slate-600">
+            <span>Candidate: <strong>{averagePercentage}%</strong></span>
+            <span>•</span>
+            <span>Platform: <strong>{platformAvgPercentage}%</strong></span>
           </div>
         </div>
       )}
 
-      {/* Main Dashboard Section Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Left 2-Cols: Interactive Score Trajectory Chart */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+      {/* Main Grid: Trajectory Chart & Topic Radar */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Left 2-Cols: Score Trajectory Chart */}
+        <div className="lg:col-span-2 portal-card p-5 sm:p-6 bg-white border border-slate-200 space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
-              <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
-                <TrendingUp className="w-5 h-5 text-indigo-600" />
-                <span>Candidate Performance Trajectory Chart</span>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                <TrendingUp className="w-4 h-4 text-blue-600" />
+                <span>Score Trajectory & Performance Trend</span>
               </h3>
-              <p className="text-xs text-slate-500 font-medium">Historical Score Percentage (%) across recent test attempts</p>
+              <p className="text-xs text-slate-500">Historical performance across last 10 test attempts</p>
             </div>
           </div>
 
           {/* Performance Trajectory Chart */}
           {myAttempts.length === 0 ? (
-            <div className="h-56 flex items-center justify-center text-slate-400 text-xs font-medium border-2 border-dashed border-slate-200 rounded-2xl">
-              No test attempts logged yet. Complete a CBT exam to view your visual score chart!
+            <div className="h-52 flex items-center justify-center text-slate-400 text-xs border border-dashed border-slate-200 rounded">
+              No examination attempts logged yet. Take a CBT test to view your performance curve.
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {/* Chart Grid with Y-Axis and Bars */}
-              <div className="relative h-56 w-full flex items-end justify-between gap-2 pt-6 pb-2 px-2 border-b border-slate-200 bg-slate-50/50 rounded-2xl border border-slate-100">
-                {/* Horizontal Grid lines */}
-                <div className="absolute inset-x-2 top-6 bottom-8 flex flex-col justify-between pointer-events-none opacity-40">
+              <div className="relative h-52 w-full flex items-end justify-between gap-2 pt-6 pb-2 px-3 border border-slate-200 bg-slate-50 rounded">
+                {/* Horizontal Reference Lines */}
+                <div className="absolute inset-x-3 top-6 bottom-8 flex flex-col justify-between pointer-events-none opacity-40">
                   <div className="border-b border-dashed border-slate-300 w-full flex justify-end">
-                    <span className="text-[9px] font-mono font-bold text-slate-400 -mt-2.5 mr-1">100%</span>
+                    <span className="text-[9px] font-mono text-slate-500 -mt-2 mr-1">100%</span>
                   </div>
                   <div className="border-b border-dashed border-slate-300 w-full flex justify-end">
-                    <span className="text-[9px] font-mono font-bold text-slate-400 -mt-2.5 mr-1">60%</span>
+                    <span className="text-[9px] font-mono text-slate-500 -mt-2 mr-1">60% Pass</span>
                   </div>
                   <div className="border-b border-dashed border-slate-300 w-full flex justify-end">
-                    <span className="text-[9px] font-mono font-bold text-slate-400 -mt-2.5 mr-1">0%</span>
+                    <span className="text-[9px] font-mono text-slate-500 -mt-2 mr-1">0%</span>
                   </div>
                 </div>
 
@@ -291,32 +265,28 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
                   const barHeight = Math.min(100, Math.max(8, pct));
                   return (
                     <div key={attempt.id || idx} className="h-full flex-1 flex flex-col items-center justify-end group relative z-10">
-                      
-                      {/* Tooltip on hover */}
-                      <div className="absolute -top-6 bg-slate-900 text-white text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30 shadow-lg border border-slate-700">
-                        <span className="font-bold text-indigo-300">{attempt.quizTitle}</span>: {pct}%
-                        <span className="block text-[9px] text-slate-400">{attempt.passed ? '✅ Passed' : '❌ Needs Revision'}</span>
+
+                      {/* Hover Tooltip */}
+                      <div className="absolute -top-7 bg-slate-900 text-white text-[10px] font-mono px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30 shadow border border-slate-700">
+                        <span>{attempt.quizTitle}: <strong>{pct}%</strong></span>
                       </div>
 
-                      {/* Percentage Badge */}
-                      <span className="text-[10px] font-mono font-bold mb-1 text-slate-700 transition-transform group-hover:scale-110">
+                      {/* Percentage Top Value */}
+                      <span className="text-[10px] font-mono font-semibold mb-1 text-slate-700 tabular-nums">
                         {pct}%
                       </span>
 
-                      {/* Score Value Bar Track */}
-                      <div className="w-full max-w-[38px] h-36 bg-slate-200/70 rounded-xl relative flex items-end overflow-hidden p-0.5 border border-slate-200 shadow-inner">
+                      {/* Bar Container */}
+                      <div className="w-full max-w-[32px] h-32 bg-slate-200 rounded-sm relative flex items-end overflow-hidden">
                         <div
-                          className={`w-full rounded-lg transition-all duration-700 shadow-sm ${
-                            attempt.passed
-                              ? 'bg-gradient-to-t from-emerald-600 via-emerald-500 to-emerald-400'
-                              : 'bg-gradient-to-t from-rose-600 via-rose-500 to-rose-400'
-                          }`}
+                          className={`w-full rounded-sm transition-all duration-500 ${attempt.passed ? 'bg-emerald-600' : 'bg-rose-600'
+                            }`}
                           style={{ height: `${barHeight}%` }}
                         />
                       </div>
 
-                      {/* Attempt sequence number */}
-                      <span className="text-[10px] font-mono font-bold text-slate-600 mt-1.5">
+                      {/* Attempt Index */}
+                      <span className="text-[10px] font-mono text-slate-500 mt-1">
                         #{idx + 1}
                       </span>
                     </div>
@@ -324,16 +294,16 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
                 })}
               </div>
 
-              <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
-                <span>Attempt Sequence (Recent 10)</span>
-                <div className="flex items-center space-x-4">
-                  <span className="flex items-center space-x-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-xs" />
-                    <span className="font-semibold text-slate-700">Passed (≥60%)</span>
+              <div className="flex items-center justify-between text-[11px] font-mono text-slate-500">
+                <span>Recent 10 Attempts</span>
+                <div className="flex items-center space-x-3">
+                  <span className="flex items-center space-x-1">
+                    <span className="w-2 h-2 rounded-xs bg-emerald-600" />
+                    <span>Qualified (≥60%)</span>
                   </span>
-                  <span className="flex items-center space-x-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-xs" />
-                    <span className="font-semibold text-slate-700">Needs Improvement (&lt;60%)</span>
+                  <span className="flex items-center space-x-1">
+                    <span className="w-2 h-2 rounded-xs bg-rose-600" />
+                    <span>Needs Improvement</span>
                   </span>
                 </div>
               </div>
@@ -341,79 +311,65 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
           )}
         </div>
 
-        {/* Right Col: Topic Weak Area Radar */}
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-6">
+        {/* Right Col: Syllabus Topic Diagnostic */}
+        <div className="portal-card p-5 sm:p-6 bg-white border border-slate-200 space-y-4">
           <div>
-            <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
-              <Target className="w-5 h-5 text-amber-500" />
-              <span>Topic Weak Area Radar</span>
+            <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+              <Target className="w-4 h-4 text-slate-700" />
+              <span>Syllabus Topic Diagnostic</span>
             </h3>
-            <p className="text-xs text-slate-500 font-medium">Identify subjects needing revision</p>
+            <p className="text-xs text-slate-500">Subject mastery and revision priorities</p>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {topicMasteryList.length === 0 ? (
-              <p className="text-xs text-slate-400 font-medium text-center py-6">
-                Take tests across different topics to generate your Subject Weak Area breakdown!
+              <p className="text-xs text-slate-400 text-center py-6">
+                Complete tests across different subjects to generate topic diagnostic curves.
               </p>
             ) : (
               topicMasteryList.map(item => (
-                <div key={item.topicName} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                <div key={item.topicName} className="p-3 rounded bg-slate-50 border border-slate-200 space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-900">{item.topicName}</span>
-                    <span className={`font-mono font-bold px-2 py-0.5 rounded text-[11px] ${
-                      item.isWeak ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                    }`}>
-                      {item.avgPercentage}% Avg
+                    <span className="font-medium text-slate-900 truncate max-w-[150px]">{item.topicName}</span>
+                    <span className={`font-mono font-semibold px-1.5 py-0.2 rounded text-[11px] ${item.isWeak ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                      {item.avgPercentage}%
                     </span>
                   </div>
 
                   {/* Progress Bar */}
-                  <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                  <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all ${
-                        item.isWeak ? 'bg-rose-500' : 'bg-emerald-500'
-                      }`}
+                      className={`h-full rounded-full transition-all ${item.isWeak ? 'bg-rose-500' : 'bg-emerald-600'
+                        }`}
                       style={{ width: `${item.avgPercentage}%` }}
                     />
                   </div>
 
-                  <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                  <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
                     <span>{item.attemptCount} Attempt{item.attemptCount > 1 ? 's' : ''}</span>
-                    <span className="flex items-center space-x-1">
-                      {item.isWeak ? (
-                        <>
-                          <AlertTriangle className="w-3 h-3 text-rose-500" />
-                          <span className="text-rose-600 font-bold">Needs Revision</span>
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                          <span className="text-emerald-700 font-bold">Strong Mastery</span>
-                        </>
-                      )}
-                    </span>
+                    <span>{item.isWeak ? 'Needs Revision' : 'Mastery Confirmed'}</span>
                   </div>
                 </div>
               ))
             )}
 
-            {/* Quick Recommended Exam Cards */}
+            {/* Recommended Examination Papers */}
             {quizzes.length > 0 && (
-              <div className="pt-4 border-t border-slate-100 space-y-2">
-                <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Recommended Exams</p>
-                <div className="space-y-2">
+              <div className="pt-3 border-t border-slate-100 space-y-2">
+                <span className="text-[10px] font-mono uppercase text-slate-400 block">Recommended Practice Papers</span>
+                <div className="space-y-1.5">
                   {quizzes.slice(0, 3).map(quiz => (
                     <button
                       key={quiz.id}
                       onClick={() => onSelectQuiz(quiz)}
-                      className="w-full p-3 rounded-xl bg-slate-50 hover:bg-indigo-50/80 border border-slate-200 hover:border-indigo-200 text-left transition-all flex items-center justify-between group cursor-pointer"
+                      className="w-full p-2.5 rounded bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left transition-colors flex items-center justify-between group cursor-pointer"
                     >
-                      <div>
-                        <p className="text-xs font-bold text-slate-900 group-hover:text-indigo-900">{quiz.title}</p>
+                      <div className="truncate pr-2">
+                        <p className="text-xs font-semibold text-slate-900 truncate">{quiz.title}</p>
                         <p className="text-[10px] text-slate-500 font-mono">{quiz.questions.length} MCQs • {quiz.timeLimitMinutes} Mins</p>
                       </div>
-                      <Play className="w-4 h-4 text-indigo-600 group-hover:translate-x-0.5 transition-transform" />
+                      <Play className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
                     </button>
                   ))}
                 </div>
@@ -424,88 +380,89 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
 
       </div>
 
-      {/* Recent Attempts Scorecards Table */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-6">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+      {/* Scorecards Table */}
+      <div className="portal-card p-5 sm:p-6 bg-white border border-slate-200 space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div>
-            <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
-              <Award className="w-5 h-5 text-indigo-600" />
-              <span>Recent Examination Scorecards & PDF Certificates</span>
+            <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+              <Award className="w-4 h-4 text-blue-600" />
+              <span>Official Scorecard Archive</span>
             </h3>
-            <p className="text-xs text-slate-500 font-medium">Verified attempt scorecards for candidate {currentUser?.name}</p>
+            <p className="text-xs text-slate-500">Verified attempt records for candidate {currentUser?.name}</p>
           </div>
 
           <button
             onClick={onNavigateToCatalog}
-            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center space-x-1"
+            className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center space-x-1"
           >
-            <span>View All Exams</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <span>View All Papers</span>
+            <ArrowRight className="w-3 h-3" />
           </button>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           {myAttempts.length === 0 ? (
-            <div className="text-center py-10 text-slate-500 font-medium text-xs">
-              No examination scorecards logged yet. Click "Launch CBT Exam Catalog" above to start your first test!
+            <div className="text-center py-8 text-slate-500 text-xs">
+              No examination scorecards logged yet. Launch a test paper to view verified records.
             </div>
           ) : (
             myAttempts.map(attempt => (
-              <div key={attempt.id} className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 hover:bg-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all">
-                <div className="space-y-1">
+              <div key={attempt.id} className="p-3.5 rounded border border-slate-200 bg-slate-50 hover:bg-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-colors">
+                <div className="space-y-0.5">
                   <div className="flex items-center space-x-2">
-                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-700">
+                    <span className="text-[10px] font-mono font-semibold px-1.5 py-0.2 rounded bg-slate-200 text-slate-700">
                       {attempt.topic || 'General'}
                     </span>
-                    <h4 className="text-sm font-bold text-slate-900">{attempt.quizTitle}</h4>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">{attempt.quizTitle}</h4>
                   </div>
-                  <p className="text-[11px] text-slate-500 font-medium flex items-center space-x-2">
+                  <p className="text-[11px] text-slate-500 font-mono flex items-center space-x-1.5">
                     <Clock className="w-3 h-3 text-slate-400" />
                     <span>{new Date(attempt.attemptedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                   </p>
                 </div>
 
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-3 w-full sm:w-auto justify-between sm:justify-end">
                   <div className="text-right">
-                    <span className={`px-2.5 py-0.5 rounded-full font-mono font-extrabold text-xs ${
-                      attempt.passed ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300'
-                    }`}>
-                      {attempt.percentage}% ({attempt.passed ? 'PASSED' : 'FAILED'})
+                    <span className={`px-2 py-0.5 rounded font-mono font-semibold text-[11px] ${attempt.passed ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                      }`}>
+                      {attempt.percentage}% ({attempt.passed ? 'PASSED' : 'NEEDS REVISION'})
                     </span>
-                    <p className="text-[11px] font-mono text-slate-500 mt-1">Score: {attempt.score} / {attempt.maxScore}</p>
+                    <p className="text-[11px] font-mono text-slate-500 mt-0.5">Score: {attempt.score} / {attempt.maxScore}</p>
                   </div>
 
-                  {attempt.passed && quizzes.find(q => q.id === attempt.quizId)?.enableCertificate !== false && (
-                    <button
-                      onClick={() => setSelectedCertAttempt(attempt)}
-                      className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 font-bold text-xs shadow-xs flex items-center space-x-1.5 transition-all cursor-pointer"
-                    >
-                      <Award className="w-4 h-4 text-amber-600" />
-                      <span>PDF Merit Certificate 📜</span>
-                    </button>
-                  )}
-                  {(() => {
-                    const q = quizzes.find(q => q.id === attempt.quizId);
-                    const announcementDate = q?.resultAnnouncementDateTime ? new Date(q.resultAnnouncementDateTime) : null;
-                    const reviewAvailable = !announcementDate || new Date() >= announcementDate;
-                    if (reviewAvailable) {
+                  <div className="flex items-center space-x-1.5">
+                    {attempt.passed && quizzes.find(q => q.id === attempt.quizId)?.enableCertificate !== false && (
+                      <button
+                        onClick={() => setSelectedCertAttempt(attempt)}
+                        className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-900 font-semibold text-xs flex items-center space-x-1 transition-colors cursor-pointer"
+                      >
+                        <Award className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Certificate</span>
+                      </button>
+                    )}
+
+                    {(() => {
+                      const q = quizzes.find(q => q.id === attempt.quizId);
+                      const announcementDate = q?.resultAnnouncementDateTime ? new Date(q.resultAnnouncementDateTime) : null;
+                      const reviewAvailable = !announcementDate || new Date() >= announcementDate;
+                      if (reviewAvailable) {
+                        return (
+                          <button
+                            onClick={() => setReviewAttempt(attempt)}
+                            className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs flex items-center space-x-1 transition-colors cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Audit Review</span>
+                          </button>
+                        );
+                      }
                       return (
-                        <button
-                          onClick={() => setReviewAttempt(attempt)}
-                          className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold text-xs shadow-xs flex items-center space-x-1.5 transition-all cursor-pointer"
-                        >
-                          <Eye className="w-4 h-4 text-indigo-600" />
-                          <span>View Full Review</span>
-                        </button>
+                        <span className="px-2 py-1 rounded bg-slate-100 text-slate-500 text-xs font-mono">
+                          Results: {announcementDate!.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                        </span>
                       );
-                    }
-                    return (
-                      <span className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 font-bold text-xs flex items-center space-x-1.5">
-                        <Clock className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Results on {announcementDate!.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
-                      </span>
-                    );
-                  })()}
+                    })()}
+                  </div>
                 </div>
               </div>
             ))
@@ -533,14 +490,14 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
       {reviewAttempt && (() => {
         const reviewQuiz = quizzes.find(q => q.id === reviewAttempt.quizId);
         return (
-          <div className="fixed inset-0 z-50 bg-slate-50 overflow-y-auto">
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
             <div className="max-w-4xl mx-auto px-4 py-6">
-              <div className="flex items-center justify-between mb-6 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs sticky top-4 z-10">
+              <div className="flex items-center justify-between mb-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm sticky top-4 z-10">
                 <div>
-                  <h2 className="font-bold text-slate-900 text-base">Full Attempt Review</h2>
-                  <p className="text-xs text-slate-500 font-medium">{reviewAttempt.quizTitle} • {new Date(reviewAttempt.attemptedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                  <h2 className="font-bold text-slate-900 text-sm sm:text-base">Official Attempt Audit Review</h2>
+                  <p className="text-xs text-slate-500 font-mono">{reviewAttempt.quizTitle} • {new Date(reviewAttempt.attemptedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                 </div>
-                <button onClick={() => setReviewAttempt(null)} className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+                <button onClick={() => setReviewAttempt(null)} className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -552,10 +509,10 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
                   onGoHome={() => setReviewAttempt(null)}
                 />
               ) : (
-                <div className="text-center py-20 text-slate-500 space-y-2">
-                  <p className="font-bold text-slate-700">Quiz No Longer Available</p>
-                  <p className="text-xs">The quiz for this attempt may have been deleted by the admin.</p>
-                  <button onClick={() => setReviewAttempt(null)} className="mt-4 px-4 py-2 rounded-lg bg-slate-900 text-white font-bold text-xs">Close</button>
+                <div className="portal-card p-12 text-center bg-white border border-slate-200 space-y-2">
+                  <p className="font-bold text-slate-800">Exam Paper Not Found</p>
+                  <p className="text-xs text-slate-500">The examination paper for this attempt is no longer active.</p>
+                  <button onClick={() => setReviewAttempt(null)} className="mt-3 px-4 py-1.5 rounded bg-slate-900 text-white font-semibold text-xs">Close</button>
                 </div>
               )}
             </div>
