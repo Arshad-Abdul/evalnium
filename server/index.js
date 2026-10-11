@@ -1941,28 +1941,28 @@ app.put('/api/banners/:id', async (req, res) => {
   try {
     await pool.query(
       `UPDATE banners 
-       SET title = COALESCE(?, title),
-           subtitle = COALESCE(?, subtitle),
-           image_url = COALESCE(?, image_url),
-           badge_text = COALESCE(?, badge_text),
-           cta_text = COALESCE(?, cta_text),
-           cta_link = COALESCE(?, cta_link),
+       SET title = ?,
+           subtitle = ?,
+           image_url = ?,
+           badge_text = ?,
+           cta_text = ?,
+           cta_link = ?,
            quiz_id = ?,
-           slot_type = COALESCE(?, slot_type),
-           is_active = COALESCE(?, is_active),
-           display_order = COALESCE(?, display_order)
+           slot_type = ?,
+           is_active = ?,
+           display_order = ?
        WHERE id = ?`,
       [
-        title,
-        subtitle,
-        imageUrl,
-        badgeText,
-        ctaText,
-        ctaLink,
-        quizId !== undefined ? quizId : null,
-        slotType !== undefined ? slotType : null,
-        isActive !== undefined ? (isActive ? 1 : 0) : null,
-        displayOrder !== undefined ? parseInt(displayOrder, 10) : null,
+        title || '',
+        subtitle || '',
+        imageUrl || '',
+        badgeText || 'ANNOUNCEMENT',
+        ctaText || 'Take Test Now',
+        ctaLink || '/',
+        quizId ? quizId : null,
+        slotType || 'hero',
+        isActive ? 1 : 0,
+        parseInt(displayOrder || 0, 10),
         id,
       ]
     );

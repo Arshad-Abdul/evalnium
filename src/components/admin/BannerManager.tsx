@@ -155,6 +155,9 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
           setShowAddModal(false);
           resetForm();
           fetchBanners();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('evalnium_banners_updated'));
+          }
         } else {
           alert('Failed to update banner.');
         }
@@ -168,6 +171,9 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
           setShowAddModal(false);
           resetForm();
           fetchBanners();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('evalnium_banners_updated'));
+          }
         } else {
           alert('Failed to create banner.');
         }
@@ -185,6 +191,9 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
         setBanners((prev) =>
           prev.map((b) => (b.id === id ? { ...b, isActive: !b.isActive } : b))
         );
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('evalnium_banners_updated'));
+        }
       }
     } catch (e) {
       console.error(e);
@@ -197,6 +206,9 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
       const res = await fetch(`${getApiBaseUrl()}/banners/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setBanners((prev) => prev.filter((b) => b.id !== id));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('evalnium_banners_updated'));
+        }
       }
     } catch (e) {
       console.error(e);
@@ -457,7 +469,7 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
                       <span>Header Ad / Notice Banner</span>
                     </div>
                     <p className="text-[10px] text-slate-500 mt-1 leading-normal">
-                      Top notification strip with uploaded picture, badge & CTA.
+                      Full-picture ad banner (image fills entire banner size).
                     </p>
                   </button>
                 </div>
@@ -478,7 +490,7 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
 
               {/* Subtitle */}
               <div className="space-y-1">
-                <label className="font-bold text-slate-900">Description / Subtitle</label>
+                <label className="font-bold text-slate-900">Description / Subtitle (Optional)</label>
                 <textarea
                   rows={2}
                   placeholder="e.g. Comprehensive Bilingual Assessment covering Teaching & Research Aptitude."
@@ -491,7 +503,10 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
               {/* Image / Picture Upload from Local PC or URL */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="font-bold text-slate-900">Banner Picture / Graphic *</label>
+                  <div>
+                    <label className="font-bold text-slate-900 block">Banner Picture / Graphic *</label>
+                    <span className="text-[10px] text-indigo-600 font-medium">Picture fills the entire ad banner width & height</span>
+                  </div>
                   <div className="flex items-center space-x-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[10px] font-bold">
                     <button
                       type="button"
@@ -519,7 +534,7 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
                     <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-indigo-300 rounded-2xl bg-indigo-50/40 hover:bg-indigo-50/70 cursor-pointer transition-colors group">
                       <Upload className="w-6 h-6 text-indigo-500 mb-1 group-hover:scale-110 transition-transform" />
                       <span className="text-xs font-bold text-slate-800">Choose picture or drag and drop</span>
-                      <span className="text-[10px] text-slate-500 mt-0.5">Supports PNG, JPG, WebP, SVG</span>
+                      <span className="text-[10px] text-slate-500 mt-0.5">Recommended: 1200x300 or panoramic banner graphic (PNG, JPG, WebP)</span>
                       <input
                         type="file"
                         accept="image/*"
