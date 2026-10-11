@@ -61,9 +61,6 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* 0. Uploaded Header Ad / Notice Picture Banner (Admin Managed) */}
-      <HeaderAdBanner quizzes={publishedQuizzes} onSelectQuiz={handleStartExamAttempt} />
-
       {/* 1. Dynamic Hero Promotional & Test Showcase Banner Slider */}
       <HeroBannerCarousel quizzes={publishedQuizzes} onSelectQuiz={handleStartExamAttempt} />
 

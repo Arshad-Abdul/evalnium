@@ -27,6 +27,7 @@ import { ScrollToTopButton } from './components/common/ScrollToTopButton';
 import { AnnouncementBanner } from './components/user/AnnouncementBanner';
 import { RevisionHubModal } from './components/user/RevisionHubModal';
 import { CandidateDashboard } from './components/user/CandidateDashboard';
+import { HeaderAdBanner } from './components/home/HeaderAdBanner';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Lazy loaded heavy components for fast initial bundle load
@@ -295,6 +296,9 @@ function MainAppContent() {
         totalQuizzesCount={candidateVisibleQuizzes.length}
         onOpenRevisionHub={() => setShowRevisionHubModal(true)}
       />
+
+      {/* Top Header Ad / Announcement Strip (Admin Uploaded) */}
+      <HeaderAdBanner quizzes={candidateVisibleQuizzes} onSelectQuiz={handleSelectQuiz} />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Suspense fallback={
