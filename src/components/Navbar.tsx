@@ -72,30 +72,31 @@ export const Navbar: React.FC<NavbarProps> = ({
             {currentUser && (
               <button
                 onClick={() => setActiveTab('dashboard')}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${activeTab === 'dashboard'
+                className={`flex items-center space-x-1.5 px-2 sm:px-3 py-1.5 rounded text-xs font-medium transition-colors ${activeTab === 'dashboard'
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
                   }`}
               >
                 <LayoutDashboard className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Candidate Dashboard</span>
+                <span className="hidden md:inline">Dashboard</span>
               </button>
             )}
 
             <button
               onClick={() => setActiveTab('user')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${activeTab === 'user'
+              className={`flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1.5 rounded text-xs font-medium transition-colors ${activeTab === 'user'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
                 }`}
             >
               <BookOpen className="w-3.5 h-3.5" />
-              <span>Exam Catalog ({totalQuizzesCount})</span>
+              <span className="hidden sm:inline">Exam Catalog ({totalQuizzesCount})</span>
+              <span className="sm:hidden">Exams ({totalQuizzesCount})</span>
             </button>
 
             <button
               onClick={() => setActiveTab('leaderboard')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${activeTab === 'leaderboard'
+              className={`flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1.5 rounded text-xs font-medium transition-colors ${activeTab === 'leaderboard'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
                 }`}
@@ -107,13 +108,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             {isAdminVisible && (
               <button
                 onClick={() => setActiveTab('admin')}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${activeTab === 'admin'
+                className={`flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1.5 rounded text-xs font-medium transition-colors ${activeTab === 'admin'
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
                   }`}
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Admin Studio</span>
+                <span>Admin</span>
+                <span className="hidden md:inline"> Studio</span>
               </button>
             )}
           </nav>

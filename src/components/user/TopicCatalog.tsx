@@ -3,6 +3,7 @@ import type { Quiz, QuizAttemptResult } from '../../types/quiz';
 import { Search, BookOpen, Clock, Play, History, Filter, X, Lock, Award, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { HeroBannerCarousel } from '../home/HeroBannerCarousel';
+import { HeaderAdBanner } from '../home/HeaderAdBanner';
 import { CertificateModal } from './CertificateModal';
 
 interface TopicCatalogProps {
@@ -59,20 +60,23 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
+      {/* 0. Uploaded Header Ad / Notice Picture Banner (Admin Managed) */}
+      <HeaderAdBanner quizzes={publishedQuizzes} onSelectQuiz={handleStartExamAttempt} />
+
       {/* 1. Dynamic Hero Promotional & Test Showcase Banner Slider */}
       <HeroBannerCarousel quizzes={publishedQuizzes} onSelectQuiz={handleStartExamAttempt} />
 
       {/* Institutional Examination Bulletin & Header Strip */}
-      <div className="portal-card p-6 sm:p-7 bg-white border border-slate-200">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center space-x-2 px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-mono font-medium">
+      <div className="portal-card p-4 sm:p-7 bg-white border border-slate-200">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6">
+          <div className="space-y-1.5 sm:space-y-2 max-w-2xl">
+            <div className="inline-flex items-center space-x-2 px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 text-[10px] sm:text-[11px] font-mono font-medium">
               <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
               <span>COMPUTER BASED TESTING (CBT) PORTAL</span>
             </div>
 
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 font-sans">
+            <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-slate-900 font-sans break-words">
               Active Examination Papers & Test Series
             </h1>
 
@@ -82,10 +86,10 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
           </div>
 
           {/* Quick Metrics & Past Attempt Scorecards CTA */}
-          <div className="flex flex-wrap items-center gap-3 border-t lg:border-t-0 lg:border-l border-slate-200 pt-4 lg:pt-0 lg:pl-6">
-            <div className="bg-slate-50 px-3 py-2 rounded border border-slate-200 text-center min-w-[100px]">
-              <span className="text-[10px] font-mono text-slate-500 uppercase block">Available Papers</span>
-              <span className="text-base font-bold text-slate-900 font-mono">{publishedQuizzes.length}</span>
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 border-t lg:border-t-0 lg:border-l border-slate-200 pt-3 lg:pt-0 lg:pl-6 w-full lg:w-auto justify-between sm:justify-start">
+            <div className="bg-slate-50 px-3 py-2 rounded border border-slate-200 text-center flex-1 sm:flex-initial min-w-[90px]">
+              <span className="text-[9px] sm:text-[10px] font-mono text-slate-500 uppercase block">Available Papers</span>
+              <span className="text-sm sm:text-base font-bold text-slate-900 font-mono">{publishedQuizzes.length}</span>
             </div>
 
             <button
@@ -96,7 +100,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                 }
                 setShowHistoryModal(true);
               }}
-              className="px-3.5 py-2.5 rounded bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium flex items-center space-x-2 transition-colors shadow-xs"
+              className="px-3.5 py-2 sm:py-2.5 rounded bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium flex items-center justify-center space-x-2 transition-colors shadow-xs flex-1 sm:flex-initial cursor-pointer"
             >
               <History className="w-3.5 h-3.5 text-blue-400" />
               <span>My Scorecards ({myAttempts.length})</span>
@@ -106,8 +110,8 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
       </div>
 
       {/* Structured Search & Filter Bar */}
-      <div className="portal-card p-4 bg-white border border-slate-200 space-y-3">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+      <div className="portal-card p-3 sm:p-4 bg-white border border-slate-200 space-y-3">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
 
           {/* Search Input */}
           <div className="relative w-full md:w-96">
@@ -117,22 +121,22 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search by test paper title, subject code, or topic..."
-              className="w-full pl-9 pr-3 py-2 rounded bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:bg-white transition-colors"
+              className="w-full pl-9 pr-3 py-2 rounded bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-400 focus:outline-hidden focus:border-blue-600 focus:bg-white transition-colors"
             />
           </div>
 
           {/* Difficulty Filter */}
-          <div className="flex items-center space-x-2 w-full md:w-auto">
-            <span className="text-xs text-slate-500 font-medium flex items-center space-x-1">
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            <span className="text-xs text-slate-500 font-medium flex items-center space-x-1 shrink-0">
               <Filter className="w-3 h-3 text-slate-400" />
               <span>Difficulty:</span>
             </span>
-            <div className="flex items-center space-x-1 bg-slate-100 p-0.5 rounded border border-slate-200">
+            <div className="flex items-center space-x-1 bg-slate-100 p-0.5 rounded border border-slate-200 overflow-x-auto max-w-full">
               {['All', 'Easy', 'Medium', 'Hard'].map((diff) => (
                 <button
                   key={diff}
                   onClick={() => setSelectedDifficulty(diff)}
-                  className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${selectedDifficulty === diff
+                  className={`px-2.5 py-1 rounded text-xs font-medium transition-colors cursor-pointer ${selectedDifficulty === diff
                       ? 'bg-white text-slate-900 shadow-xs font-semibold'
                       : 'text-slate-600 hover:text-slate-900'
                     }`}
@@ -146,13 +150,13 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
         </div>
 
         {/* Topic Filter Tags */}
-        <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 pt-2 border-t border-slate-100">
-          <span className="text-xs text-slate-500 font-medium mr-1.5 flex-shrink-0">Subject:</span>
+        <div className="flex items-center space-x-1.5 overflow-x-auto pb-1.5 pt-2 border-t border-slate-100">
+          <span className="text-xs text-slate-500 font-medium mr-1.5 shrink-0">Subject:</span>
           {topics.map((t) => (
             <button
               key={t}
               onClick={() => setSelectedTopic(t)}
-              className={`px-2.5 py-1 rounded text-xs font-medium whitespace-nowrap transition-colors ${selectedTopic === t
+              className={`px-2.5 py-1 rounded text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${selectedTopic === t
                   ? 'bg-blue-600 text-white font-semibold shadow-xs'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
                 }`}

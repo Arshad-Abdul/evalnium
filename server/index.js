@@ -366,17 +366,24 @@ async function initDatabase() {
         cta_text VARCHAR(100) DEFAULT 'Take Test Now',
         cta_link TEXT,
         quiz_id VARCHAR(100) DEFAULT NULL,
+        slot_type VARCHAR(50) DEFAULT 'hero',
         is_active TINYINT(1) DEFAULT 1,
         display_order INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
+    try {
+      await pool.query(`ALTER TABLE banners ADD COLUMN slot_type VARCHAR(50) DEFAULT 'hero';`);
+    } catch {
+      // Column already exists
+    }
+
     // Seed initial banners if table is empty
     const [bannerRows] = await pool.query('SELECT COUNT(*) as count FROM banners');
     if (bannerRows[0].count === 0) {
       await pool.query(`
-        INSERT INTO banners (title, subtitle, image_url, badge_text, cta_text, cta_link, quiz_id, is_active, display_order)
+        INSERT INTO banners (title, subtitle, image_url, badge_text, cta_text, cta_link, quiz_id, slot_type, is_active, display_order)
         VALUES 
         (
           'NTA UGC NET / JRF 2026 Paper 1 Live Mock Series',
@@ -386,6 +393,7 @@ async function initDatabase() {
           'Start Paper 1 Mock',
           '/',
           NULL,
+          'hero',
           1,
           1
         ),
@@ -397,6 +405,7 @@ async function initDatabase() {
           'Explore LIS Catalog',
           '/',
           NULL,
+          'hero',
           1,
           2
         ),
@@ -408,11 +417,38 @@ async function initDatabase() {
           'View Leaderboards',
           '/',
           NULL,
+          'hero',
           1,
           3
         );
       `);
       console.log(`✅ Default showcase promotional banners seeded.`);
+    }
+
+    // Seed default header ad / announcement banner if none exists for slot_type = 'header_ad'
+    try {
+      const [headerAdRows] = await pool.query("SELECT COUNT(*) as count FROM banners WHERE slot_type = 'header_ad'");
+      if (headerAdRows[0].count === 0) {
+        await pool.query(`
+          INSERT INTO banners (title, subtitle, image_url, badge_text, cta_text, cta_link, quiz_id, slot_type, is_active, display_order)
+          VALUES 
+          (
+            'Special Edition NTA UGC NET 2026 Test Series & Master Solved Papers Available Now',
+            'Get instant access to 10,000+ LIS Solved MCQs, Bilingual Explanations & National All-India Live Mock Simulations.',
+            'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=1200&auto=format&fit=crop&q=80',
+            'LIMITED ENROLLMENT',
+            'Explore Series',
+            '/',
+            NULL,
+            'header_ad',
+            1,
+            1
+          );
+        `);
+        console.log(`✅ Default header ad banner seeded.`);
+      }
+    } catch (e) {
+      console.warn('Header ad seed check skipped:', e.message);
     }
 
     // 2. Question Discussions & Doubts Forum Table
@@ -1282,10 +1318,36 @@ app.get('/api/admin/visitors', async (req, res) => {
       whereParams = [thirtyDaysAgo];
     }
 
+    let logWhereClause = '';
+    if (range === 'today') {
+      logWhereClause = 'WHERE v.last_seen >= ?';
+    } else if (range === 'yesterday') {
+      logWhereClause = 'WHERE v.last_seen >= ? AND v.last_seen < ?';
+    } else if (range === '7days') {
+      logWhereClause = 'WHERE v.last_seen >= ?';
+    } else if (range === '30days') {
+      logWhereClause = 'WHERE v.last_seen >= ?';
+    }
+
     const [rows] = await pool.query(`
-      SELECT * FROM visitor_logs 
-      ${whereClause}
-      ORDER BY last_seen DESC 
+      SELECT 
+        v.*,
+        COALESCE(ip_counts.ip_total_visits, 1) AS ip_total_visits,
+        COALESCE(user_counts.user_total_visits, 0) AS user_total_visits
+      FROM visitor_logs v
+      LEFT JOIN (
+        SELECT ip_address, COUNT(*) AS ip_total_visits 
+        FROM visitor_logs 
+        GROUP BY ip_address
+      ) ip_counts ON v.ip_address = ip_counts.ip_address
+      LEFT JOIN (
+        SELECT candidate_email, COUNT(*) AS user_total_visits 
+        FROM visitor_logs 
+        WHERE candidate_email IS NOT NULL AND candidate_email != ''
+        GROUP BY candidate_email
+      ) user_counts ON v.candidate_email = user_counts.candidate_email
+      ${logWhereClause}
+      ORDER BY v.last_seen DESC 
       LIMIT 500
     `, whereParams);
 
@@ -1363,6 +1425,8 @@ app.get('/api/admin/visitors', async (req, res) => {
         firstSeen: r.first_seen,
         lastSeen: r.last_seen,
         visitCount: r.visit_count || 1,
+        ipTotalVisits: r.ip_total_visits || 1,
+        userTotalVisits: r.user_total_visits || (r.is_registered ? 1 : 0),
         durationSeconds: r.duration_seconds || 0
       })),
       summary: {
@@ -1808,10 +1872,22 @@ app.delete('/api/bookmarks/:questionId', async (req, res) => {
 app.get('/api/banners', async (req, res) => {
   try {
     const showAll = req.query.all === 'true';
-    const query = showAll
-      ? 'SELECT * FROM banners ORDER BY display_order ASC, id DESC'
-      : 'SELECT * FROM banners WHERE is_active = 1 ORDER BY display_order ASC, id DESC';
-    const [rows] = await pool.query(query);
+    const slot = req.query.slot; // 'hero' | 'header_ad' | undefined
+
+    let query = 'SELECT * FROM banners WHERE 1=1';
+    const params = [];
+
+    if (!showAll) {
+      query += ' AND is_active = 1';
+    }
+    if (slot) {
+      query += ' AND slot_type = ?';
+      params.push(slot);
+    }
+
+    query += ' ORDER BY display_order ASC, id DESC';
+
+    const [rows] = await pool.query(query, params);
     res.json(rows.map(r => ({
       id: r.id,
       title: r.title,
@@ -1821,6 +1897,7 @@ app.get('/api/banners', async (req, res) => {
       ctaText: r.cta_text,
       ctaLink: r.cta_link,
       quizId: r.quiz_id,
+      slotType: r.slot_type || 'hero',
       isActive: Boolean(r.is_active),
       displayOrder: r.display_order,
       createdAt: r.created_at,
@@ -1831,14 +1908,14 @@ app.get('/api/banners', async (req, res) => {
 });
 
 app.post('/api/banners', async (req, res) => {
-  const { title, subtitle, imageUrl, badgeText, ctaText, ctaLink, quizId, isActive = true, displayOrder = 0 } = req.body;
+  const { title, subtitle, imageUrl, badgeText, ctaText, ctaLink, quizId, slotType = 'hero', isActive = true, displayOrder = 0 } = req.body;
   if (!title || !imageUrl) {
     return res.status(400).json({ error: 'title and imageUrl are required' });
   }
   try {
     const [result] = await pool.query(
-      `INSERT INTO banners (title, subtitle, image_url, badge_text, cta_text, cta_link, quiz_id, is_active, display_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO banners (title, subtitle, image_url, badge_text, cta_text, cta_link, quiz_id, slot_type, is_active, display_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title,
         subtitle || '',
@@ -1847,6 +1924,7 @@ app.post('/api/banners', async (req, res) => {
         ctaText || 'Take Test Now',
         ctaLink || '/',
         quizId || null,
+        slotType || 'hero',
         isActive ? 1 : 0,
         parseInt(displayOrder || 0, 10),
       ]
@@ -1859,7 +1937,7 @@ app.post('/api/banners', async (req, res) => {
 
 app.put('/api/banners/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, subtitle, imageUrl, badgeText, ctaText, ctaLink, quizId, isActive, displayOrder } = req.body;
+  const { title, subtitle, imageUrl, badgeText, ctaText, ctaLink, quizId, slotType, isActive, displayOrder } = req.body;
   try {
     await pool.query(
       `UPDATE banners 
@@ -1870,6 +1948,7 @@ app.put('/api/banners/:id', async (req, res) => {
            cta_text = COALESCE(?, cta_text),
            cta_link = COALESCE(?, cta_link),
            quiz_id = ?,
+           slot_type = COALESCE(?, slot_type),
            is_active = COALESCE(?, is_active),
            display_order = COALESCE(?, display_order)
        WHERE id = ?`,
@@ -1881,6 +1960,7 @@ app.put('/api/banners/:id', async (req, res) => {
         ctaText,
         ctaLink,
         quizId !== undefined ? quizId : null,
+        slotType !== undefined ? slotType : null,
         isActive !== undefined ? (isActive ? 1 : 0) : null,
         displayOrder !== undefined ? parseInt(displayOrder, 10) : null,
         id,
