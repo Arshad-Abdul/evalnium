@@ -322,8 +322,9 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                   );
                 })()}
               </div>
-            </React.Fragment>
-          ))}
+            </div>
+          </React.Fragment>
+        ))}
         </div>
       )}
 
