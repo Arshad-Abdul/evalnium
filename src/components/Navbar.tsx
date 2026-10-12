@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, BookOpen, Trophy, LogOut, LogIn, ChevronDown, Bookmark, User, Clock, LayoutDashboard } from 'lucide-react';
+import { ShieldCheck, BookOpen, Trophy, LogOut, LogIn, ChevronDown, Bookmark, User, Clock, LayoutDashboard, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { AuthModal } from './auth/AuthModal';
 import { EditProfileModal } from './auth/EditProfileModal';
@@ -103,6 +103,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Trophy className="w-3.5 h-3.5 text-amber-400" />
               <span className="hidden sm:inline">Rankings</span>
+              {!currentUser && !isAdminAuthenticated && (
+                <Lock className="w-3 h-3 text-amber-300 shrink-0" />
+              )}
             </button>
 
             {isAdminVisible && (

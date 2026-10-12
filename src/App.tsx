@@ -327,7 +327,7 @@ function MainAppContent() {
               onNavigateToCatalog={() => setActiveTab('user')}
             />
           ) : activeTab === 'leaderboard' ? (
-            <LeaderboardView />
+            <LeaderboardView onNavigateToCatalog={() => setActiveTab('user')} />
           ) : (
             <>
               {examPhase === 'catalog' && (
