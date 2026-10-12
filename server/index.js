@@ -379,6 +379,12 @@ async function initDatabase() {
       // Column already exists
     }
 
+    try {
+      await pool.query(`ALTER TABLE banners ADD COLUMN allow_dismiss TINYINT(1) DEFAULT 1;`);
+    } catch {
+      // Column already exists
+    }
+
     // Seed initial banners if table is empty
     const [bannerRows] = await pool.query('SELECT COUNT(*) as count FROM banners');
     if (bannerRows[0].count === 0) {
@@ -1872,7 +1878,7 @@ app.delete('/api/bookmarks/:questionId', async (req, res) => {
 app.get('/api/banners', async (req, res) => {
   try {
     const showAll = req.query.all === 'true';
-    const slot = req.query.slot; // 'hero' | 'header_ad' | undefined
+    const slot = req.query.slot; // 'hero' | 'header_ad' | 'catalog_ad' | 'header_ad,catalog_ad'
 
     let query = 'SELECT * FROM banners WHERE 1=1';
     const params = [];
@@ -1881,8 +1887,14 @@ app.get('/api/banners', async (req, res) => {
       query += ' AND is_active = 1';
     }
     if (slot) {
-      query += ' AND slot_type = ?';
-      params.push(slot);
+      const slots = slot.split(',').map(s => s.trim());
+      if (slots.length === 1) {
+        query += ' AND slot_type = ?';
+        params.push(slots[0]);
+      } else {
+        query += ` AND slot_type IN (${slots.map(() => '?').join(',')})`;
+        params.push(...slots);
+      }
     }
 
     query += ' ORDER BY display_order ASC, id DESC';
@@ -1900,6 +1912,7 @@ app.get('/api/banners', async (req, res) => {
       slotType: r.slot_type || 'hero',
       isActive: Boolean(r.is_active),
       displayOrder: r.display_order,
+      allowDismiss: r.allow_dismiss === null || r.allow_dismiss === undefined ? true : Boolean(r.allow_dismiss),
       createdAt: r.created_at,
     })));
   } catch (err) {
@@ -1908,14 +1921,14 @@ app.get('/api/banners', async (req, res) => {
 });
 
 app.post('/api/banners', async (req, res) => {
-  const { title, subtitle, imageUrl, badgeText, ctaText, ctaLink, quizId, slotType = 'hero', isActive = true, displayOrder = 0 } = req.body;
+  const { title, subtitle, imageUrl, badgeText, ctaText, ctaLink, quizId, slotType = 'hero', isActive = true, displayOrder = 0, allowDismiss = true } = req.body;
   if (!title || !imageUrl) {
     return res.status(400).json({ error: 'title and imageUrl are required' });
   }
   try {
     const [result] = await pool.query(
-      `INSERT INTO banners (title, subtitle, image_url, badge_text, cta_text, cta_link, quiz_id, slot_type, is_active, display_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO banners (title, subtitle, image_url, badge_text, cta_text, cta_link, quiz_id, slot_type, is_active, display_order, allow_dismiss)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title,
         subtitle || '',
@@ -1927,6 +1940,7 @@ app.post('/api/banners', async (req, res) => {
         slotType || 'hero',
         isActive ? 1 : 0,
         parseInt(displayOrder || 0, 10),
+        allowDismiss !== false ? 1 : 0,
       ]
     );
     res.json({ success: true, id: result.insertId });
@@ -1937,7 +1951,7 @@ app.post('/api/banners', async (req, res) => {
 
 app.put('/api/banners/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, subtitle, imageUrl, badgeText, ctaText, ctaLink, quizId, slotType, isActive, displayOrder } = req.body;
+  const { title, subtitle, imageUrl, badgeText, ctaText, ctaLink, quizId, slotType, isActive, displayOrder, allowDismiss } = req.body;
   try {
     await pool.query(
       `UPDATE banners 
@@ -1950,7 +1964,8 @@ app.put('/api/banners/:id', async (req, res) => {
            quiz_id = ?,
            slot_type = ?,
            is_active = ?,
-           display_order = ?
+           display_order = ?,
+           allow_dismiss = ?
        WHERE id = ?`,
       [
         title || '',
@@ -1963,6 +1978,7 @@ app.put('/api/banners/:id', async (req, res) => {
         slotType || 'hero',
         isActive ? 1 : 0,
         parseInt(displayOrder || 0, 10),
+        allowDismiss !== false ? 1 : 0,
         id,
       ]
     );

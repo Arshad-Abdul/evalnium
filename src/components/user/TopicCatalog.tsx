@@ -175,11 +175,23 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredQuizzes.map((quiz) => (
-            <div
-              key={quiz.id}
-              className="portal-card-interactive p-5 bg-white border border-slate-200 flex flex-col justify-between space-y-4"
-            >
+          {filteredQuizzes.map((quiz, index) => (
+            <React.Fragment key={quiz.id}>
+              {/* In-Between Exam Catalog Ad Banner (Centered between exam card rows) */}
+              {index === 3 && (
+                <div className="col-span-1 md:col-span-2 lg:col-span-3 py-1">
+                  <HeaderAdBanner
+                    slotType="catalog_ad"
+                    quizzes={quizzes}
+                    onSelectQuiz={onSelectQuiz}
+                    className="w-full transition-all duration-300"
+                    containerClassName="w-full"
+                  />
+                </div>
+              )}
+              <div
+                className="portal-card-interactive p-5 bg-white border border-slate-200 flex flex-col justify-between space-y-4"
+              >
               <div className="space-y-3">
                 {/* Header Strip: Subject Code & Difficulty */}
                 <div className="flex items-center justify-between gap-2">
@@ -310,7 +322,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                   );
                 })()}
               </div>
-            </div>
+            </React.Fragment>
           ))}
         </div>
       )}

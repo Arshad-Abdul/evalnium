@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, X, Megaphone, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, ExternalLink } from 'lucide-react';
 import type { Quiz } from '../../types/quiz';
 import type { BannerItem } from './HeroBannerCarousel';
 
@@ -7,12 +7,18 @@ interface HeaderAdBannerProps {
   quizzes?: Quiz[];
   onSelectQuiz?: (quiz: Quiz) => void;
   apiBaseUrl?: string;
+  slotType?: string; // 'header_ad' | 'catalog_ad' | string
+  className?: string;
+  containerClassName?: string;
 }
 
 export const HeaderAdBanner: React.FC<HeaderAdBannerProps> = ({
   quizzes = [],
   onSelectQuiz,
   apiBaseUrl,
+  slotType = 'header_ad',
+  className,
+  containerClassName,
 }) => {
   const [adBanners, setAdBanners] = useState<BannerItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -28,15 +34,28 @@ export const HeaderAdBanner: React.FC<HeaderAdBannerProps> = ({
 
   const fetchAdBanners = async () => {
     try {
-      const res = await fetch(`${getBaseUrl()}/banners?slot=header_ad&_t=${Date.now()}`);
+      // 1. Fetch targeted slot banners
+      const res = await fetch(`${getBaseUrl()}/banners?slot=${slotType}&_t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data)) {
+        if (Array.isArray(data) && data.length > 0) {
           setAdBanners(data);
+          return;
+        }
+      }
+
+      // 2. Fallback: if 'catalog_ad' has no specific banners yet, borrow active header_ad banners
+      if (slotType === 'catalog_ad') {
+        const fallbackRes = await fetch(`${getBaseUrl()}/banners?slot=header_ad&_t=${Date.now()}`);
+        if (fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json();
+          if (Array.isArray(fallbackData)) {
+            setAdBanners(fallbackData);
+          }
         }
       }
     } catch (err) {
-      console.error('Failed to fetch header ad banners:', err);
+      console.error(`Failed to fetch banners for slot "${slotType}":`, err);
     }
   };
 
@@ -58,7 +77,7 @@ export const HeaderAdBanner: React.FC<HeaderAdBannerProps> = ({
       window.removeEventListener('focus', handleUpdate);
       clearInterval(pollTimer);
     };
-  }, []);
+  }, [slotType]);
 
   // Filter out banners dismissed during current session
   const visibleAds = adBanners.filter((b) => !dismissedMap[b.id]);
@@ -130,12 +149,12 @@ export const HeaderAdBanner: React.FC<HeaderAdBannerProps> = ({
   return (
     <aside
       aria-label="Promotional & Announcement Banner"
-      className="w-full py-2.5 sm:py-3 px-3 sm:px-6 transition-all duration-300"
+      className={className || "w-full py-2 sm:py-3 px-4 sm:px-6 lg:px-8 transition-all duration-300"}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      <div className="max-w-6xl mx-auto">
-        {/* Billboard Ad Frame - Authentic Commercial Display Design */}
+      <div className={containerClassName || "max-w-7xl mx-auto"}>
+        {/* Billboard Ad Frame - Matches Exam Catalog Grid Width Pixel-for-Pixel */}
         <div className="relative group w-full h-28 xs:h-32 sm:h-40 md:h-44 lg:h-48 rounded-xl sm:rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 shadow-xs hover:shadow-md transition-shadow select-none">
           
           {/* Sliding Carousel Track */}
@@ -183,23 +202,25 @@ export const HeaderAdBanner: React.FC<HeaderAdBannerProps> = ({
             ))}
           </div>
 
-          {/* Minimalist Professional "Ad" Micro-Badge (Standard industry pill, no tacky neon glows) */}
+          {/* Minimalist Professional "Ad" Micro-Badge */}
           <div className="absolute top-2 left-2 sm:top-2.5 sm:left-3 z-20 pointer-events-none">
             <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-black/60 dark:bg-black/70 backdrop-blur-xs text-white/90 text-[10px] font-semibold tracking-wider uppercase border border-white/10 shadow-xs">
               {currentAd.badgeText || 'Ad'}
             </span>
           </div>
 
-          {/* Clean Dismiss Close Button (Unobtrusive) */}
-          <button
-            type="button"
-            onClick={handleDismiss}
-            aria-label="Dismiss banner"
-            className="absolute top-2 right-2 sm:top-2.5 sm:right-2.5 z-20 p-1 rounded-full bg-black/50 hover:bg-black/80 text-white/80 hover:text-white backdrop-blur-xs transition-colors cursor-pointer border border-white/10 shadow-xs active:scale-95"
-            title="Dismiss ad"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
+          {/* Dismiss (✕) Button - Controlled by Admin 'allowDismiss' Setting */}
+          {currentAd.allowDismiss !== false && (
+            <button
+              type="button"
+              onClick={handleDismiss}
+              aria-label="Dismiss banner"
+              className="absolute top-2 right-2 sm:top-2.5 sm:right-2.5 z-20 p-1 rounded-full bg-black/50 hover:bg-black/80 text-white/80 hover:text-white backdrop-blur-xs transition-colors cursor-pointer border border-white/10 shadow-xs active:scale-95"
+              title="Dismiss ad"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
 
           {/* Multi-banner Navigation Arrows (Appear on hover if >1 banner) */}
           {visibleAds.length > 1 && (

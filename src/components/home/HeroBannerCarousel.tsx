@@ -14,6 +14,7 @@ export interface BannerItem {
   slotType?: string;
   isActive: boolean;
   displayOrder: number;
+  allowDismiss?: boolean;
 }
 
 interface HeroBannerCarouselProps {
