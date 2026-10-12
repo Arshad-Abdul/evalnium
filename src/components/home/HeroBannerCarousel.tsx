@@ -159,12 +159,12 @@ export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({
         <img
           src={currentBanner.imageUrl}
           alt={currentBanner.title}
-          className="absolute inset-0 w-full h-full object-cover object-center transform transition-transform duration-1000 ease-out scale-105 group-hover:scale-100 opacity-30 sm:opacity-35"
+          className="absolute inset-0 w-full h-full object-cover object-center transform transition-transform duration-1000 ease-out scale-100 group-hover:scale-105 opacity-90 sm:opacity-95"
         />
 
-        {/* High-Contrast Gradient Veil */}
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/95 to-slate-950/60 sm:via-slate-950/90 sm:to-transparent sm:w-4/5" />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-slate-950/40" />
+        {/* Soft Directional Left Scrim - Keeps photo bright and crystal clear while ensuring text contrast */}
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/60 to-transparent sm:w-3/5 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-transparent pointer-events-none sm:hidden" />
 
         {/* Content Container - Responsive padding avoids overlap on all devices */}
         <div className="relative z-10 w-full max-w-4xl p-4 xs:p-6 sm:p-10 md:p-12 space-y-3 sm:space-y-4 px-4 sm:px-14 md:px-16">
