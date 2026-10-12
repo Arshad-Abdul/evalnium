@@ -117,6 +117,65 @@ export const CatalogAdCard: React.FC<CatalogAdCardProps> = ({
     setCurrentIndex((prev) => (prev + 1) % adBanners.length);
   };
 
+  // 1. Image-Only Poster Card: 100% Full-bleed graphic with no text or buttons
+  if (currentAd.imageOnly && currentAd.imageUrl) {
+    return (
+      <div
+        onClick={handleClick}
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+        className="portal-card-interactive group relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 shadow-xs hover:shadow-lg transition-all duration-300 cursor-pointer h-full min-h-[320px] flex items-center justify-center select-none"
+      >
+        <img
+          src={currentAd.imageUrl}
+          alt={currentAd.title || 'Promotional Ad'}
+          className="w-full h-full object-cover object-center absolute inset-0 group-hover:scale-105 transition-transform duration-500"
+          loading="lazy"
+        />
+
+        {/* Minimalist Micro-Badge in top-left */}
+        <div className="absolute top-3 left-3 z-20 pointer-events-none">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-xs text-white/90 text-[10px] font-semibold tracking-wider uppercase border border-white/10 shadow-xs">
+            {currentAd.badgeText || 'Ad'}
+          </span>
+        </div>
+
+        {/* Dismiss (✕) Button */}
+        {currentAd.allowDismiss !== false && (
+          <button
+            type="button"
+            onClick={handleDismiss}
+            aria-label="Dismiss ad"
+            className="absolute top-3 right-3 z-20 p-1.5 rounded-full bg-black/50 hover:bg-black/80 text-white/80 hover:text-white backdrop-blur-xs transition-colors cursor-pointer border border-white/10 shadow-xs active:scale-95"
+            title="Dismiss notice"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+
+        {/* Navigation Arrows if multiple ads */}
+        {adBanners.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={handlePrev}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border border-white/10"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleNext}
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border border-white/10"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       onClick={handleClick}

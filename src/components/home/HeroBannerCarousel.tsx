@@ -15,6 +15,7 @@ export interface BannerItem {
   isActive: boolean;
   displayOrder: number;
   allowDismiss?: boolean;
+  imageOnly?: boolean;
 }
 
 interface HeroBannerCarouselProps {
@@ -43,30 +44,35 @@ export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({
 
   const fetchBanners = async () => {
     try {
-      // First try hero-specific banners, fallback to active banners
-      let res = await fetch(`${getBaseUrl()}/banners?slot=hero`);
+      // Strictly fetch hero-specific banners ONLY - never bleed other slot types
+      const res = await fetch(`${getBaseUrl()}/banners?slot=hero&_t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           setBanners(data);
           return;
         }
       }
-      // Fallback
-      res = await fetch(`${getBaseUrl()}/banners`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          setBanners(data.filter((b: BannerItem) => b.slotType !== 'header_ad'));
-        }
-      }
+      setBanners([]);
     } catch (e) {
-      console.error('Failed to fetch banners:', e);
+      console.error('Failed to fetch hero banners:', e);
+      setBanners([]);
     }
   };
 
   useEffect(() => {
     fetchBanners();
+
+    const handleUpdate = () => fetchBanners();
+    window.addEventListener('evalnium_banners_updated', handleUpdate);
+    const pollTimer = setInterval(fetchBanners, 4000);
+    window.addEventListener('focus', handleUpdate);
+
+    return () => {
+      window.removeEventListener('evalnium_banners_updated', handleUpdate);
+      window.removeEventListener('focus', handleUpdate);
+      clearInterval(pollTimer);
+    };
   }, []);
 
   // Auto-advance carousel every 6 seconds

@@ -385,6 +385,12 @@ async function initDatabase() {
       // Column already exists
     }
 
+    try {
+      await pool.query(`ALTER TABLE banners ADD COLUMN image_only TINYINT(1) DEFAULT 0;`);
+    } catch {
+      // Column already exists
+    }
+
     // Seed initial banners if table is empty
     const [bannerRows] = await pool.query('SELECT COUNT(*) as count FROM banners');
     if (bannerRows[0].count === 0) {
@@ -1913,6 +1919,7 @@ app.get('/api/banners', async (req, res) => {
       isActive: Boolean(r.is_active),
       displayOrder: r.display_order,
       allowDismiss: r.allow_dismiss === null || r.allow_dismiss === undefined ? true : Boolean(r.allow_dismiss),
+      imageOnly: Boolean(r.image_only),
       createdAt: r.created_at,
     })));
   } catch (err) {
@@ -1921,16 +1928,16 @@ app.get('/api/banners', async (req, res) => {
 });
 
 app.post('/api/banners', async (req, res) => {
-  const { title, subtitle, imageUrl, badgeText, ctaText, ctaLink, quizId, slotType = 'hero', isActive = true, displayOrder = 0, allowDismiss = true } = req.body;
-  if (!title || !imageUrl) {
-    return res.status(400).json({ error: 'title and imageUrl are required' });
+  const { title, subtitle, imageUrl, badgeText, ctaText, ctaLink, quizId, slotType = 'hero', isActive = true, displayOrder = 0, allowDismiss = true, imageOnly = false } = req.body;
+  if (!imageUrl) {
+    return res.status(400).json({ error: 'imageUrl is required' });
   }
   try {
     const [result] = await pool.query(
-      `INSERT INTO banners (title, subtitle, image_url, badge_text, cta_text, cta_link, quiz_id, slot_type, is_active, display_order, allow_dismiss)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO banners (title, subtitle, image_url, badge_text, cta_text, cta_link, quiz_id, slot_type, is_active, display_order, allow_dismiss, image_only)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        title,
+        title || (imageOnly ? 'Graphic Banner' : ''),
         subtitle || '',
         imageUrl,
         badgeText || 'ANNOUNCEMENT',
@@ -1941,6 +1948,7 @@ app.post('/api/banners', async (req, res) => {
         isActive ? 1 : 0,
         parseInt(displayOrder || 0, 10),
         allowDismiss !== false ? 1 : 0,
+        imageOnly ? 1 : 0,
       ]
     );
     res.json({ success: true, id: result.insertId });
@@ -1951,7 +1959,7 @@ app.post('/api/banners', async (req, res) => {
 
 app.put('/api/banners/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, subtitle, imageUrl, badgeText, ctaText, ctaLink, quizId, slotType, isActive, displayOrder, allowDismiss } = req.body;
+  const { title, subtitle, imageUrl, badgeText, ctaText, ctaLink, quizId, slotType, isActive, displayOrder, allowDismiss, imageOnly } = req.body;
   try {
     await pool.query(
       `UPDATE banners 
@@ -1965,10 +1973,11 @@ app.put('/api/banners/:id', async (req, res) => {
            slot_type = ?,
            is_active = ?,
            display_order = ?,
-           allow_dismiss = ?
+           allow_dismiss = ?,
+           image_only = ?
        WHERE id = ?`,
       [
-        title || '',
+        title || (imageOnly ? 'Graphic Banner' : ''),
         subtitle || '',
         imageUrl || '',
         badgeText || 'ANNOUNCEMENT',
@@ -1979,6 +1988,7 @@ app.put('/api/banners/:id', async (req, res) => {
         isActive ? 1 : 0,
         parseInt(displayOrder || 0, 10),
         allowDismiss !== false ? 1 : 0,
+        imageOnly ? 1 : 0,
         id,
       ]
     );

@@ -32,6 +32,7 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
   const [isActive, setIsActive] = useState(true);
   const [allowDismiss, setAllowDismiss] = useState(true);
   const [displayOrder, setDisplayOrder] = useState(0);
+  const [imageOnly, setImageOnly] = useState(false);
 
   // Upload mode: 'file' | 'url'
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file');
@@ -71,6 +72,7 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
     setSlotType('hero');
     setIsActive(true);
     setAllowDismiss(true);
+    setImageOnly(false);
     setDisplayOrder(banners.length + 1);
     setEditingBanner(null);
     setUploadMode('file');
@@ -80,6 +82,7 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
     resetForm();
     setSlotType(preferredSlot);
     setAllowDismiss(true);
+    setImageOnly(preferredSlot === 'catalog_ad');
     if (preferredSlot === 'header_ad') {
       setBadgeText('Ad');
       setCtaText('Explore Series');
@@ -102,6 +105,7 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
     setSlotType(banner.slotType || 'hero');
     setIsActive(banner.isActive);
     setAllowDismiss(banner.allowDismiss !== false);
+    setImageOnly(Boolean(banner.imageOnly));
     setDisplayOrder(banner.displayOrder);
     setUploadMode(banner.imageUrl.startsWith('data:') ? 'file' : 'url');
     setShowAddModal(true);
@@ -133,13 +137,17 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !imageUrl.trim()) {
-      alert('Please provide a Title and an Image (uploaded or URL).');
+    if (!imageUrl.trim()) {
+      alert('Please provide an Image (uploaded or URL).');
+      return;
+    }
+    if (!imageOnly && !title.trim()) {
+      alert('Please provide a Title for this banner.');
       return;
     }
 
     const payload = {
-      title: title.trim(),
+      title: title.trim() || (imageOnly ? 'Graphic Banner' : ''),
       subtitle: subtitle.trim(),
       imageUrl: imageUrl.trim(),
       badgeText: badgeText.trim(),
@@ -149,6 +157,7 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
       slotType: slotType || 'hero',
       isActive,
       allowDismiss,
+      imageOnly,
       displayOrder: Number(displayOrder) || 0,
     };
 
@@ -392,6 +401,12 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
                         }`}>
                           {b.allowDismiss !== false ? '✕ Closeable' : 'Fixed'}
                         </span>
+
+                        {b.imageOnly && (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-700/60">
+                            🖼️ Image Only
+                          </span>
+                        )}
                       </div>
 
                       <button
@@ -532,13 +547,58 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
                 </div>
               </div>
 
+              {/* Presentation Style: Standard vs Image-Only */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="font-bold text-slate-900 block text-xs">
+                      Presentation Style
+                    </label>
+                    <span className="text-[10px] text-slate-500">
+                      Choose whether to display as a clean clickable picture or with text headlines & buttons
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-1 bg-white p-1 rounded-xl border border-slate-200 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setImageOnly(false)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        !imageOnly
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Card with Text
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImageOnly(true)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        imageOnly
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      🖼️ Image Only (Poster)
+                    </button>
+                  </div>
+                </div>
+                {imageOnly && (
+                  <div className="p-2 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-900 text-[11px] font-medium leading-relaxed">
+                    💡 <strong>Image-Only Active:</strong> The ad will render as a 100% full-bleed picture filling the card box. Title, subtitle, and buttons will be hidden from candidates. Clicking anywhere on the picture will launch the destination link.
+                  </div>
+                )}
+              </div>
+
               {/* Title */}
               <div className="space-y-1">
-                <label className="font-bold text-slate-900">Banner Headline / Notice Title *</label>
+                <label className="font-bold text-slate-900">
+                  {imageOnly ? 'Internal Reference Title (Hidden on Card)' : 'Banner Headline / Notice Title *'}
+                </label>
                 <input
                   type="text"
-                  required
-                  placeholder="e.g. Special Edition UGC NET 2026 Test Series Available"
+                  required={!imageOnly}
+                  placeholder={imageOnly ? 'e.g. LIS Exam Promo Poster' : 'e.g. Special Edition UGC NET 2026 Test Series Available'}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:border-indigo-600"
