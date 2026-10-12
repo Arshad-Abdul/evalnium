@@ -28,26 +28,18 @@ export const CatalogAdCard: React.FC<CatalogAdCardProps> = ({
 
   const fetchAds = async () => {
     try {
-      // 1. Try fetching dedicated catalog ads
       const res = await fetch(`${getBaseUrl()}/banners?slot=catalog_ad&_t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           setAdBanners(data);
           return;
         }
       }
-
-      // 2. Fallback to header ads if no dedicated catalog ads
-      const fallbackRes = await fetch(`${getBaseUrl()}/banners?slot=header_ad&_t=${Date.now()}`);
-      if (fallbackRes.ok) {
-        const fallbackData = await fallbackRes.json();
-        if (Array.isArray(fallbackData) && fallbackData.length > 0) {
-          setAdBanners(fallbackData);
-        }
-      }
+      setAdBanners([]);
     } catch (err) {
       console.error('Failed to fetch catalog ad box:', err);
+      setAdBanners([]);
     }
   };
 

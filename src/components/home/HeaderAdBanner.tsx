@@ -34,28 +34,18 @@ export const HeaderAdBanner: React.FC<HeaderAdBannerProps> = ({
 
   const fetchAdBanners = async () => {
     try {
-      // 1. Fetch targeted slot banners
       const res = await fetch(`${getBaseUrl()}/banners?slot=${slotType}&_t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           setAdBanners(data);
           return;
         }
       }
-
-      // 2. Fallback: if 'catalog_ad' has no specific banners yet, borrow active header_ad banners
-      if (slotType === 'catalog_ad') {
-        const fallbackRes = await fetch(`${getBaseUrl()}/banners?slot=header_ad&_t=${Date.now()}`);
-        if (fallbackRes.ok) {
-          const fallbackData = await fallbackRes.json();
-          if (Array.isArray(fallbackData)) {
-            setAdBanners(fallbackData);
-          }
-        }
-      }
+      setAdBanners([]);
     } catch (err) {
       console.error(`Failed to fetch banners for slot "${slotType}":`, err);
+      setAdBanners([]);
     }
   };
 
