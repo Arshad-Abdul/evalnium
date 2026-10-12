@@ -4,6 +4,7 @@ import { Search, BookOpen, Clock, Play, History, Filter, X, Lock, Award, CheckCi
 import { useAuth } from '../../context/AuthContext';
 import { HeroBannerCarousel } from '../home/HeroBannerCarousel';
 import { HeaderAdBanner } from '../home/HeaderAdBanner';
+import { CatalogAdCard } from './CatalogAdCard';
 import { CertificateModal } from './CertificateModal';
 
 interface TopicCatalogProps {
@@ -175,23 +176,21 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredQuizzes.map((quiz, index) => (
-            <React.Fragment key={quiz.id}>
-              {/* In-Between Exam Catalog Ad Banner (Centered between exam card rows) */}
-              {index === 3 && (
-                <div className="col-span-1 md:col-span-2 lg:col-span-3 py-1">
-                  <HeaderAdBanner
-                    slotType="catalog_ad"
+          {filteredQuizzes.map((quiz, index) => {
+            const adInsertIndex = filteredQuizzes.length >= 5 ? 4 : Math.floor(filteredQuizzes.length / 2);
+
+            return (
+              <React.Fragment key={quiz.id}>
+                {/* Native In-Feed Sponsored Box: Positioned right in the center/middle between exam boxes */}
+                {index === adInsertIndex && (
+                  <CatalogAdCard
                     quizzes={quizzes}
                     onSelectQuiz={onSelectQuiz}
-                    className="w-full transition-all duration-300"
-                    containerClassName="w-full"
                   />
-                </div>
-              )}
-              <div
-                className="portal-card-interactive p-5 bg-white border border-slate-200 flex flex-col justify-between space-y-4"
-              >
+                )}
+                <div
+                  className="portal-card-interactive p-5 bg-white border border-slate-200 flex flex-col justify-between space-y-4"
+                >
               <div className="space-y-3">
                 {/* Header Strip: Subject Code & Difficulty */}
                 <div className="flex items-center justify-between gap-2">
