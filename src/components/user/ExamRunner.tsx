@@ -486,6 +486,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         questionTimeRemainingSeconds={quiz.timingMode === 'question' ? questionTimeRemainingSeconds : undefined}
         sectionTimeRemainingSeconds={quiz.timingMode === 'sectional' ? sectionTimeRemainingSeconds : undefined}
         currentSectionName={quiz.timingMode === 'sectional' && quiz.sectionalConfig?.[currentSectionIdx] ? quiz.sectionalConfig[currentSectionIdx].sectionName : undefined}
+        onOpenSubmitModal={() => setShowSubmitModal(true)}
       />
 
       {/* Live AI Proctoring Radar & Anti-Cheating Monitor */}

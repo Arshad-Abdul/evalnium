@@ -50,17 +50,34 @@ export const PDFCertificateModal: React.FC<PDFCertificateModalProps> = ({
       const canvas = await html2canvas(certificateRef.current, {
         scale: 2,
         useCORS: true,
+        allowTaint: true,
         backgroundColor: '#ffffff',
+        logging: false,
+        onclone: (clonedDoc) => {
+          const allElements = clonedDoc.querySelectorAll('*');
+          allElements.forEach((el) => {
+            const computed = window.getComputedStyle(el);
+            if (computed.color && computed.color.startsWith('rgb')) {
+              (el as HTMLElement).style.color = computed.color;
+            }
+            if (computed.backgroundColor && computed.backgroundColor.startsWith('rgb') && computed.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+              (el as HTMLElement).style.backgroundColor = computed.backgroundColor;
+            }
+            if (computed.borderColor && computed.borderColor.startsWith('rgb')) {
+              (el as HTMLElement).style.borderColor = computed.borderColor;
+            }
+          });
+        },
       });
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
         orientation: 'landscape',
-        unit: 'px',
-        format: [canvas.width, canvas.height],
+        unit: 'mm',
+        format: 'a4',
       });
 
-      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.addImage(imgData, 'PNG', 0, 0, 297, 210, undefined, 'FAST');
       pdf.save(`Evalnium_Merit_Certificate_${candidateName.replace(/\s+/g, '_')}.pdf`);
     } catch (err) {
       console.error('Failed to generate certificate PDF:', err);
@@ -78,8 +95,8 @@ export const PDFCertificateModal: React.FC<PDFCertificateModalProps> = ({
               <Award className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold tracking-wide">Evalnium Certificate of Academic Merit</h3>
-              <p className="text-[11px] text-slate-400 font-medium">Official Digital Credentials</p>
+              <h3 className="text-sm font-bold tracking-wide">Evalnium Certificate of Completion</h3>
+              <p className="text-[11px] text-slate-400 font-medium">Verified Practice Credential</p>
             </div>
           </div>
 
@@ -107,6 +124,9 @@ export const PDFCertificateModal: React.FC<PDFCertificateModalProps> = ({
             ref={certificateRef}
             className="w-full max-w-[850px] bg-white border-[12px] border-slate-900 p-8 sm:p-12 rounded-2xl relative shadow-2xl text-center space-y-6 overflow-hidden"
             style={{
+              backgroundColor: '#ffffff',
+              borderColor: '#0f172a',
+              color: '#0f172a',
               backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(245, 243, 255, 0.5) 0%, rgba(255, 255, 255, 1) 100%)',
             }}
           >
@@ -117,7 +137,7 @@ export const PDFCertificateModal: React.FC<PDFCertificateModalProps> = ({
             {/* Header Badge */}
             <div className="flex justify-center items-center space-x-2 text-indigo-900 font-black text-xs uppercase tracking-[4px]">
               <Sparkles className="w-4 h-4 text-amber-500" />
-              <span>Evalnium Assessment Portal</span>
+              <span>Evalnium Online Practice Portal</span>
               <Sparkles className="w-4 h-4 text-amber-500" />
             </div>
 
@@ -131,7 +151,7 @@ export const PDFCertificateModal: React.FC<PDFCertificateModalProps> = ({
               </p>
             </div>
 
-            <p className="text-xs text-slate-500 font-medium italic">This official certificate is proudly presented to</p>
+            <p className="text-xs text-slate-500 font-medium italic">This certificate of completion is presented to</p>
 
             {/* Candidate Name */}
             <div className="py-2 border-b-2 border-slate-900 max-w-lg mx-auto">
@@ -157,7 +177,7 @@ export const PDFCertificateModal: React.FC<PDFCertificateModalProps> = ({
                 <p className="text-[9px] text-slate-400 font-mono mt-1">Cred ID: EV-{attemptId.slice(0, 10).toUpperCase()}</p>
               </div>
 
-              {/* Center: Official Gold Embossed Stamp */}
+              {/* Center: Gold Embossed Stamp */}
               <div className="flex flex-col items-center justify-center">
                 <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-500 via-amber-400 to-amber-600 p-1 shadow-lg shadow-amber-500/30 flex items-center justify-center relative">
                   <div className="w-full h-full rounded-full border-2 border-dashed border-amber-100 flex flex-col items-center justify-center bg-amber-500 text-white p-2">
@@ -171,8 +191,8 @@ export const PDFCertificateModal: React.FC<PDFCertificateModalProps> = ({
               <div className="text-right space-y-1">
                 <div className="font-serif italic text-base font-bold text-slate-900">Arshad Abdul</div>
                 <div className="w-32 h-0.5 bg-slate-900 ml-auto" />
-                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Controller of Examinations</p>
-                <p className="text-[9px] text-slate-400 font-medium">Evalnium Assessment Body</p>
+                <p className="text-[10px] text-slate-700 uppercase font-bold tracking-wider">Lead Assessment Coordinator</p>
+                <p className="text-[9px] text-slate-500 font-medium">Evalnium Online Practice Portal</p>
               </div>
 
             </div>

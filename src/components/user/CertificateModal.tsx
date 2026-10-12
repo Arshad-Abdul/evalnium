@@ -39,15 +39,32 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ result, onCl
       const canvas = await html2canvas(certRef.current, {
         scale: 2,
         useCORS: true,
+        allowTaint: true,
         backgroundColor: '#ffffff',
+        logging: false,
+        onclone: (clonedDoc) => {
+          const allElements = clonedDoc.querySelectorAll('*');
+          allElements.forEach((el) => {
+            const computed = window.getComputedStyle(el);
+            if (computed.color && computed.color.startsWith('rgb')) {
+              (el as HTMLElement).style.color = computed.color;
+            }
+            if (computed.backgroundColor && computed.backgroundColor.startsWith('rgb') && computed.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+              (el as HTMLElement).style.backgroundColor = computed.backgroundColor;
+            }
+            if (computed.borderColor && computed.borderColor.startsWith('rgb')) {
+              (el as HTMLElement).style.borderColor = computed.borderColor;
+            }
+          });
+        },
       });
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
         orientation: 'landscape',
-        unit: 'px',
-        format: [canvas.width, canvas.height],
+        unit: 'mm',
+        format: 'a4',
       });
-      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.addImage(imgData, 'PNG', 0, 0, 297, 210, undefined, 'FAST');
       pdf.save(`Evalnium_Certificate_${result.candidateName.replace(/\s+/g, '_')}.pdf`);
     } catch (e) {
       console.error('PDF Generation failed:', e);
@@ -75,7 +92,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ result, onCl
           <div className="flex items-center space-x-2">
             <Award className="w-5 h-5 text-amber-400" />
             <span className="font-extrabold text-sm tracking-wide">
-              Official QR-Verifiable Certificate of Excellence
+              Verified Certificate of Completion
             </span>
           </div>
 
@@ -86,7 +103,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ result, onCl
               className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs flex items-center space-x-1.5 transition-all cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>{downloading ? 'Exporting...' : 'Download PDF'}</span>
+              <span>{downloading ? 'Exporting PDF...' : 'Download PDF'}</span>
             </button>
 
             <button
@@ -112,6 +129,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ result, onCl
           <div
             ref={certRef}
             className="w-full max-w-[850px] aspect-[1.414/1] bg-[#fffdf9] p-8 sm:p-12 rounded-2xl border-[10px] border-double border-indigo-950 shadow-xl relative flex flex-col justify-between text-slate-900 overflow-hidden font-sans select-none"
+            style={{ backgroundColor: '#fffdf9', borderColor: '#1e1b4b', color: '#0f172a' }}
           >
             {/* Background Watermark */}
             <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none">
@@ -133,15 +151,15 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ result, onCl
                   EV
                 </div>
                 <span className="font-black text-xl tracking-wider text-indigo-950 uppercase">
-                  EVALNIUM ASSESSMENT AUTHORITY
+                  EVALNIUM ONLINE PRACTICE PORTAL
                 </span>
               </div>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                National Standard Computer-Based Testing & Evaluation Portal
+                Computer-Based Practice & Evaluation Portal
               </p>
               <div className="pt-2">
                 <h1 className="text-2xl sm:text-3xl font-serif font-black text-indigo-950 tracking-wide">
-                  CERTIFICATE OF MERIT & EXCELLENCE
+                  CERTIFICATE OF COMPLETION & EXCELLENCE
                 </h1>
                 <div className="w-24 h-0.5 bg-amber-600 mx-auto mt-1" />
               </div>
@@ -150,13 +168,13 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ result, onCl
             {/* Recipient Details */}
             <div className="text-center space-y-3 relative z-10 my-auto">
               <p className="text-xs text-slate-600 font-medium italic">
-                This is officially certified and registered that
+                This is to certify that
               </p>
               <h2 className="text-2xl sm:text-3xl font-serif font-black text-slate-900 tracking-tight border-b border-dashed border-slate-300 pb-1 max-w-md mx-auto">
                 {result.candidateName}
               </h2>
               <p className="text-xs text-slate-700 max-w-xl mx-auto leading-relaxed">
-                has successfully appeared and demonstrated proficiency in the Computer-Based Assessment examination:
+                has successfully appeared and demonstrated proficiency in the Computer-Based Assessment practice exam:
               </p>
               <p className="text-base sm:text-lg font-bold text-indigo-900">
                 "{result.quizTitle || result.topic}"
@@ -176,7 +194,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ result, onCl
               <div>
                 <div className="text-[9px] text-slate-500 uppercase font-bold">Result Status</div>
                 <div className="text-sm sm:text-base font-black text-emerald-700">
-                  {result.passed ? 'QUALIFIED' : 'PARTICIPATED'}
+                  {result.passed ? 'QUALIFIED' : 'COMPLETED'}
                 </div>
               </div>
               <div>
@@ -213,17 +231,20 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ result, onCl
               {/* Gold Holographic Seal */}
               <div className="hidden sm:flex flex-col items-center">
                 <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-600 via-yellow-400 to-amber-500 flex items-center justify-center text-indigo-950 font-black text-[9px] uppercase tracking-tighter text-center p-1 shadow-md border-2 border-yellow-200 rotate-[-10deg]">
-                  Official Sealed & Verified
+                  Verified & Completed
                 </div>
               </div>
 
               {/* Authorized Signatory */}
               <div className="text-right">
                 <div className="font-serif italic font-bold text-base text-indigo-950">
-                  Controller of Examinations
+                  Arshad Abdul
+                </div>
+                <div className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">
+                  Lead Assessment Coordinator
                 </div>
                 <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">
-                  Evalnium Practice & Assessment Portal
+                  Evalnium Online Practice Portal
                 </div>
               </div>
             </div>

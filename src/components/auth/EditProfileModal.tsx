@@ -93,7 +93,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
               type="text"
               value={targetExam}
               onChange={(e) => setTargetExam(e.target.value)}
-              placeholder="e.g. UGC NET LIS / KVS / NTA JEE"
+              placeholder="e.g. UGC NET LIS / KVS / State SET"
               className="w-full p-2.5 rounded-lg border border-slate-200 text-slate-900 font-semibold focus:outline-none focus:border-blue-600"
             />
           </div>

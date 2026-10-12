@@ -202,7 +202,7 @@ export const CatalogAdCard: React.FC<CatalogAdCardProps> = ({
         <div className="grid grid-cols-2 gap-2 text-xs font-mono text-slate-600">
           <div className="flex items-center space-x-1.5 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-200/80">
             <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-            <span className="truncate">Official CBT</span>
+            <span className="truncate">CBT Practice</span>
           </div>
 
           <div className="flex items-center space-x-1.5 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-200/80">

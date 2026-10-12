@@ -179,7 +179,7 @@ export const ProctoringMonitor: React.FC<ProctoringMonitorProps> = ({
                 Security & Anti-Cheating Violation Warning
               </h3>
               <p className="text-xs text-rose-600 font-bold">
-                Warning #{violationCount} Recorded in National Audit Log
+                Warning #{violationCount} Recorded in Exam Session Audit Log
               </p>
             </div>
 

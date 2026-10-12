@@ -79,7 +79,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
             </h1>
 
             <p className="text-slate-600 text-xs sm:text-sm leading-relaxed font-normal">
-              Official standardized testing system featuring automatic timer enforcement, negative marking rules, bilingual question rendering, and real-time merit rank computation.
+              Standardized practice testing simulation featuring automatic timer enforcement, negative marking rules, bilingual question rendering, and real-time merit rank computation.
             </p>
           </div>
 
@@ -335,7 +335,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center space-x-2">
                 <History className="w-4 h-4 text-blue-600" />
-                <h3 className="text-base font-bold text-slate-900">Official Candidate Scorecards</h3>
+                <h3 className="text-base font-bold text-slate-900">Candidate Practice Scorecards</h3>
               </div>
               <button
                 onClick={() => setShowHistoryModal(false)}

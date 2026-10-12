@@ -24,7 +24,7 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
   const [imageUrl, setImageUrl] = useState('');
-  const [badgeText, setBadgeText] = useState('ALL-INDIA CBT MOCK');
+  const [badgeText, setBadgeText] = useState('FULL-LENGTH CBT MOCK');
   const [ctaText, setCtaText] = useState('Take Test Now');
   const [ctaLink, setCtaLink] = useState('/');
   const [quizId, setQuizId] = useState<string>('');
@@ -64,7 +64,7 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
     setTitle('');
     setSubtitle('');
     setImageUrl('');
-    setBadgeText('ALL-INDIA CBT MOCK');
+    setBadgeText('FULL-LENGTH CBT MOCK');
     setCtaText('Take Test Now');
     setCtaLink('/');
     setQuizId('');
@@ -538,7 +538,7 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Special Edition NTA UGC NET 2026 Test Series Available"
+                  placeholder="e.g. Special Edition UGC NET 2026 Test Series Available"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:border-indigo-600"

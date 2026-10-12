@@ -157,7 +157,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
           <p className="text-xs text-slate-600">Your answer script has been securely encrypted and stored for evaluation.</p>
         </div>
         <div className="p-4 rounded bg-slate-50 border border-slate-200 space-y-1">
-          <p className="text-[11px] font-mono text-slate-500 uppercase">Official Results Announcement</p>
+          <p className="text-[11px] font-mono text-slate-500 uppercase">Results Announcement</p>
           <p className="text-sm font-bold text-slate-900 font-mono">
             {announcementDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} at {announcementDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </p>
@@ -262,7 +262,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
           <div>
             <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 block">
-              Official Assessment Scorecard
+              Assessment Scorecard
             </span>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5">
               {result.quizTitle}
@@ -349,7 +349,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
               className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center space-x-1.5 transition-all shadow-md cursor-pointer"
             >
               <Award className="w-4 h-4 text-amber-300" />
-              <span>Official QR Certificate</span>
+              <span>Verified QR Certificate</span>
             </button>
           )}
 
@@ -657,11 +657,11 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                 <div className="p-3 rounded bg-slate-50 border border-slate-200 text-xs space-y-1">
                   <span className="font-semibold text-slate-900 flex items-center space-x-1.5">
                     <HelpCircle className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Official Answer Key & Explanation:</span>
+                    <span>Standard Answer Key & Explanation:</span>
                   </span>
                   <div className="text-slate-700 leading-relaxed space-y-1">
                     {(() => {
-                      const defaultExp = `Option (${q.correctOptionId}): "${q.options.find(o => o.id === q.correctOptionId)?.text || ''}" is the correct answer according to official key.`;
+                      const defaultExp = `Option (${q.correctOptionId}): "${q.options.find(o => o.id === q.correctOptionId)?.text || ''}" is the correct answer according to standard key.`;
                       const rawExp = q.explanation || defaultExp;
                       const hindiExp = q.explanationHindi || autoHindiMap[q.id]?.explanation;
 

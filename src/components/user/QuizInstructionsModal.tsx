@@ -82,7 +82,7 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
           <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs space-y-1">
             <span className="font-bold text-amber-900 flex items-center space-x-1 text-sm">
               <Trophy className="w-4 h-4 text-amber-600" />
-              <span>🏆 Official Live Contest Exam (STRICT 1-TIME ATTEMPT)</span>
+              <span>🏆 Live Contest Exam (STRICT 1-TIME ATTEMPT)</span>
             </span>
             <p className="font-medium">
               This is a live competitive exam. You get <strong>ONLY 1 ATTEMPT</strong>. Once submitted, your score will be permanently locked on the Global Leaderboard and retakes will be disabled.

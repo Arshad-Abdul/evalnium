@@ -130,7 +130,7 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
                 Candidate Assessment Studio: {currentUser?.name || 'Candidate'}
               </h1>
               <p className="text-xs text-slate-500 font-normal">
-                National evaluation analytics, topic diagnostic mastery, and certified scorecards.
+                Comprehensive performance analytics, topic diagnostic mastery, and practice scorecards.
               </p>
             </div>
           </div>
@@ -386,7 +386,7 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
           <div>
             <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
               <Award className="w-4 h-4 text-blue-600" />
-              <span>Official Scorecard Archive</span>
+              <span>Candidate Scorecard Archive</span>
             </h3>
             <p className="text-xs text-slate-500">Verified attempt records for candidate {currentUser?.name}</p>
           </div>
@@ -494,7 +494,7 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
             <div className="max-w-4xl mx-auto px-4 py-6">
               <div className="flex items-center justify-between mb-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm sticky top-4 z-10">
                 <div>
-                  <h2 className="font-bold text-slate-900 text-sm sm:text-base">Official Attempt Audit Review</h2>
+                  <h2 className="font-bold text-slate-900 text-sm sm:text-base">Attempt Session Audit Review</h2>
                   <p className="text-xs text-slate-500 font-mono">{reviewAttempt.quizTitle} • {new Date(reviewAttempt.attemptedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                 </div>
                 <button onClick={() => setReviewAttempt(null)} className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">

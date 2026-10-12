@@ -451,47 +451,54 @@ function MainAppContent() {
       )}
 
       <footer className="bg-white border-t border-slate-200 py-6 text-slate-500 font-medium">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
-          
-          {/* Copyright Section */}
-          <div className="text-xs text-center md:text-left text-slate-500">
-            <span>Copyright © 2026 <strong>Arshad Abdul</strong>. All Rights Reserved.</span>
+        <div className="max-w-7xl mx-auto px-4 space-y-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            {/* Copyright Section */}
+            <div className="text-xs text-center md:text-left text-slate-500">
+              <span>Copyright © 2026 <strong>Arshad Abdul</strong>. All Rights Reserved.</span>
+            </div>
+
+            {/* Global Community Scale Bar */}
+            <div className="flex items-center justify-center space-x-4 bg-slate-50 border border-slate-200/80 px-4 py-1.5 rounded-full text-xs shadow-2xs">
+              <span className="flex items-center space-x-1.5 font-bold text-slate-700">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>{activeVisitorsCount || 1} Online</span>
+              </span>
+              <span className="text-slate-300">|</span>
+              <span className="flex items-center space-x-1.5 text-slate-600 font-medium">
+                <span>👁️ {totalVisitors ? totalVisitors.toLocaleString() : '1'} Visits</span>
+              </span>
+            </div>
+
+            {/* Platform Version & Admin Link */}
+            <div className="flex items-center space-x-3 text-slate-400 font-mono text-[11px] justify-center md:justify-end">
+              <span>Evalnium Platform v2.0</span>
+              {(!currentUser || currentUser.role === 'admin') && (
+                <>
+                  <span>•</span>
+                  <button
+                    onClick={() => {
+                      if (isAdminAuthenticated) {
+                        setActiveTab('admin');
+                      } else {
+                        setShowAdminLockModal(true);
+                      }
+                    }}
+                    className="text-slate-400 hover:text-indigo-600 font-bold transition-colors flex items-center space-x-1 cursor-pointer"
+                  >
+                    <span>{isAdminAuthenticated ? 'Admin Studio 🔓' : 'Admin Access 🔒'}</span>
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
-          {/* Global Community Scale Bar */}
-          <div className="flex items-center justify-center space-x-4 bg-slate-50 border border-slate-200/80 px-4 py-1.5 rounded-full text-xs shadow-2xs">
-            <span className="flex items-center space-x-1.5 font-bold text-slate-700">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>{activeVisitorsCount || 1} Online</span>
-            </span>
-            <span className="text-slate-300">|</span>
-            <span className="flex items-center space-x-1.5 text-slate-600 font-medium">
-              <span>👁️ {totalVisitors ? totalVisitors.toLocaleString() : '1'} Visits</span>
-            </span>
+          {/* Legal Non-Affiliation Disclaimer */}
+          <div className="border-t border-slate-100 pt-3 text-center">
+            <p className="text-[10px] text-slate-400 leading-relaxed max-w-4xl mx-auto font-normal">
+              <strong>Legal Disclaimer:</strong> Evalnium is an independent educational quiz and practice platform. It is not affiliated with, authorized, endorsed by, or in any way officially connected with the National Testing Agency (NTA), University Grants Commission (UGC), or any government examination authority. All examination names, acronyms, and trademarks (such as UGC NET, SET) belong to their respective owners and are used strictly for educational preparation and identification purposes under nominative fair use.
+            </p>
           </div>
-
-          {/* Platform Version & Admin Link */}
-          <div className="flex items-center space-x-3 text-slate-400 font-mono text-[11px] justify-center md:justify-end">
-            <span>Evalnium Platform v2.0</span>
-            {(!currentUser || currentUser.role === 'admin') && (
-              <>
-                <span>•</span>
-                <button
-                  onClick={() => {
-                    if (isAdminAuthenticated) {
-                      setActiveTab('admin');
-                    } else {
-                      setShowAdminLockModal(true);
-                    }
-                  }}
-                  className="text-slate-400 hover:text-indigo-600 font-bold transition-colors flex items-center space-x-1"
-                >
-                  <span>{isAdminAuthenticated ? 'Admin Studio 🔓' : 'Admin Access 🔒'}</span>
-                </button>
-              </>
-            )}
-          </div>
-          
         </div>
       </footer>
 
