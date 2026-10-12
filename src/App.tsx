@@ -297,10 +297,10 @@ function MainAppContent() {
         onOpenRevisionHub={() => setShowRevisionHubModal(true)}
       />
 
-      {/* Top Header Ad / Announcement Strip (Admin Uploaded) */}
-      <HeaderAdBanner quizzes={candidateVisibleQuizzes} onSelectQuiz={handleSelectQuiz} />
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-8 space-y-6">
+        {/* Top Header Ad Strip (Admin Uploaded) - Perfectly aligned with Navbar and Hero */}
+        <HeaderAdBanner quizzes={candidateVisibleQuizzes} onSelectQuiz={handleSelectQuiz} className="w-full" containerClassName="w-full" />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Suspense fallback={
           <div className="text-center py-20 text-slate-500 text-xs font-mono font-bold animate-pulse">
             Loading Evalnium CBT Module...

@@ -149,11 +149,11 @@ export const HeaderAdBanner: React.FC<HeaderAdBannerProps> = ({
   return (
     <aside
       aria-label="Promotional & Announcement Banner"
-      className={className || "w-full py-2 sm:py-3 px-4 sm:px-6 lg:px-8 transition-all duration-300"}
+      className={className || "w-full transition-all duration-300"}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      <div className={containerClassName || "max-w-7xl mx-auto"}>
+      <div className={containerClassName || "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}>
         {/* Billboard Ad Frame - Matches Exam Catalog Grid Width Pixel-for-Pixel */}
         <div className="relative group w-full h-28 xs:h-32 sm:h-40 md:h-44 lg:h-48 rounded-xl sm:rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 shadow-xs hover:shadow-md transition-shadow select-none">
           
