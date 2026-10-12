@@ -298,8 +298,10 @@ function MainAppContent() {
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-8 space-y-6">
-        {/* Top Header Ad Strip (Admin Uploaded) - Perfectly aligned with Navbar and Hero */}
-        <HeaderAdBanner quizzes={candidateVisibleQuizzes} onSelectQuiz={handleSelectQuiz} className="w-full" containerClassName="w-full" />
+        {/* Top Header Ad Strip - Only visible for candidates/students, completely hidden in Admin Studio */}
+        {activeTab !== 'admin' && (
+          <HeaderAdBanner quizzes={candidateVisibleQuizzes} onSelectQuiz={handleSelectQuiz} className="w-full" containerClassName="w-full" />
+        )}
 
         <Suspense fallback={
           <div className="text-center py-20 text-slate-500 text-xs font-mono font-bold animate-pulse">
