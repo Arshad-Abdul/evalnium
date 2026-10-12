@@ -126,19 +126,13 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCa
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
         <div>
           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200 uppercase tracking-wider">
-            OFFICIAL EVALUATION CRITERIA
+            SCORING METHODOLOGY
           </span>
           <h3 className="text-base sm:text-lg font-black text-slate-900 flex items-center space-x-2 mt-1">
             <Calculator className="w-5 h-5 text-blue-600" />
             <span>How Rankings, Scores, Percentiles & Ratings Are Calculated</span>
           </h3>
-          <p className="text-xs text-slate-500 font-medium">
-            Standard institutional formulas governing candidate merit positioning, tie-breaking rules, and All-India rankings.
-          </p>
         </div>
-        <span className="shrink-0 px-3 py-1 rounded-xl bg-slate-100 text-slate-700 text-xs font-mono font-bold border border-slate-200">
-          NTA CBT Standard Normalization
-        </span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
@@ -170,12 +164,12 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCa
           </div>
         </div>
 
-        {/* 3. National Percentile Score */}
+        {/* 3. Candidate Percentile Score */}
         <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
           <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
             <Gauge className="w-4 h-4" />
           </div>
-          <h4 className="font-bold text-slate-900 text-xs">3. National Percentile</h4>
+          <h4 className="font-bold text-slate-900 text-xs">3. Candidate Percentile</h4>
           <p className="text-[11px] text-slate-600 leading-relaxed">
             Percentile reflects the proportion of candidates scoring equal to or below a student's score across the test session:
           </p>
@@ -211,13 +205,13 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCa
             <div className="space-y-1.5">
               <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-50 text-amber-700 border border-amber-200 uppercase tracking-wider inline-flex items-center space-x-1.5">
                 <Trophy className="w-3.5 h-3.5 text-amber-600" />
-                <span>All-India Candidate Standings</span>
+                <span>Candidate Standings & Ranks</span>
               </span>
               <h1 className="text-xl sm:text-2xl font-black text-slate-900">
-                Official Evalnium Merit Rankings & Leaderboard
+                Evalnium Practice & Quiz Leaderboard
               </h1>
               <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-xl">
-                National benchmarking and competitive percentiles for UGC NET & State SET Library and Information Science.
+                Competitive rankings and percentiles for UGC NET & SET Library Science practice exams.
               </p>
             </div>
 
@@ -242,7 +236,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCa
               <span>Authentication Gate</span>
             </span>
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              Sign In to View All-India Rankings & Scorecards
+              Sign In to View Practice Rankings & Scorecards
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
               To safeguard student privacy and prevent unauthorized score harvesting, live candidate merit lists, percentiles, and individual test rankings are exclusively available to registered candidates and verified evaluators.
@@ -282,7 +276,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCa
             </div>
             <div className="flex items-start space-x-2 text-xs text-slate-600">
               <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-              <span><strong>National Percentile Benchmark</strong> against actual UGC NET aspirants.</span>
+              <span><strong>Competitive Percentile Benchmark</strong> against actual UGC NET aspirants.</span>
             </div>
           </div>
         </div>
@@ -306,13 +300,13 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCa
           <div className="space-y-2">
             <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-50 text-amber-700 border border-amber-200 uppercase tracking-wider inline-flex items-center space-x-1.5">
               <Trophy className="w-3.5 h-3.5 text-amber-600" />
-              <span>Global Candidate Ranks</span>
+              <span>Candidate Practice Standings</span>
             </span>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-              Official Evalnium Leaderboard
+              Evalnium Practice & Quiz Leaderboard
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 max-w-xl font-medium">
-              Real-time competitive ranking of top candidates worldwide based on score percentage and speed.
+              Real-time competitive ranking of candidates based on score percentage and speed.
             </p>
           </div>
 

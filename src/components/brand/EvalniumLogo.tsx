@@ -79,7 +79,7 @@ export const EvalniumLogo: React.FC<EvalniumLogoProps> = ({
         </div>
         {showSubtext && (
           <span className={`font-semibold tracking-wider uppercase mt-0.5 ${subtextSizes} ${inverted ? 'text-slate-300' : 'text-slate-600'}`}>
-            National Testing & Evaluation System
+            Mock Exam & Quiz Platform
           </span>
         )}
       </div>

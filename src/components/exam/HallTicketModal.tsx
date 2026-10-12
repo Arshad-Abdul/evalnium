@@ -92,7 +92,7 @@ export const HallTicketModal: React.FC<HallTicketModalProps> = ({
               </div>
               <div>
                 <h1 className="font-black text-base sm:text-lg text-slate-900 uppercase tracking-tight">
-                  EVALNIUM NATIONAL TESTING AUTHORITY
+                  EVALNIUM MOCK EXAM & QUIZ PLATFORM
                 </h1>
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                   Computer-Based Test (CBT) Provisional Admit Card
