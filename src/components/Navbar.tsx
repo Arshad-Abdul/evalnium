@@ -48,7 +48,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-slate-900 border-b border-slate-800 text-white">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 text-slate-800 shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
 
           {/* Institutional Brand Seal & System Clock */}
@@ -57,66 +57,66 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="cursor-pointer select-none"
               onClick={() => setActiveTab(currentUser ? 'dashboard' : 'user')}
             >
-              <EvalniumLogo size="sm" inverted={true} showSubtext={true} />
+              <EvalniumLogo size="sm" inverted={false} showSubtext={true} />
             </div>
 
             {/* Precision Tabular Examination Clock */}
-            <div className="hidden lg:flex items-center space-x-2 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700 font-mono text-[11px] text-slate-300 tabular-nums">
+            <div className="hidden lg:flex items-center space-x-2 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200/80 font-mono text-[11px] text-slate-600 tabular-nums">
               <Clock className="w-3.5 h-3.5 text-slate-400" />
               <span>{clockString || '00:00:00 • Standard Time'}</span>
             </div>
           </div>
 
           {/* Institutional Segmented Navigation Bar */}
-          <nav className="flex items-center bg-slate-950 p-1 rounded-md border border-slate-800">
+          <nav className="flex items-center bg-slate-100/90 p-1 rounded-xl border border-slate-200/70">
             {currentUser && (
               <button
                 onClick={() => setActiveTab('dashboard')}
-                className={`flex items-center space-x-1.5 px-2 sm:px-3 py-1.5 rounded text-xs font-medium transition-colors ${activeTab === 'dashboard'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'dashboard'
+                    ? 'bg-white text-blue-600 shadow-xs border border-slate-200/60'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
                   }`}
               >
-                <LayoutDashboard className="w-3.5 h-3.5" />
+                <LayoutDashboard className="w-3.5 h-3.5 text-blue-600" />
                 <span className="hidden md:inline">Dashboard</span>
               </button>
             )}
 
             <button
               onClick={() => setActiveTab('user')}
-              className={`flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1.5 rounded text-xs font-medium transition-colors ${activeTab === 'user'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              className={`flex items-center space-x-1 sm:space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'user'
+                  ? 'bg-white text-blue-600 shadow-xs border border-slate-200/60'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
                 }`}
             >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Exam Catalog ({totalQuizzesCount})</span>
+              <BookOpen className={`w-3.5 h-3.5 ${activeTab === 'user' ? 'text-blue-600' : 'text-slate-500'}`} />
+              <span className="hidden md:inline">Exam Catalog ({totalQuizzesCount})</span>
               <span className="sm:hidden">Exams ({totalQuizzesCount})</span>
             </button>
 
             <button
               onClick={() => setActiveTab('leaderboard')}
-              className={`flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1.5 rounded text-xs font-medium transition-colors ${activeTab === 'leaderboard'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              className={`flex items-center space-x-1 sm:space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'leaderboard'
+                  ? 'bg-white text-blue-600 shadow-xs border border-slate-200/60'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
                 }`}
             >
-              <Trophy className="w-3.5 h-3.5 text-amber-400" />
+              <Trophy className="w-3.5 h-3.5 text-amber-500" />
               <span className="hidden sm:inline">Rankings</span>
               {!currentUser && !isAdminAuthenticated && (
-                <Lock className="w-3 h-3 text-amber-300 shrink-0" />
+                <Lock className="w-3 h-3 text-amber-500 shrink-0" />
               )}
             </button>
 
             {isAdminVisible && (
               <button
                 onClick={() => setActiveTab('admin')}
-                className={`flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1.5 rounded text-xs font-medium transition-colors ${activeTab === 'admin'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                className={`flex items-center space-x-1 sm:space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'admin'
+                    ? 'bg-white text-emerald-700 shadow-xs border border-slate-200/60'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
                   }`}
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Admin</span>
                 <span className="hidden md:inline"> Studio</span>
               </button>
@@ -129,10 +129,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             {onOpenRevisionHub && (
               <button
                 onClick={onOpenRevisionHub}
-                className="px-2.5 py-1.5 rounded bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700/80 border border-slate-700 transition-colors flex items-center space-x-1.5 text-xs font-medium"
+                className="px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 transition-colors flex items-center space-x-1.5 text-xs font-semibold shadow-2xs"
                 title="Bookmarked Questions Revision Hub"
               >
-                <Bookmark className="w-3.5 h-3.5 text-amber-400" />
+                <Bookmark className="w-3.5 h-3.5 text-amber-500" />
                 <span className="hidden md:inline">Saved Questions</span>
               </button>
             )}
@@ -142,26 +142,26 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div className="relative">
                 <button
                   onClick={() => setShowUserDropdown(!showUserDropdown)}
-                  className="flex items-center space-x-2 p-1 pl-1.5 pr-2.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors"
+                  className="flex items-center space-x-2 p-1 pl-1.5 pr-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
                 >
-                  <div className="w-6 h-6 rounded bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center border border-slate-600">
+                  <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center border border-indigo-200">
                     {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
                   </div>
                   <div className="text-left hidden md:block">
-                    <p className="text-xs font-semibold text-slate-100 leading-tight">{currentUser.name}</p>
-                    <span className="text-[9px] font-mono text-slate-400 uppercase tracking-wider block">
+                    <p className="text-xs font-semibold text-slate-900 leading-tight">{currentUser.name}</p>
+                    <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block">
                       {currentUser.role === 'admin' && isAdminAuthenticated ? 'ADMINISTRATOR' : 'CANDIDATE'}
                     </span>
                   </div>
-                  <ChevronDown className="w-3 h-3 text-slate-400 ml-0.5" />
+                  <ChevronDown className="w-3 h-3 text-slate-500 ml-0.5" />
                 </button>
 
                 {/* Dropdown Menu */}
                 {showUserDropdown && (
-                  <div className="absolute right-0 mt-1.5 w-56 bg-slate-900 border border-slate-700 rounded-md shadow-lg p-1.5 z-50 space-y-1">
-                    <div className="px-2.5 py-2 border-b border-slate-800">
-                      <p className="text-xs font-semibold text-white">{currentUser.name}</p>
-                      <p className="text-[11px] text-slate-400 truncate">{currentUser.email}</p>
+                  <div className="absolute right-0 mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 z-50 space-y-1">
+                    <div className="px-2.5 py-2 border-b border-slate-100">
+                      <p className="text-xs font-semibold text-slate-900">{currentUser.name}</p>
+                      <p className="text-[11px] text-slate-500 truncate">{currentUser.email}</p>
                     </div>
 
                     <button
@@ -169,9 +169,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                         setShowUserDropdown(false);
                         setShowEditProfileModal(true);
                       }}
-                      className="w-full px-2.5 py-1.5 rounded text-left text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 flex items-center space-x-2 transition-colors"
+                      className="w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 flex items-center space-x-2 transition-colors cursor-pointer"
                     >
-                      <User className="w-3.5 h-3.5 text-blue-400" />
+                      <User className="w-3.5 h-3.5 text-blue-600" />
                       <span>Edit Candidate Profile</span>
                     </button>
 
@@ -182,9 +182,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                         logoutCandidate();
                         onCandidateLogout?.();
                       }}
-                      className="w-full px-2.5 py-1.5 rounded text-left text-xs font-medium text-rose-400 hover:bg-rose-500/10 flex items-center space-x-2 transition-colors"
+                      className="w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center space-x-2 transition-colors cursor-pointer"
                     >
-                      <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                      <LogOut className="w-3.5 h-3.5 text-rose-600" />
                       <span>Sign Out</span>
                     </button>
                   </div>
@@ -193,7 +193,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             ) : (
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="px-3.5 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs shadow-sm flex items-center space-x-1.5 transition-colors"
+                className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs flex items-center space-x-1.5 transition-colors cursor-pointer"
               >
                 <LogIn className="w-3.5 h-3.5" />
                 <span>Candidate Sign In</span>
