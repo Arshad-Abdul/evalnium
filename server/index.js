@@ -391,76 +391,23 @@ async function initDatabase() {
       // Column already exists
     }
 
-    // Seed initial banners if table is empty
-    const [bannerRows] = await pool.query('SELECT COUNT(*) as count FROM banners');
-    if (bannerRows[0].count === 0) {
-      await pool.query(`
-        INSERT INTO banners (title, subtitle, image_url, badge_text, cta_text, cta_link, quiz_id, slot_type, is_active, display_order)
-        VALUES 
-        (
-          'NTA UGC NET / JRF 2026 Paper 1 Live Mock Series',
-          'Comprehensive Bilingual Assessment covering Teaching & Research Aptitude, Logical Reasoning, and Higher Education with Instant NTA-Standard Diagnostics.',
-          'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1200&auto=format&fit=crop&q=80',
-          'ALL-INDIA LIVE CBT',
-          'Start Paper 1 Mock',
-          '/',
-          NULL,
-          'hero',
-          1,
-          1
-        ),
-        (
-          'Library & Information Science (LIS) Mega Assessment 2026',
-          'Full-length examination testing Digital Libraries, Cataloguing & Metadata Standards, Knowledge Organization, and Information Retrieval.',
-          'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=1200&auto=format&fit=crop&q=80',
-          'LIS SPECIAL SERIES',
-          'Explore LIS Catalog',
-          '/',
-          NULL,
-          'hero',
-          1,
-          2
-        ),
-        (
-          'Precision Computer-Based Testing Simulation with Official Transcripts',
-          'Experience the exact NTA 5-button question palette, non-jittering timers, section switching restrictions, and QR-verifiable performance transcripts.',
-          'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1200&auto=format&fit=crop&q=80',
-          'OFFICIAL CBT RADAR',
-          'View Leaderboards',
-          '/',
-          NULL,
-          'hero',
-          1,
-          3
-        );
-      `);
-      console.log(`✅ Default showcase promotional banners seeded.`);
-    }
+    // Ensure system_settings table exists to track administrative configurations
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS system_settings (
+        setting_key VARCHAR(100) PRIMARY KEY,
+        setting_value TEXT
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
 
-    // Seed default header ad / announcement banner if none exists for slot_type = 'header_ad'
-    try {
-      const [headerAdRows] = await pool.query("SELECT COUNT(*) as count FROM banners WHERE slot_type = 'header_ad'");
-      if (headerAdRows[0].count === 0) {
-        await pool.query(`
-          INSERT INTO banners (title, subtitle, image_url, badge_text, cta_text, cta_link, quiz_id, slot_type, is_active, display_order)
-          VALUES 
-          (
-            'Special Edition NTA UGC NET 2026 Test Series & Master Solved Papers Available Now',
-            'Get instant access to 10,000+ LIS Solved MCQs, Bilingual Explanations & National All-India Live Mock Simulations.',
-            'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=1200&auto=format&fit=crop&q=80',
-            'LIMITED ENROLLMENT',
-            'Explore Series',
-            '/',
-            NULL,
-            'header_ad',
-            1,
-            1
-          );
-        `);
-        console.log(`✅ Default header ad banner seeded.`);
-      }
-    } catch (e) {
-      console.warn('Header ad seed check skipped:', e.message);
+    // Check if banners initial seed has ever been executed
+    // Once seed flag is set, user deletions are permanent and will NEVER be resurrected on server restart
+    const [seedFlagRows] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'banners_seed_completed'");
+    const isBannerSeedCompleted = seedFlagRows.length > 0;
+
+    if (!isBannerSeedCompleted) {
+      // Mark as completed immediately so future restarts respect any admin deletions
+      await pool.query("INSERT INTO system_settings (setting_key, setting_value) VALUES ('banners_seed_completed', 'true') ON DUPLICATE KEY UPDATE setting_value = 'true'");
+      console.log(`ℹ️ Banner seeding lifecycle initialized - admin banner deletions are permanent.`);
     }
 
     // 2. Question Discussions & Doubts Forum Table
