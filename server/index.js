@@ -475,6 +475,42 @@ async function initDatabase() {
       `, [nowIso, nowIso]);
     }
 
+    // Auto-sync any test results into activity_audit_logs if not already present
+    try {
+      const [unsyncedResults] = await pool.query(`
+        SELECT r.* FROM results r 
+        LEFT JOIN activity_audit_logs a 
+          ON a.actor_name = r.candidate_name 
+          AND a.event_type = 'exam_submit' 
+          AND a.created_at = r.attempted_at 
+        WHERE a.id IS NULL
+      `);
+      if (unsyncedResults.length > 0) {
+        for (const r of unsyncedResults) {
+          const actionTitle = `🎯 Exam Completed: ${r.candidate_name} completed "${r.quiz_title}" (${r.percentage}%)`;
+          const detailsText = `Result: ${r.score}/${r.max_score} (${r.percentage}%), Verdict: ${r.passed ? 'PASSED ✓' : 'FAILED ✗'}, Time Spent: ${r.time_spent_seconds || 0}s, Correct: ${r.correct_answers || 0}, Wrong: ${r.wrong_answers || 0}, Skipped: ${r.skipped_questions || 0}`;
+          await pool.query(
+            `INSERT INTO activity_audit_logs (event_type, severity, actor_name, actor_email, actor_role, action_title, details_text, ip_address, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              'exam_submit',
+              r.passed ? 'success' : 'warning',
+              r.candidate_name,
+              r.candidate_email || null,
+              'student',
+              actionTitle,
+              detailsText,
+              '127.0.0.1',
+              r.attempted_at
+            ]
+          );
+        }
+        console.log(`✅ Synced ${unsyncedResults.length} historical exam submissions to activity_audit_logs.`);
+      }
+    } catch (e) {
+      console.warn('Sync results to audit logs skipped:', e.message);
+    }
+
     console.log(`✅ All MySQL Database Tables & Indexes (Banners, Discussions, Proctoring, Audit Logs) Verified & Ready!`);
   } catch (err) {
     console.error('❌ Failed to initialize MySQL Database:', err);
@@ -1435,7 +1471,7 @@ app.get('/api/admin/audit-logs', async (req, res) => {
     const limit = parseInt(req.query.limit || '25', 10);
     const offset = Math.max(0, (page - 1) * limit);
 
-    const { eventType, severity, range, search } = req.query;
+    const { eventType, severity, range, year, search } = req.query;
 
     const whereConditions = [];
     const queryParams = [];
@@ -1452,7 +1488,13 @@ app.get('/api/admin/audit-logs', async (req, res) => {
       queryParams.push(severity);
     }
 
-    // Filter by Date Range
+    // Filter by Calendar Year (e.g. 2026, 2025, 2024)
+    if (year && year !== 'all') {
+      whereConditions.push('YEAR(created_at) = ?');
+      queryParams.push(parseInt(year, 10));
+    }
+
+    // Filter by Date Range Preset
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     const yesterdayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).toISOString();
@@ -1494,6 +1536,15 @@ app.get('/api/admin/audit-logs', async (req, res) => {
       `SELECT * FROM activity_audit_logs ${whereClause} ORDER BY id DESC LIMIT ? OFFSET ?`,
       [...queryParams, limit, offset]
     );
+
+    // Available Distinct Years in Vault
+    const [yearRows] = await pool.query(`
+      SELECT DISTINCT YEAR(created_at) as yr 
+      FROM activity_audit_logs 
+      WHERE created_at IS NOT NULL 
+      ORDER BY yr DESC
+    `);
+    const availableYears = yearRows.map(r => r.yr).filter(Boolean);
 
     // Global Summary Counts across all logs
     const [[summaryCounts]] = await pool.query(`
@@ -1539,7 +1590,8 @@ app.get('/api/admin/audit-logs', async (req, res) => {
         examStartCount: summaryCounts?.examStartCount || 0,
         proctoringCount: summaryCounts?.proctoringCount || 0,
         authCount: summaryCounts?.authCount || 0
-      }
+      },
+      availableYears
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

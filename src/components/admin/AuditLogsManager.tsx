@@ -74,6 +74,8 @@ export const AuditLogsManager: React.FC = () => {
   const [eventTypeFilter, setEventTypeFilter] = useState<string>('all');
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [dateRangeFilter, setDateRangeFilter] = useState<string>('all');
+  const [yearFilter, setYearFilter] = useState<string>('all');
+  const [availableYears, setAvailableYears] = useState<number[]>([2026, 2025, 2024]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [pageSize, setPageSize] = useState<number>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -101,6 +103,7 @@ export const AuditLogsManager: React.FC = () => {
         eventType: eventTypeFilter,
         severity: severityFilter,
         range: dateRangeFilter,
+        year: yearFilter,
         search: searchQuery
       });
 
@@ -110,6 +113,10 @@ export const AuditLogsManager: React.FC = () => {
         setLogs(data.logs || []);
         setPagination(data.pagination || { page: 1, limit: pageSize, totalCount: 0, totalPages: 1 });
         setSummary(data.summary || null);
+        if (data.availableYears && Array.isArray(data.availableYears)) {
+          const merged = Array.from(new Set([...data.availableYears, 2026, 2025, 2024])).sort((a, b) => b - a);
+          setAvailableYears(merged);
+        }
       }
     } catch (err) {
       console.error('Error fetching audit logs:', err);
@@ -121,7 +128,7 @@ export const AuditLogsManager: React.FC = () => {
   // Trigger fetch on filter or page change
   useEffect(() => {
     fetchLogs();
-  }, [currentPage, pageSize, eventTypeFilter, severityFilter, dateRangeFilter]);
+  }, [currentPage, pageSize, eventTypeFilter, severityFilter, dateRangeFilter, yearFilter]);
 
   // Handle Search Debounce
   useEffect(() => {
@@ -139,7 +146,7 @@ export const AuditLogsManager: React.FC = () => {
       fetchLogs();
     }, 5000);
     return () => clearInterval(interval);
-  }, [autoRefresh, currentPage, pageSize, eventTypeFilter, severityFilter, dateRangeFilter, searchQuery]);
+  }, [autoRefresh, currentPage, pageSize, eventTypeFilter, severityFilter, dateRangeFilter, yearFilter, searchQuery]);
 
   // Scroll terminal to bottom when in terminal view
   useEffect(() => {
@@ -422,30 +429,52 @@ export const AuditLogsManager: React.FC = () => {
               )}
             </div>
 
-            {/* Date Range Buttons */}
-            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold overflow-x-auto">
-              {[
-                { id: 'all', label: 'All Time' },
-                { id: 'today', label: 'Today' },
-                { id: 'yesterday', label: 'Yesterday' },
-                { id: '7days', label: 'Last 7 Days' },
-                { id: '30days', label: 'Last 30 Days' },
-              ].map((r) => (
-                <button
-                  key={r.id}
-                  onClick={() => {
-                    setDateRangeFilter(r.id);
+            {/* Date Range & Year Selectors */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Year Dropdown Filter */}
+              <div className="flex items-center space-x-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+                <Calendar className="w-3.5 h-3.5 text-indigo-600 ml-1.5" />
+                <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider">Year:</span>
+                <select
+                  value={yearFilter}
+                  onChange={(e) => {
+                    setYearFilter(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap ${
-                    dateRangeFilter === r.id
-                      ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  className="bg-white border border-slate-200 text-xs font-bold text-slate-700 rounded-lg px-2 py-1 focus:outline-hidden focus:border-indigo-500 cursor-pointer shadow-2xs"
                 >
-                  {r.label}
-                </button>
-              ))}
+                  <option value="all">All Years (Cumulative)</option>
+                  {availableYears.map((yr) => (
+                    <option key={yr} value={yr.toString()}>Year {yr}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Date Preset Buttons */}
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold overflow-x-auto">
+                {[
+                  { id: 'all', label: 'All Time' },
+                  { id: 'today', label: 'Today' },
+                  { id: 'yesterday', label: 'Yesterday' },
+                  { id: '7days', label: 'Last 7 Days' },
+                  { id: '30days', label: 'Last 30 Days' },
+                ].map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={() => {
+                      setDateRangeFilter(r.id);
+                      setCurrentPage(1);
+                    }}
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap ${
+                      dateRangeFilter === r.id
+                        ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -609,18 +638,19 @@ export const AuditLogsManager: React.FC = () => {
                         <Terminal className="w-8 h-8 text-slate-300" />
                         <p className="text-xs font-bold text-slate-600">No activity logs matching current filters.</p>
                         <p className="text-[11px] text-slate-400">All student actions, submissions, and logins will be permanently recorded here.</p>
-                        {(eventTypeFilter !== 'all' || dateRangeFilter !== 'all' || severityFilter !== 'all' || searchQuery) && (
+                        {(eventTypeFilter !== 'all' || dateRangeFilter !== 'all' || severityFilter !== 'all' || yearFilter !== 'all' || searchQuery) && (
                           <button
                             onClick={() => {
                               setEventTypeFilter('all');
                               setDateRangeFilter('all');
                               setSeverityFilter('all');
+                              setYearFilter('all');
                               setSearchQuery('');
                               setCurrentPage(1);
                             }}
                             className="mt-3 px-3.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-200 transition-colors cursor-pointer shadow-2xs"
                           >
-                            Reset Filters (Show All {summary?.totalArchived || 12} Archived Events)
+                            Reset Filters (Show All {summary?.totalStored || 62} Archived Events)
                           </button>
                         )}
                       </div>
