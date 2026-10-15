@@ -609,6 +609,20 @@ export const AuditLogsManager: React.FC = () => {
                         <Terminal className="w-8 h-8 text-slate-300" />
                         <p className="text-xs font-bold text-slate-600">No activity logs matching current filters.</p>
                         <p className="text-[11px] text-slate-400">All student actions, submissions, and logins will be permanently recorded here.</p>
+                        {(eventTypeFilter !== 'all' || dateRangeFilter !== 'all' || severityFilter !== 'all' || searchQuery) && (
+                          <button
+                            onClick={() => {
+                              setEventTypeFilter('all');
+                              setDateRangeFilter('all');
+                              setSeverityFilter('all');
+                              setSearchQuery('');
+                              setCurrentPage(1);
+                            }}
+                            className="mt-3 px-3.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-200 transition-colors cursor-pointer shadow-2xs"
+                          >
+                            Reset Filters (Show All {summary?.totalArchived || 12} Archived Events)
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
