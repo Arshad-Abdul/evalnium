@@ -185,19 +185,33 @@ export const Navbar: React.FC<NavbarProps> = ({
                       className="w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center space-x-2 transition-colors cursor-pointer"
                     >
                       <LogOut className="w-3.5 h-3.5 text-rose-600" />
-                      <span>Sign Out</span>
+                      <span>{isAdminAuthenticated ? 'Sign Out & Lock Admin' : 'Sign Out'}</span>
                     </button>
                   </div>
                 )}
               </div>
             ) : (
-              <button
-                onClick={() => setShowAuthModal(true)}
-                className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs flex items-center space-x-1.5 transition-colors cursor-pointer"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Candidate Sign In</span>
-              </button>
+              <div className="flex items-center space-x-2">
+                {isAdminAuthenticated && (
+                  <button
+                    onClick={onAdminLogout}
+                    className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shadow-2xs"
+                    title="Lock Admin Studio and Sign Out"
+                  >
+                    <LogOut className="w-3.5 h-3.5 text-rose-600" />
+                    <span className="hidden sm:inline">Exit Admin</span>
+                    <span className="sm:hidden">Exit</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs flex items-center space-x-1.5 transition-colors cursor-pointer"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Candidate Sign In</span>
+                </button>
+              </div>
             )}
 
           </div>

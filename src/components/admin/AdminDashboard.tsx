@@ -374,11 +374,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {onLogout && (
               <button
                 onClick={onLogout}
-                className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-700 border border-slate-200 hover:border-rose-200 text-[10px] font-extrabold uppercase transition-all flex items-center space-x-1"
+                className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer shadow-2xs"
                 title="Lock Admin Studio and Log Out"
               >
-                <LogOut className="w-3 h-3 text-rose-500" />
-                <span>Lock Studio</span>
+                <LogOut className="w-3.5 h-3.5 text-rose-600" />
+                <span>Exit / Lock Studio</span>
               </button>
             )}
           </h1>
