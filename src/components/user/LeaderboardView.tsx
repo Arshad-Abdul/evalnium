@@ -16,8 +16,8 @@ interface LeaderboardViewProps {
 
 export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCatalog }) => {
   const { currentUser, isAdminAuthenticated } = useAuth();
-  const isSuperAdmin = isAdminAuthenticated && currentUser?.role === 'admin';
-  const isAuthenticated = Boolean(currentUser) || isSuperAdmin;
+  const isSuperAdmin = isAdminAuthenticated && (!currentUser || currentUser?.role === 'admin');
+  const isAuthenticated = Boolean(currentUser) || isAdminAuthenticated;
 
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [selectedQuizTitle, setSelectedQuizTitle] = useState('All Exams (Overall Cumulative)');
