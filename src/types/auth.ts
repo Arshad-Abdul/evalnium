@@ -18,6 +18,7 @@ export interface UserProfile {
   address?: string;
   totalExamsTaken?: number;
   createdAt: string;
+  termsAcceptedAt?: string | null;
 }
 
 export interface CandidateRegistrationData {

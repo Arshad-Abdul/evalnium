@@ -38,8 +38,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const getApiUrl = () => {
-    const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-    return `http://${host}:5050/api/auth`;
+    if (typeof window !== 'undefined') {
+      return '/api/auth';
+    }
+    return 'http://localhost:5050/api/auth';
   };
 
   useEffect(() => {

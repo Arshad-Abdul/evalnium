@@ -4,6 +4,7 @@ import { Search, BookOpen, Clock, Play, History, X, Lock, Award, AlertCircle, La
 import { useAuth } from '../../context/AuthContext';
 import { HeroBannerCarousel } from '../home/HeroBannerCarousel';
 import { CatalogAdCard } from './CatalogAdCard';
+import { SubjectFilterBar } from '../common/SubjectFilterBar';
 
 const CertificateModal = lazy(() => import('./CertificateModal').then(m => ({ default: m.CertificateModal })));
 
@@ -123,7 +124,6 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
   });
 
   const normalizeTopic = (value?: string) => (value || '').replace(/\s+/g, ' ').trim();
-  const topics = ['All', ...Array.from(new Set(quizzes.map(q => normalizeTopic(q.topic)).filter(Boolean)))];
   const publishedQuizzes = quizzes.filter(q => {
     if (!q.isPublished) return false;
     if (q.allowedEmails && q.allowedEmails.length > 0) {
@@ -135,6 +135,16 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
     }
     return true;
   });
+
+  const subjectItems = Object.entries(
+    publishedQuizzes.reduce<Record<string, number>>((acc, q) => {
+      const name = normalizeTopic(q.topic);
+      if (name) {
+        acc[name] = (acc[name] || 0) + 1;
+      }
+      return acc;
+    }, {})
+  ).map(([name, count]) => ({ name, count }));
 
   const filteredQuizzes = publishedQuizzes.filter(quiz => {
     const matchesSearch = quiz.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -247,24 +257,14 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
         </div>
 
         {/* Subject Filter Strip */}
-        {topics.length > 1 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pt-2.5 border-t border-slate-100 no-scrollbar">
-            <span className="text-[11px] font-medium text-slate-400 mr-1 shrink-0">Subject:</span>
-            {topics.map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setSelectedTopic(t)}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
-                  selectedTopic === t
-                    ? 'bg-slate-900 text-white font-semibold'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+        {subjectItems.length > 0 && (
+          <SubjectFilterBar
+            allLabel="All"
+            items={subjectItems}
+            selected={selectedTopic}
+            onSelect={setSelectedTopic}
+            className="pt-2.5 border-t border-slate-100"
+          />
         )}
       </div>
 

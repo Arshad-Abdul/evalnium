@@ -49,6 +49,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     city?: string;
     address?: string;
     createdAt: string;
+    termsAcceptedAt?: string | null;
   }>>([]);
   const [expandedCandidate, setExpandedCandidate] = useState<string | null>(null);
   const [deletedResultIds, setDeletedResultIds] = useState<Set<string>>(new Set());
@@ -297,7 +298,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleExportCandidatesCsv = () => {
     if (filteredUsers.length === 0) return;
-    const headers = ['UID', 'Name', 'Email', 'Phone', 'Gender', 'Category / Occupation', 'Designation', 'University / Institute', 'City', 'Role', 'Joined Date'];
+    const headers = ['UID', 'Name', 'Email', 'Phone', 'Gender', 'Category / Occupation', 'Designation', 'University / Institute', 'City', 'Role', 'Joined Date', 'Terms Consent'];
     const rows = [headers.join(',')];
     filteredUsers.forEach(u => {
       rows.push([
@@ -311,7 +312,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         `"${(u.universityInstitute || 'N/A').replace(/"/g, '""')}"`,
         `"${(u.city || 'N/A').replace(/"/g, '""')}"`,
         u.role || 'candidate',
-        `"${u.createdAt ? new Date(u.createdAt).toLocaleString() : 'N/A'}"`
+        `"${u.createdAt ? new Date(u.createdAt).toLocaleString() : 'N/A'}"`,
+        `"${u.termsAcceptedAt ? `Accepted (${new Date(u.termsAcceptedAt).toLocaleString()})` : 'Legacy / Not Recorded'}"`
       ].join(','));
     });
     const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
@@ -1070,13 +1072,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <th className="p-3.5">Category & Role</th>
                     <th className="p-3.5">City & Institute</th>
                     <th className="p-3.5">Joined Date</th>
+                    <th className="p-3.5">Terms Consent</th>
                     <th className="p-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
                   {paginatedUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-10 text-center text-slate-400">
+                      <td colSpan={7} className="p-10 text-center text-slate-400">
                         No registered candidates found matching your filter criteria.
                       </td>
                     </tr>
@@ -1143,6 +1146,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </td>
                         <td className="p-3.5 text-slate-500 font-mono text-[11px]">
                           {user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                        </td>
+                        <td className="p-3.5">
+                          {user.termsAcceptedAt ? (
+                            <div>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>Accepted</span>
+                              </span>
+                              <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                {new Date(user.termsAcceptedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                              Legacy / N/A
+                            </span>
+                          )}
                         </td>
                         <td className="p-3.5 text-right">
                           <button

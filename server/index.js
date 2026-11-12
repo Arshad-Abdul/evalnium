@@ -1668,7 +1668,7 @@ app.get('/api/users', authenticateAdmin, async (req, res) => {
     const [rows] = await pool.query(`
       SELECT 
         uid, name, email, role, target_exam, phone, institution,
-        gender, occupation_status, designation, university_institute, city, address, created_at 
+        gender, occupation_status, designation, university_institute, city, address, created_at, terms_accepted_at 
       FROM users ORDER BY created_at DESC
     `);
     res.json(rows.map(u => ({
@@ -1685,7 +1685,8 @@ app.get('/api/users', authenticateAdmin, async (req, res) => {
       universityInstitute: u.university_institute,
       city: u.city,
       address: u.address,
-      createdAt: u.created_at
+      createdAt: u.created_at,
+      termsAcceptedAt: u.terms_accepted_at || null
     })));
   } catch (err) {
     res.status(500).json({ error: err.message });

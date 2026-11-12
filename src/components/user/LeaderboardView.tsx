@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { AuthModal } from '../auth/AuthModal';
+import { SubjectFilterBar } from '../common/SubjectFilterBar';
 
 interface LeaderboardViewProps {
   quizzes?: Quiz[];
@@ -73,7 +74,15 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
   }, [liveQuizzes, liveResults]);
 
   const quizTitles = ['All Exams (Overall Cumulative)', ...Array.from(new Set(entries.map((e) => normalizeTopic(e.quizTitle)).filter(Boolean)))];
-  const topics = ['All Topics', ...Array.from(new Set(entries.map((e) => normalizeTopic(e.topic)).filter(Boolean)))];
+  const subjectItems = Object.entries(
+    entries.reduce<Record<string, number>>((acc, e) => {
+      const name = normalizeTopic(e.topic);
+      if (name) {
+        acc[name] = (acc[name] || 0) + 1;
+      }
+      return acc;
+    }, {})
+  ).map(([name, count]) => ({ name, count }));
 
   const filteredEntriesRaw = entries.filter((e) => {
     const matchesSearch =
@@ -416,26 +425,14 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
         </div>
 
         {/* Topic Filter Bar */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs no-scrollbar">
-          <span className="text-slate-500 font-medium flex items-center gap-1 shrink-0 mr-1">
-            <Filter className="w-3.5 h-3.5" />
-            <span>Subject:</span>
-          </span>
-          {topics.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setSelectedTopic(t)}
-              className={`px-2.5 py-1 rounded-md font-semibold shrink-0 transition-colors cursor-pointer ${
-                selectedTopic === t
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+        <SubjectFilterBar
+          allLabel="All Topics"
+          items={subjectItems}
+          selected={selectedTopic}
+          onSelect={setSelectedTopic}
+          showIcon
+          className="pb-0.5"
+        />
       </div>
 
       {/* Leaderboard Table */}

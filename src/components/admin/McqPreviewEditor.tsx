@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { ParsedQuestion, ParseResult, Quiz, DifficultyLevel } from '../../types/quiz';
 import { translateToHindi } from '../../utils/translator';
+import { getStoredQuizzes } from '../../utils/storage';
 import { Mail, Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages } from 'lucide-react';
 
 
@@ -21,6 +22,17 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
 }) => {
   const [title, setTitle] = useState(parseResult.title || sourceFileName.replace(/\.[^/.]+$/, ''));
   const [topic, setTopic] = useState(parseResult.topic || 'General Knowledge');
+  const existingTopics = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          getStoredQuizzes()
+            .map((q) => (q.topic || '').replace(/\s+/g, ' ').trim())
+            .filter(Boolean)
+        )
+      ).sort((a, b) => a.localeCompare(b)),
+    []
+  );
   const [category] = useState('General');
   const [description, setDescription] = useState(parseResult.description || `Comprehensive assessment covering ${parseResult.questions.length} MCQs.`);
   const [difficulty, setDifficulty] = useState<DifficultyLevel>(parseResult.difficulty || 'Medium');
@@ -449,14 +461,20 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Topic Tag (Category)</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Topic Tag (Category / Subject)</label>
             <input
               type="text"
+              list="evalnium-existing-topics"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-sm font-semibold focus:border-indigo-500 focus:bg-white focus:outline-none"
-              placeholder="e.g. Library Science, Computer Science, Aptitude"
+              placeholder="e.g. Library and Information Science, Classification, Cataloguing"
             />
+            <datalist id="evalnium-existing-topics">
+              {existingTopics.map((t) => (
+                <option key={t} value={t} />
+              ))}
+            </datalist>
           </div>
         </div>
 

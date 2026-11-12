@@ -12,9 +12,10 @@ interface RevisionHubModalProps {
 const BOOKMARKS_KEY = 'evalnium_bookmarked_questions_v1';
 
 const getApiBase = () => {
-  const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-  const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0';
-  return isLocal ? 'http://localhost:5050/api' : `http://${host}:5050/api`;
+  if (typeof window !== 'undefined') {
+    return '/api';
+  }
+  return 'http://localhost:5050/api';
 };
 
 export function getBookmarkedQuestions(): Question[] {
