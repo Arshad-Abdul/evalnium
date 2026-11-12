@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { ParsedQuestion, ParseResult, Quiz, DifficultyLevel } from '../../types/quiz';
 import { translateToHindi } from '../../utils/translator';
-import { Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages } from 'lucide-react';
+import { Mail, Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages } from 'lucide-react';
 
 
 interface McqPreviewEditorProps {
@@ -34,7 +34,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [scheduledStartDateTime, setScheduledStartDateTime] = useState<string>(parseResult.scheduledStartDateTime || '');
   const [scheduledEndDateTime, setScheduledEndDateTime] = useState<string>(parseResult.scheduledEndDateTime || '');
   const [defaultLanguageMode, setDefaultLanguageMode] = useState<'en' | 'hi' | 'dual'>(parseResult.defaultLanguageMode || 'en');
-  
+
   // --- Privacy & Access Controls ---
   const [accessCode, setAccessCode] = useState<string>(parseResult.accessCode || '');
   const [allowedEmails, setAllowedEmails] = useState<string[]>(
@@ -58,6 +58,9 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [preventEarlyNextQuestion, setPreventEarlyNextQuestion] = useState(parseResult.preventEarlyNextQuestion ?? false);
   const [questionViewMode, setQuestionViewMode] = useState<'both' | 'single_only' | 'all_only'>(parseResult.questionViewMode || 'both');
   const [allowManualEarlyMove, setAllowManualEarlyMove] = useState(parseResult.allowManualEarlyMove ?? false);
+  const [notifyCandidates, setNotifyCandidates] = useState<boolean>(true);
+
+
   // Section type with both auto-range and manual question pick support
   type SectionDef = {
     id: string;
@@ -83,11 +86,11 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [sections, setSections] = useState<SectionDef[]>(
     parseResult.sectionalConfig
       ? parseResult.sectionalConfig.map((s: any) => ({
-          ...s,
-          assignmentMode: s.assignmentMode || 'auto',
-          manualQuestionIds: s.questionIds || [],
-          expanded: false,
-        }))
+        ...s,
+        assignmentMode: s.assignmentMode || 'auto',
+        manualQuestionIds: s.questionIds || [],
+        expanded: false,
+      }))
       : buildDefaultSections(parseResult.questions, parseResult.timeLimitMinutes ?? 15)
   );
 
@@ -152,8 +155,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   };
 
   const handleUpdateQuestionText = (id: string, text: string) => {
-    setQuestions(prev => prev.map(q => q.tempId === id ? { 
-      ...q, 
+    setQuestions(prev => prev.map(q => q.tempId === id ? {
+      ...q,
       questionText: text,
       questionEnglish: text,
     } : q));
@@ -173,7 +176,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       if (translated) {
         setQuestions(prev => prev.map(q => q.tempId === id ? { ...q, questionHindi: translated } : q));
       }
-    } catch {}
+    } catch { }
   };
 
   const handleUpdateOptionText = (qId: string, optId: string, text: string) => {
@@ -269,7 +272,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       author: 'Admin Importer',
-      
+
       accessCode: accessCode.trim() || undefined,
       allowedEmails: allowedEmails.length > 0 ? allowedEmails : undefined,
 
@@ -287,6 +290,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       preventEarlyNextQuestion,
       questionViewMode,
       allowManualEarlyMove,
+      notifyCandidates,
       sectionalConfig: (() => {
         // Build sequential auto-ranges for 'auto' sections; use manual picks for 'manual' sections
         let cursor = 0;
@@ -474,11 +478,10 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
             <button
               type="button"
               onClick={() => setQuizType('practice')}
-              className={`p-3 rounded-lg border text-left flex items-start space-x-3 transition-all ${
-                quizType === 'practice'
-                  ? 'bg-white border-blue-600 text-blue-950 font-bold shadow-xs'
-                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
-              }`}
+              className={`p-3 rounded-lg border text-left flex items-start space-x-3 transition-all ${quizType === 'practice'
+                ? 'bg-white border-blue-600 text-blue-950 font-bold shadow-xs'
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                }`}
             >
               <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">🌐</span>
               <div>
@@ -490,11 +493,10 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
             <button
               type="button"
               onClick={() => setQuizType('live_contest')}
-              className={`p-3 rounded-lg border text-left flex items-start space-x-3 transition-all ${
-                quizType === 'live_contest'
-                  ? 'bg-white border-amber-600 text-amber-950 font-bold shadow-xs'
-                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
-              }`}
+              className={`p-3 rounded-lg border text-left flex items-start space-x-3 transition-all ${quizType === 'live_contest'
+                ? 'bg-white border-amber-600 text-amber-950 font-bold shadow-xs'
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                }`}
             >
               <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs">🏆</span>
               <div>
@@ -643,6 +645,26 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               />
             </label>
 
+            {/* Outgoing Candidate Email Notification Switch */}
+            <label className="p-3 rounded-xl bg-blue-50/60 border border-blue-200 flex items-center justify-between cursor-pointer hover:border-blue-300 transition-colors">
+              <div>
+                <span className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-blue-600" />
+                  📢 Notify Candidates via Email
+                </span>
+                <span className="text-[11px] text-blue-700/80 font-medium block">
+                  Automatically dispatch "New Assessment Available" email alerts to all verified students upon publishing
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={notifyCandidates}
+                onChange={(e) => setNotifyCandidates(e.target.checked)}
+                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+              />
+            </label>
+
+
             {/* Max Tab Switches */}
             {enableAntiCheating && (
               <div className="p-3 rounded-xl bg-white border border-slate-200 space-y-2">
@@ -653,9 +675,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                 <div className="flex flex-wrap gap-2 pt-1">
                   {[1, 2, 3, 5].map(n => (
                     <button key={n} type="button" onClick={() => setMaxTabSwitches(n)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                        maxTabSwitches === n ? 'bg-rose-600 text-white border-rose-700' : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
-                      }`}>
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${maxTabSwitches === n ? 'bg-rose-600 text-white border-rose-700' : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
+                        }`}>
                       {n} Violation{n > 1 ? 's' : ''}
                     </button>
                   ))}
@@ -675,11 +696,10 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                     key={opt.value}
                     type="button"
                     onClick={() => setMaxAttempts(opt.value)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                      maxAttempts === opt.value
-                        ? 'bg-indigo-600 text-white border-indigo-700'
-                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${maxAttempts === opt.value
+                      ? 'bg-indigo-600 text-white border-indigo-700'
+                      : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
+                      }`}
                   >
                     {opt.label}
                   </button>
@@ -715,9 +735,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               <button
                 type="button"
                 onClick={() => setTimingMode('quiz')}
-                className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${
-                  timingMode === 'quiz' ? 'bg-indigo-50 border-indigo-600 text-indigo-900' : 'bg-white border-slate-200 text-slate-700'
-                }`}
+                className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${timingMode === 'quiz' ? 'bg-indigo-50 border-indigo-600 text-indigo-900' : 'bg-white border-slate-200 text-slate-700'
+                  }`}
               >
                 ⏱️ Standard Quiz Time ({timeLimitMinutes} Mins)
               </button>
@@ -725,9 +744,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               <button
                 type="button"
                 onClick={() => setTimingMode('sectional')}
-                className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${
-                  timingMode === 'sectional' ? 'bg-indigo-50 border-indigo-600 text-indigo-900' : 'bg-white border-slate-200 text-slate-700'
-                }`}
+                className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${timingMode === 'sectional' ? 'bg-indigo-50 border-indigo-600 text-indigo-900' : 'bg-white border-slate-200 text-slate-700'
+                  }`}
               >
                 📊 Sectional Timed Mode
               </button>
@@ -735,9 +753,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               <button
                 type="button"
                 onClick={() => setTimingMode('question')}
-                className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${
-                  timingMode === 'question' ? 'bg-indigo-50 border-indigo-600 text-indigo-900' : 'bg-white border-slate-200 text-slate-700'
-                }`}
+                className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${timingMode === 'question' ? 'bg-indigo-50 border-indigo-600 text-indigo-900' : 'bg-white border-slate-200 text-slate-700'
+                  }`}
               >
                 ⚡ Question-Wise Timer
               </button>
@@ -754,9 +771,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               <button
                 type="button"
                 onClick={() => setQuestionViewMode('both')}
-                className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${
-                  questionViewMode === 'both' ? 'bg-indigo-50 border-indigo-600 text-indigo-900 shadow-xs' : 'bg-white border-slate-200 text-slate-700'
-                }`}
+                className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${questionViewMode === 'both' ? 'bg-indigo-50 border-indigo-600 text-indigo-900 shadow-xs' : 'bg-white border-slate-200 text-slate-700'
+                  }`}
               >
                 🔄 Both Options Allowed (Candidate Choice)
               </button>
@@ -764,9 +780,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               <button
                 type="button"
                 onClick={() => setQuestionViewMode('single_only')}
-                className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${
-                  questionViewMode === 'single_only' ? 'bg-indigo-50 border-indigo-600 text-indigo-900 shadow-xs' : 'bg-white border-slate-200 text-slate-700'
-                }`}
+                className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${questionViewMode === 'single_only' ? 'bg-indigo-50 border-indigo-600 text-indigo-900 shadow-xs' : 'bg-white border-slate-200 text-slate-700'
+                  }`}
               >
                 📄 Force 1 Question / Screen Only
               </button>
@@ -774,9 +789,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               <button
                 type="button"
                 onClick={() => setQuestionViewMode('all_only')}
-                className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${
-                  questionViewMode === 'all_only' ? 'bg-indigo-50 border-indigo-600 text-indigo-900 shadow-xs' : 'bg-white border-slate-200 text-slate-700'
-                }`}
+                className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${questionViewMode === 'all_only' ? 'bg-indigo-50 border-indigo-600 text-indigo-900 shadow-xs' : 'bg-white border-slate-200 text-slate-700'
+                  }`}
               >
                 📜 Force All Questions On 1 Screen
               </button>
@@ -839,11 +853,10 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                 </div>
 
                 {/* Validation Bar */}
-                <div className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs font-bold ${
-                  isOverAssigned ? 'bg-rose-50 border border-rose-300 text-rose-700'
+                <div className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs font-bold ${isOverAssigned ? 'bg-rose-50 border border-rose-300 text-rose-700'
                   : isUnderAssigned ? 'bg-amber-50 border border-amber-300 text-amber-700'
-                  : 'bg-emerald-50 border border-emerald-300 text-emerald-700'
-                }`}>
+                    : 'bg-emerald-50 border border-emerald-300 text-emerald-700'
+                  }`}>
                   <span>
                     {isOverAssigned ? '⚠️' : isUnderAssigned ? '⚡' : '✅'}
                     &nbsp;Questions assigned: <span className="font-mono">{totalAssigned}</span> / <span className="font-mono">{questions.length}</span>
@@ -947,11 +960,10 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                                   : s
                                 ));
                               }}
-                              className={`px-2 py-1 rounded-md text-[10px] font-bold border transition-all ${
-                                sec.assignmentMode === 'manual'
-                                  ? 'bg-violet-50 border-violet-400 text-violet-700 hover:bg-violet-100'
-                                  : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-100'
-                              }`}
+                              className={`px-2 py-1 rounded-md text-[10px] font-bold border transition-all ${sec.assignmentMode === 'manual'
+                                ? 'bg-violet-50 border-violet-400 text-violet-700 hover:bg-violet-100'
+                                : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-100'
+                                }`}
                             >
                               {sec.assignmentMode === 'auto' ? '🎯 Manual Pick' : '⚡ Auto Range'}
                             </button>
@@ -1005,13 +1017,12 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                                         : [...sec.manualQuestionIds, qId];
                                       setSections(sections.map(s => s.id === sec.id ? { ...s, manualQuestionIds: newIds } : s));
                                     }}
-                                    className={`px-2 py-1 rounded-md text-[10px] font-bold border transition-all ${
-                                      usedInOther
-                                        ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
-                                        : isSelected
-                                          ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
-                                          : 'bg-white border-slate-300 text-slate-600 hover:border-indigo-400 hover:text-indigo-700'
-                                    }`}
+                                    className={`px-2 py-1 rounded-md text-[10px] font-bold border transition-all ${usedInOther
+                                      ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                                      : isSelected
+                                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                                        : 'bg-white border-slate-300 text-slate-600 hover:border-indigo-400 hover:text-indigo-700'
+                                      }`}
                                   >
                                     Q{qIdx + 1}
                                   </button>
@@ -1217,7 +1228,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
         <h3 className="text-sm font-black text-rose-900 flex items-center space-x-2 border-b border-rose-200 pb-3">
           <span>🔒 Privacy & Access Control (Targeted Exams)</span>
         </h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-700 flex flex-col">
@@ -1238,12 +1249,12 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               <span>🎯 Allowed Emails Whitelist (Optional)</span>
               <span className="text-[10px] font-normal text-slate-500">Add candidates allowed to attempt. Leave empty for public.</span>
             </label>
-            
+
             {/* Tag Container */}
             <div className="flex flex-wrap gap-1.5 p-2 border border-slate-200 rounded-xl bg-white focus-within:border-rose-400 min-h-[42px] items-center relative transition-all">
               {allowedEmails.map((email) => (
-                <span 
-                  key={email} 
+                <span
+                  key={email}
                   className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-100 text-xs font-bold text-indigo-700 animate-in zoom-in-95 duration-150"
                 >
                   <span>{email}</span>
@@ -1256,7 +1267,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                   </button>
                 </span>
               ))}
-              
+
               <input
                 type="text"
                 value={emailInput}
@@ -1305,8 +1316,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                 onBlur={(e) => {
                   const val = parseInt(e.target.value);
                   if (val > 0) {
-                     setQuestions(prev => prev.map(q => ({...q, marks: val})));
-                     e.target.value = ''; // clear after apply
+                    setQuestions(prev => prev.map(q => ({ ...q, marks: val })));
+                    e.target.value = ''; // clear after apply
                   }
                 }}
                 onKeyDown={(e) => {
@@ -1323,18 +1334,17 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
         {questions.map((q, qIndex) => (
           <div
             key={q.tempId}
-            className={`p-6 rounded-2xl space-y-4 border bg-white shadow-xs transition-all ${
-              q.questionText && q.options.length >= 2
-                ? 'border-slate-200'
-                : 'border-amber-300 bg-amber-50/20'
-            }`}
+            className={`p-6 rounded-2xl space-y-4 border bg-white shadow-xs transition-all ${q.questionText && q.options.length >= 2
+              ? 'border-slate-200'
+              : 'border-amber-300 bg-amber-50/20'
+              }`}
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center space-x-2">
                 <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center justify-center text-xs font-bold font-mono">
                   {qIndex + 1}
                 </span>
-                
+
                 {/* Question Type Selector */}
                 <select
                   value={q.questionType || 'mcq'}
@@ -1417,7 +1427,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                 <span className="text-[11px] font-bold text-slate-500 flex items-center space-x-1 flex-shrink-0">
                   <span>📷 Diagram / Image:</span>
                 </span>
-                
+
                 <input
                   type="text"
                   value={q.imageUrl || ''}
@@ -1524,11 +1534,10 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                 return (
                   <div
                     key={opt.id}
-                    className={`p-2.5 rounded-xl border flex items-center space-x-3 transition-all ${
-                      isCorrect
-                        ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-bold shadow-2xs'
-                        : 'bg-slate-50 border-slate-200 text-slate-700'
-                    }`}
+                    className={`p-2.5 rounded-xl border flex items-center space-x-3 transition-all ${isCorrect
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-bold shadow-2xs'
+                      : 'bg-slate-50 border-slate-200 text-slate-700'
+                      }`}
                   >
                     <label className="cursor-pointer flex items-center space-x-2 flex-shrink-0">
                       <input
@@ -1544,9 +1553,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                         }}
                         className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 bg-white border-slate-300 rounded"
                       />
-                      <span className={`w-6 h-6 rounded-md font-bold text-xs flex items-center justify-center ${
-                        isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'
-                      }`}>
+                      <span className={`w-6 h-6 rounded-md font-bold text-xs flex items-center justify-center ${isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'
+                        }`}>
                         {opt.id}
                       </span>
                     </label>

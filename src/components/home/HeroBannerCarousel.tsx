@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Sparkles, ArrowRight, Play, Pause, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowRight, Play, Pause, X } from 'lucide-react';
 import type { Quiz } from '../../types/quiz';
 
 export interface BannerItem {
@@ -32,19 +32,18 @@ export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({
   const [banners, setBanners] = useState<BannerItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [dismissedMap, setDismissedMap] = useState<Record<number, boolean>>({});
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const getBaseUrl = () => {
     if (apiBaseUrl) return apiBaseUrl;
-    const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-    return `http://${host}:5050/api`;
+    return '/api';
   };
 
   const fetchBanners = async () => {
     try {
-      // Strictly fetch hero-specific banners ONLY - never bleed other slot types
       const res = await fetch(`${getBaseUrl()}/banners?slot=hero&_t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
@@ -75,34 +74,43 @@ export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({
     };
   }, []);
 
-  // Auto-advance carousel every 6 seconds
+  const visibleBanners = banners.filter((b) => !dismissedMap[b.id]);
+
   useEffect(() => {
-    if (banners.length <= 1 || isPaused) {
+    if (visibleBanners.length <= 1 || isPaused) {
       if (timerRef.current) clearInterval(timerRef.current);
       return;
     }
 
     timerRef.current = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % banners.length);
+      setCurrentIndex((prev) => (prev + 1) % visibleBanners.length);
     }, 6000);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [banners.length, isPaused]);
+  }, [visibleBanners.length, isPaused]);
 
-  if (banners.length === 0) return null;
+  if (visibleBanners.length === 0) return null;
 
-  const currentBanner = banners[currentIndex];
+  const activeIndex = currentIndex >= visibleBanners.length ? 0 : currentIndex;
+  const currentBanner = visibleBanners[activeIndex];
+
+  const handleDismiss = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (currentBanner) {
+      setDismissedMap((prev) => ({ ...prev, [currentBanner.id]: true }));
+    }
+  };
 
   const handlePrev = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setCurrentIndex((prev) => (prev - 1 + banners.length) % banners.length);
+    setCurrentIndex((prev) => (prev - 1 + visibleBanners.length) % visibleBanners.length);
   };
 
   const handleNext = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setCurrentIndex((prev) => (prev + 1) % banners.length);
+    setCurrentIndex((prev) => (prev + 1) % visibleBanners.length);
   };
 
   const handleCtaClick = () => {
@@ -115,21 +123,20 @@ export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({
     }
 
     if (currentBanner.ctaLink && currentBanner.ctaLink !== '/') {
-      if (currentBanner.ctaLink.startsWith('http')) {
-        window.open(currentBanner.ctaLink, '_blank', 'noopener,noreferrer');
-      } else {
-        window.location.href = currentBanner.ctaLink;
+      const trimmedLink = currentBanner.ctaLink.trim();
+      if (trimmedLink.startsWith('https://') || trimmedLink.startsWith('http://')) {
+        window.open(trimmedLink, '_blank', 'noopener,noreferrer');
+      } else if (trimmedLink.startsWith('/') && !trimmedLink.startsWith('//')) {
+        window.location.href = trimmedLink;
       }
       return;
     }
 
-    // Default action: Start first available published quiz
-    if (quizzes.length > 0) {
+    if (quizzes.length > 0 && currentBanner.quizId) {
       onSelectQuiz(quizzes[0]);
     }
   };
 
-  // Touch Swipe Handlers
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStart(e.targetTouches[0].clientX);
   };
@@ -151,131 +158,153 @@ export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({
     setTouchEnd(null);
   };
 
+  const cleanBadge = currentBanner.badgeText?.trim() || '';
+  const cleanTitle = currentBanner.title?.trim() || '';
+  const cleanSubtitle = currentBanner.subtitle?.trim() || '';
+  const cleanCta = currentBanner.ctaText?.trim() || '';
+
+  const showOverlay =
+    !currentBanner.imageOnly &&
+    Boolean(cleanBadge || cleanTitle || cleanSubtitle || cleanCta);
+
   return (
     <div
-      className="relative w-full rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-800/80 bg-slate-950 text-white shadow-xl group select-none"
+      className="relative w-full rounded-xl overflow-hidden border border-slate-200 bg-white shadow-xs group select-none"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Background Hero Image with Layered Gradient Overlays */}
-      <div className="relative w-full min-h-[220px] xs:min-h-[260px] sm:min-h-[300px] md:min-h-[340px] flex items-center">
+      <div
+        onClick={!showOverlay ? handleCtaClick : undefined}
+        className={`relative w-full min-h-[190px] sm:min-h-[260px] md:min-h-[310px] flex items-center ${
+          !showOverlay ? 'cursor-pointer' : ''
+        }`}
+      >
         <img
           src={currentBanner.imageUrl}
-          alt={currentBanner.title}
-          className="absolute inset-0 w-full h-full object-cover object-center transform transition-transform duration-1000 ease-out scale-100 group-hover:scale-105 opacity-90 sm:opacity-95"
+          alt={cleanTitle || 'Banner'}
+          className="absolute inset-0 w-full h-full object-cover object-center"
         />
 
-        {/* Soft Directional Left Scrim - Keeps photo bright and crystal clear while ensuring text contrast */}
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/60 to-transparent sm:w-3/5 pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-transparent pointer-events-none sm:hidden" />
+        {/* Render text scrim and overlays ONLY when non-imageOnly text exists */}
+        {showOverlay && (
+          <>
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/75 via-slate-950/35 to-transparent sm:w-3/5 pointer-events-none" />
+            <div className="relative z-10 w-full max-w-3xl p-5 sm:p-10 md:p-12 space-y-3">
+              {cleanBadge && (
+                <span className="inline-block px-2.5 py-0.5 rounded-md bg-white/90 text-slate-900 text-[11px] font-semibold tracking-wide uppercase">
+                  {cleanBadge}
+                </span>
+              )}
 
-        {/* Content Container - Responsive padding avoids overlap on all devices */}
-        <div className="relative z-10 w-full max-w-4xl p-4 xs:p-6 sm:p-10 md:p-12 space-y-3 sm:space-y-4 px-4 sm:px-14 md:px-16">
-          {/* Badge & Carousel Status */}
-          <div className="flex items-center space-x-2">
-            <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-indigo-600/90 text-white text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-wider border border-indigo-400/40 shadow-xs">
-              <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-200" />
-              <span>{currentBanner.badgeText || 'SPECIAL SPOTLIGHT'}</span>
-            </span>
+              {(cleanTitle || cleanSubtitle) && (
+                <div className="space-y-1.5 max-w-xl">
+                  {cleanTitle && (
+                    <h2 className="text-lg sm:text-2xl md:text-3xl font-bold text-white tracking-tight leading-snug drop-shadow-xs break-words">
+                      {cleanTitle}
+                    </h2>
+                  )}
+                  {cleanSubtitle && (
+                    <p className="text-xs sm:text-sm text-slate-100/90 font-normal leading-relaxed line-clamp-2 sm:line-clamp-3">
+                      {cleanSubtitle}
+                    </p>
+                  )}
+                </div>
+              )}
 
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-800/80 text-slate-300 text-[9px] sm:text-[10px] font-mono border border-slate-700">
-              {currentIndex + 1} / {banners.length}
-            </span>
-          </div>
+              {cleanCta && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={handleCtaClick}
+                    className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <span>{cleanCta}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
-          {/* Headline & Description */}
-          <div className="space-y-1.5 sm:space-y-2 max-w-2xl">
-            <h2 className="text-base xs:text-lg sm:text-2xl md:text-3xl lg:text-4xl font-extrabold text-white tracking-tight leading-snug drop-shadow-md break-words">
-              {currentBanner.title}
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed line-clamp-2 sm:line-clamp-3">
-              {currentBanner.subtitle}
-            </p>
-          </div>
+        {/* Dismiss (✕) Button when Allow Close is checked */}
+        {currentBanner.allowDismiss !== false && (
+          <button
+            type="button"
+            onClick={handleDismiss}
+            aria-label="Close banner"
+            className="absolute top-3 right-3 z-30 p-1.5 rounded-full bg-white/85 hover:bg-white text-slate-700 hover:text-slate-950 border border-slate-200 transition-colors cursor-pointer shadow-xs"
+            title="Close banner"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
 
-          {/* CTA Buttons */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-1 sm:pt-2">
-            <button
-              onClick={handleCtaClick}
-              className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-98 text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-indigo-500/25 flex items-center space-x-2 transition-all cursor-pointer"
-            >
-              <span>{currentBanner.ctaText || 'Take Test Now'}</span>
-              <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-
-            {currentBanner.quizId && (
-              <span className="text-[10px] sm:text-[11px] font-mono text-slate-400 truncate max-w-[200px]">
-                Code: <span className="text-indigo-300 font-bold">{currentBanner.quizId}</span>
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Carousel Navigation Arrows - Hidden on small mobile screens to prevent text overlap, visible on tablet+ */}
-        {banners.length > 1 && (
+        {/* Carousel Navigation Arrows (shown only when >1 banner exists) */}
+        {visibleBanners.length > 1 && (
           <>
             <button
               type="button"
               onClick={handlePrev}
               aria-label="Previous Banner"
-              className="hidden sm:flex absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-2.5 rounded-full bg-slate-900/90 hover:bg-indigo-600 active:scale-95 text-white border border-slate-700 hover:border-indigo-400 transition-all cursor-pointer shadow-xl backdrop-blur-xs items-center justify-center opacity-80 hover:opacity-100"
+              className="hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-white/90 hover:bg-white text-slate-800 border border-slate-200 transition-all cursor-pointer shadow-sm items-center justify-center opacity-0 group-hover:opacity-100"
             >
-              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+              <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               type="button"
               onClick={handleNext}
               aria-label="Next Banner"
-              className="hidden sm:flex absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-2.5 rounded-full bg-slate-900/90 hover:bg-indigo-600 active:scale-95 text-white border border-slate-700 hover:border-indigo-400 transition-all cursor-pointer shadow-xl backdrop-blur-xs items-center justify-center opacity-80 hover:opacity-100"
+              className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-white/90 hover:bg-white text-slate-800 border border-slate-200 transition-all cursor-pointer shadow-sm items-center justify-center opacity-0 group-hover:opacity-100"
             >
-              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+              <ChevronRight className="w-4 h-4" />
             </button>
           </>
         )}
       </div>
 
-      {/* Bottom Dots & Controls - Includes mobile arrow toggles */}
-      {banners.length > 1 && (
-        <div className="absolute bottom-2.5 right-3 sm:bottom-3 sm:right-6 z-20 flex items-center space-x-1.5 sm:space-x-2 bg-slate-950/80 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border border-slate-800/80 backdrop-blur-xs">
-          {/* Mobile Previous Button */}
+      {/* Bottom Pagination Dots (only when >1 banner) */}
+      {visibleBanners.length > 1 && (
+        <div className="absolute bottom-2.5 right-3 sm:bottom-3 sm:right-4 z-20 flex items-center gap-1.5 bg-slate-900/65 px-2.5 py-1 rounded-full backdrop-blur-xs">
           <button
             type="button"
             onClick={handlePrev}
             aria-label="Previous Slide"
-            className="sm:hidden p-1 text-slate-400 hover:text-white"
+            className="sm:hidden p-0.5 text-white/80 hover:text-white"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
           </button>
 
-          {banners.map((_, idx) => (
+          {visibleBanners.map((_, idx) => (
             <button
               key={idx}
+              type="button"
               onClick={() => setCurrentIndex(idx)}
               aria-label={`Go to slide ${idx + 1}`}
               className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                currentIndex === idx
-                  ? 'w-5 sm:w-6 bg-indigo-500'
-                  : 'w-1.5 sm:w-2 bg-slate-600 hover:bg-slate-400'
+                activeIndex === idx
+                  ? 'w-5 bg-white'
+                  : 'w-1.5 bg-white/50 hover:bg-white/80'
               }`}
             />
           ))}
 
-          {/* Mobile Next Button */}
           <button
             type="button"
             onClick={handleNext}
             aria-label="Next Slide"
-            className="sm:hidden p-1 text-slate-400 hover:text-white"
+            className="sm:hidden p-0.5 text-white/80 hover:text-white"
           >
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
 
           <button
+            type="button"
             onClick={() => setIsPaused(!isPaused)}
-            className="text-slate-400 hover:text-white p-0.5 ml-1"
+            className="text-white/80 hover:text-white p-0.5 ml-0.5"
             title={isPaused ? 'Resume Auto-Scroll' : 'Pause Auto-Scroll'}
           >
             {isPaused ? <Play className="w-2.5 h-2.5" /> : <Pause className="w-2.5 h-2.5" />}

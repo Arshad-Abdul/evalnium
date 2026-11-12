@@ -7,7 +7,8 @@ import { AnnouncementManager } from './AnnouncementManager';
 import { BannerManager } from './BannerManager';
 import { AuditLogsManager } from './AuditLogsManager';
 import { CandidateResponseModal } from './CandidateResponseModal';
-import { Plus, Trash2, FileDown, Layers, Sparkles, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, Trophy, LogOut, Globe, Radio, Laptop, Smartphone, Monitor, ShieldCheck, UserCheck, Search, Filter, RefreshCw, Compass, MapPin, Download, Image as ImageIcon, BarChart2, Calendar, TrendingUp, History, Terminal } from 'lucide-react';
+import { EmailManager } from './EmailManager';
+import { Plus, Trash2, FileDown, Layers, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, Trophy, LogOut, Globe, Radio, Laptop, Smartphone, Monitor, ShieldCheck, UserCheck, Search, Filter, RefreshCw, Compass, MapPin, Download, Image as ImageIcon, BarChart2, Calendar, TrendingUp, History, Terminal, Mail, Phone, Briefcase, Building2, GraduationCap } from 'lucide-react';
 import { getStoredResults } from '../../utils/storage';
 
 interface AdminDashboardProps {
@@ -27,16 +28,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onSaveQuiz,
   onDeleteQuiz,
   onTogglePublish,
-  onSaveAnnouncement = () => {},
-  onDeleteAnnouncement = () => {},
+  onSaveAnnouncement = () => { },
+  onDeleteAnnouncement = () => { },
   onLogout,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'import' | 'manage' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users' | 'visitors' | 'banners' | 'audit'>('overview');
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'import' | 'manage' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users' | 'visitors' | 'banners' | 'audit' | 'emails'>('overview');
   const [liveSessions, setLiveSessions] = useState<any[]>([]);
-  const [registeredUsers, setRegisteredUsers] = useState<Array<{ uid: string; name: string; email: string; role: string; createdAt: string }>>([]);
+  const [registeredUsers, setRegisteredUsers] = useState<Array<{
+    uid: string;
+    name: string;
+    email: string;
+    role: string;
+    phone?: string;
+    institution?: string;
+    gender?: string;
+    occupationStatus?: string;
+    designation?: string;
+    universityInstitute?: string;
+    city?: string;
+    address?: string;
+    createdAt: string;
+  }>>([]);
   const [expandedCandidate, setExpandedCandidate] = useState<string | null>(null);
   const [deletedResultIds, setDeletedResultIds] = useState<Set<string>>(new Set());
-  
+
   // Visitor Telemetry State
   const [visitorsData, setVisitorsData] = useState<{
     activeVisitors: any[];
@@ -61,20 +76,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [visitorFilter, setVisitorFilter] = useState<'all' | 'registered' | 'guest' | 'active'>('all');
   const [visitorTimeRange, setVisitorTimeRange] = useState<'all' | 'today' | 'yesterday' | '7days' | '30days'>('all');
   const [visitorSearch, setVisitorSearch] = useState('');
+  const [visitorPage, setVisitorPage] = useState(1);
+  const [visitorLimit, setVisitorLimit] = useState(10);
   const [purgingLogs, setPurgingLogs] = useState(false);
-  
+
   // Executive Dashboard Stats State
   const [stats, setStats] = useState<any | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
 
   const getApiBaseUrl = () => {
-    const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-    return `http://${host}:5050/api`;
+    if (typeof window !== 'undefined') {
+      return '/api';
+    }
+    return 'http://localhost:5050/api';
   };
 
   const fetchAdminStats = async () => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/admin/stats`);
+      const res = await fetch(`${getApiBaseUrl()}/admin/stats`, {
+        credentials: 'include'
+      });
       if (res.ok) {
         setStats(await res.json());
       }
@@ -93,7 +114,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const fetchVisitors = async (rangeOverride?: string) => {
     try {
       const activeRange = rangeOverride !== undefined ? rangeOverride : visitorTimeRange;
-      const res = await fetch(`${getApiBaseUrl()}/admin/visitors?range=${activeRange}`);
+      const res = await fetch(`${getApiBaseUrl()}/admin/visitors?range=${activeRange}`, {
+        credentials: 'include'
+      });
       if (res.ok) {
         setVisitorsData(await res.json());
       }
@@ -114,6 +137,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setPurgingLogs(true);
       const res = await fetch(`${getApiBaseUrl()}/admin/visitors/purge?days=${days}`, {
         method: 'DELETE',
+        credentials: 'include'
       });
       if (res.ok) {
         const data = await res.json();
@@ -136,7 +160,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     } else if (activeSubTab === 'live') {
       const fetchLive = async () => {
         try {
-          const res = await fetch(`${getApiBaseUrl()}/sessions/live`);
+          const res = await fetch(`${getApiBaseUrl()}/sessions/live`, {
+            credentials: 'include'
+          });
           const data = await res.json();
           setLiveSessions(data);
         } catch (e) {
@@ -158,13 +184,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/users`);
+      const res = await fetch(`${getApiBaseUrl()}/users`, {
+        credentials: 'include'
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.length === 0) {
           // If empty, trigger auto sync once to pull from test results
-          await fetch(`${getApiBaseUrl()}/users/sync`, { method: 'POST' });
-          const syncRes = await fetch(`${getApiBaseUrl()}/users`);
+          await fetch(`${getApiBaseUrl()}/users/sync`, { 
+            method: 'POST',
+            credentials: 'include'
+          });
+          const syncRes = await fetch(`${getApiBaseUrl()}/users`, {
+            credentials: 'include'
+          });
           if (syncRes.ok) {
             setRegisteredUsers(await syncRes.json());
             return;
@@ -179,7 +212,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSyncUsers = async () => {
     try {
-      await fetch(`${getApiBaseUrl()}/users/sync`, { method: 'POST' });
+      await fetch(`${getApiBaseUrl()}/users/sync`, { 
+        method: 'POST',
+        credentials: 'include'
+      });
       await fetchUsers();
     } catch (e) {
       console.error('Error syncing users:', e);
@@ -191,7 +227,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
     try {
-      const res = await fetch(`${getApiBaseUrl()}/users/${uid}`, { method: 'DELETE' });
+      const res = await fetch(`${getApiBaseUrl()}/users/${uid}`, { 
+        method: 'DELETE',
+        credentials: 'include'
+      });
       if (res.ok) {
         setRegisteredUsers(prev => prev.filter(u => u.uid !== uid));
       } else {
@@ -203,6 +242,69 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  // Candidate / User Accounts Management State
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userCategoryFilter, setUserCategoryFilter] = useState('all');
+  const [userGenderFilter, setUserGenderFilter] = useState('all');
+  const [userPage, setUserPage] = useState(1);
+  const [userLimit, setUserLimit] = useState(10);
+
+  const filteredUsers = registeredUsers.filter(u => {
+    const query = userSearchQuery.toLowerCase().trim();
+    const matchesSearch = !query ||
+      (u.name && u.name.toLowerCase().includes(query)) ||
+      (u.email && u.email.toLowerCase().includes(query)) ||
+      (u.phone && u.phone.includes(query)) ||
+      (u.city && u.city.toLowerCase().includes(query)) ||
+      (u.universityInstitute && u.universityInstitute.toLowerCase().includes(query));
+
+    const matchesCategory = userCategoryFilter === 'all' ||
+      (u.occupationStatus && u.occupationStatus.toLowerCase() === userCategoryFilter.toLowerCase());
+
+    const matchesGender = userGenderFilter === 'all' ||
+      (u.gender && u.gender.toLowerCase() === userGenderFilter.toLowerCase());
+
+    return matchesSearch && matchesCategory && matchesGender;
+  });
+
+  const totalUserPages = Math.ceil(filteredUsers.length / userLimit) || 1;
+  const paginatedUsers = filteredUsers.slice((userPage - 1) * userLimit, userPage * userLimit);
+
+  // Demographic Statistics Aggregates
+  const totalRegisteredCount = registeredUsers.length;
+  const studentCount = registeredUsers.filter(u => !u.occupationStatus || u.occupationStatus.toLowerCase() === 'student').length;
+  const professionalCount = registeredUsers.filter(u => u.occupationStatus && u.occupationStatus.toLowerCase() === 'working professional').length;
+  const traineeInternCount = registeredUsers.filter(u => u.occupationStatus && (u.occupationStatus.toLowerCase() === 'trainee' || u.occupationStatus.toLowerCase() === 'intern')).length;
+
+  const handleExportCandidatesCsv = () => {
+    if (filteredUsers.length === 0) return;
+    const headers = ['UID', 'Name', 'Email', 'Phone', 'Gender', 'Category / Occupation', 'Designation', 'University / Institute', 'City', 'Role', 'Joined Date'];
+    const rows = [headers.join(',')];
+    filteredUsers.forEach(u => {
+      rows.push([
+        u.uid,
+        `"${(u.name || '').replace(/"/g, '""')}"`,
+        `"${(u.email || '').replace(/"/g, '""')}"`,
+        `"${(u.phone || '').replace(/"/g, '""')}"`,
+        `"${(u.gender || 'N/A').replace(/"/g, '""')}"`,
+        `"${(u.occupationStatus || 'Student').replace(/"/g, '""')}"`,
+        `"${(u.designation || 'N/A').replace(/"/g, '""')}"`,
+        `"${(u.universityInstitute || 'N/A').replace(/"/g, '""')}"`,
+        `"${(u.city || 'N/A').replace(/"/g, '""')}"`,
+        u.role || 'candidate',
+        `"${u.createdAt ? new Date(u.createdAt).toLocaleString() : 'N/A'}"`
+      ].join(','));
+    });
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `evalnium_candidates_demographics_report_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const [parsedResult, setParsedResult] = useState<{ res: ParseResult; sourceName: string } | null>(null);
   const [viewingResult, setViewingResult] = useState<QuizAttemptResult | null>(null);
 
@@ -211,14 +313,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleDeleteResult = async (resultId: string, candidateName: string) => {
     if (!confirm(`Delete this attempt by "${candidateName}"? This cannot be undone.`)) return;
     try {
-      await fetch(`${getApiBaseUrl()}/results/${resultId}`, { method: 'DELETE' });
+      await fetch(`${getApiBaseUrl()}/results/${resultId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
       setDeletedResultIds(prev => new Set([...prev, resultId]));
       // Also remove from localStorage cache
       const RESULTS_KEY = 'evalnium_results_v3';
       try {
         const cached = JSON.parse(localStorage.getItem(RESULTS_KEY) || '[]');
         localStorage.setItem(RESULTS_KEY, JSON.stringify(cached.filter((r: { id: string }) => r.id !== resultId)));
-      } catch {}
+      } catch { }
     } catch {
       alert('Failed to delete result. Check server connection.');
     }
@@ -255,6 +360,81 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   });
 
   const candidateList = Object.values(candidateStatsMap);
+
+  // Candidate Performance Inspector State & Pagination
+  const [candidateSearchQuery, setCandidateSearchQuery] = useState('');
+  const [candidatePerformanceFilter, setCandidatePerformanceFilter] = useState<'all' | 'passed' | 'needs_improvement'>('all');
+  const [candidatePage, setCandidatePage] = useState(1);
+  const [candidateLimit, setCandidateLimit] = useState(10);
+
+  const filteredCandidateList = candidateList.filter(cand => {
+    const q = candidateSearchQuery.toLowerCase().trim();
+    const matchesSearch = !q ||
+      cand.candidateName.toLowerCase().includes(q) ||
+      cand.candidateEmail.toLowerCase().includes(q);
+
+    const avg = cand.totalAttempts > 0 ? Math.round(cand.totalScorePctSum / cand.totalAttempts) : 0;
+    const matchesPerf = candidatePerformanceFilter === 'all' ||
+      (candidatePerformanceFilter === 'passed' && avg >= 60) ||
+      (candidatePerformanceFilter === 'needs_improvement' && avg < 60);
+
+    return matchesSearch && matchesPerf;
+  });
+
+  const totalCandidatePages = Math.ceil(filteredCandidateList.length / candidateLimit) || 1;
+  const paginatedCandidateList = filteredCandidateList.slice((candidatePage - 1) * candidateLimit, candidatePage * candidateLimit);
+
+  // Exams Registry Pagination & Filter State
+  const [quizSearchQuery, setQuizSearchQuery] = useState('');
+  const [quizStatusFilter, setQuizStatusFilter] = useState<'all' | 'published' | 'draft'>('all');
+  const [quizPage, setQuizPage] = useState(1);
+  const [quizLimit, setQuizLimit] = useState(10);
+
+  const filteredQuizzes = quizzes.filter(quiz => {
+    const q = quizSearchQuery.toLowerCase().trim();
+    const matchesSearch = !q ||
+      (quiz.title && quiz.title.toLowerCase().includes(q)) ||
+      (quiz.topic && quiz.topic.toLowerCase().includes(q)) ||
+      (quiz.description && quiz.description.toLowerCase().includes(q));
+
+    const matchesStatus = quizStatusFilter === 'all' ||
+      (quizStatusFilter === 'published' && quiz.isPublished) ||
+      (quizStatusFilter === 'draft' && !quiz.isPublished);
+
+    return matchesSearch && matchesStatus;
+  });
+
+  const totalQuizPages = Math.ceil(filteredQuizzes.length / quizLimit) || 1;
+  const paginatedQuizzes = filteredQuizzes.slice((quizPage - 1) * quizLimit, quizPage * quizLimit);
+
+  // Visitor Telemetry Pagination & Slicing
+  const allVisitorLogs = visitorsData?.recentVisitorLogs || [];
+  const activeVisitorSessionIds = new Set((visitorsData?.activeVisitors || []).map(a => a.sessionId));
+
+  const filteredVisitorLogs = allVisitorLogs.filter(v => {
+    const isActive = activeVisitorSessionIds.has(v.sessionId);
+    if (visitorFilter === 'active' && !isActive) return false;
+    if (visitorFilter === 'registered' && !v.isRegistered) return false;
+    if (visitorFilter === 'guest' && v.isRegistered) return false;
+
+    if (visitorSearch.trim()) {
+      const q = visitorSearch.toLowerCase();
+      const matchName = (v.candidateName || '').toLowerCase().includes(q);
+      const matchEmail = (v.candidateEmail || '').toLowerCase().includes(q);
+      const matchIp = (v.ipAddress || '').toLowerCase().includes(q);
+      const matchCountry = (v.country || '').toLowerCase().includes(q);
+      const matchOs = (v.os || '').toLowerCase().includes(q);
+      const matchBrowser = (v.browser || '').toLowerCase().includes(q);
+      const matchPage = (v.currentPage || '').toLowerCase().includes(q);
+      if (!matchName && !matchEmail && !matchIp && !matchCountry && !matchOs && !matchBrowser && !matchPage) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const totalVisitorPages = Math.ceil(filteredVisitorLogs.length / visitorLimit) || 1;
+  const paginatedVisitorLogs = filteredVisitorLogs.slice((visitorPage - 1) * visitorLimit, visitorPage * visitorLimit);
 
   const handleParsed = (res: ParseResult, sourceName: string) => {
     setParsedResult({ res, sourceName });
@@ -353,327 +533,326 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     );
   }
 
+  type AdminSubTab = 'overview' | 'import' | 'manage' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users' | 'visitors' | 'banners' | 'audit' | 'emails';
+
+  const navGroups: Array<{
+    id: 'overview' | 'exams' | 'candidates_group' | 'comms' | 'monitoring';
+    label: string;
+    icon: React.ReactNode;
+    defaultTab: AdminSubTab;
+    badge?: string | number;
+    items: Array<{ id: AdminSubTab; label: string; count?: number }>;
+  }> = [
+    {
+      id: 'overview',
+      label: 'Overview',
+      icon: <BarChart2 className="w-4 h-4" />,
+      defaultTab: 'overview',
+      items: [{ id: 'overview', label: 'Overview' }],
+    },
+    {
+      id: 'exams',
+      label: 'Exams',
+      icon: <Layers className="w-4 h-4" />,
+      defaultTab: 'manage',
+      badge: quizzes.length,
+      items: [
+        { id: 'manage', label: 'Exam Papers', count: quizzes.length },
+        { id: 'import', label: 'Import / Create' },
+      ],
+    },
+    {
+      id: 'candidates_group',
+      label: 'Candidates',
+      icon: <Users className="w-4 h-4" />,
+      defaultTab: 'users',
+      badge: registeredUsers.length || undefined,
+      items: [
+        { id: 'users', label: 'User Accounts', count: registeredUsers.length },
+        { id: 'candidates', label: 'Score Stats', count: candidateList.length },
+      ],
+    },
+    {
+      id: 'comms',
+      label: 'Content & Comms',
+      icon: <Megaphone className="w-4 h-4" />,
+      defaultTab: 'banners',
+      items: [
+        { id: 'banners', label: 'Banners & Ads' },
+        { id: 'announcements', label: 'Notices', count: announcements.length },
+        { id: 'emails', label: 'Email Campaigns' },
+      ],
+    },
+    {
+      id: 'monitoring',
+      label: 'Monitoring',
+      icon: <Activity className="w-4 h-4" />,
+      defaultTab: 'live',
+      badge: liveSessions.length > 0 ? `${liveSessions.length} live` : undefined,
+      items: [
+        { id: 'live', label: 'Live Exams', count: liveSessions.length || undefined },
+        { id: 'visitors', label: 'Visitor Traffic' },
+        { id: 'audit', label: 'Activity Logs' },
+        { id: 'mysql', label: 'System Status' },
+      ],
+    },
+  ];
+
+  const activeGroup = navGroups.find((g) => g.items.some((i) => i.id === activeSubTab)) || navGroups[0];
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      {/* Top Banner Navigation */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-        <div>
-          <div className="flex items-center space-x-2">
-            <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-mono font-bold uppercase tracking-wider border border-indigo-200">
-              EXECUTIVE COMMAND CENTER
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold border border-emerald-200">
-              MySQL 5050 Live
-            </span>
-          </div>
-          <h1 className="text-2xl font-black text-slate-900 flex flex-wrap items-center gap-3 mt-1">
-            <div className="flex items-center space-x-2">
-              <Sparkles className="w-6 h-6 text-indigo-600" />
-              <span>Admin Examination Command Studio</span>
-            </div>
-            {onLogout && (
-              <button
-                onClick={onLogout}
-                className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer shadow-2xs"
-                title="Lock Admin Studio and Log Out"
-              >
-                <LogOut className="w-3.5 h-3.5 text-rose-600" />
-                <span>Exit / Lock Studio</span>
-              </button>
-            )}
+    <div className="space-y-4">
+      {/* Compact Admin Top Bar */}
+      <div className="bg-white rounded-xl border border-slate-200 px-4 py-3 sm:px-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+            Admin Console
           </h1>
-          <p className="text-xs text-slate-500 font-medium mt-1">
-            Convert documents into exams, configure sectional rules, edit live test papers, and inspect candidate statistics.
-          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => setActiveSubTab('overview')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeSubTab === 'overview'
-                ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Overview
-          </button>
-          
-          <button
+            type="button"
             onClick={() => setActiveSubTab('import')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeSubTab === 'import'
-                ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
+            className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            Import Quiz
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Exam</span>
           </button>
-          
-          <button
-            onClick={() => setActiveSubTab('manage')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeSubTab === 'manage'
-                ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Exams Registry ({quizzes.length})
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('candidates')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center space-x-1 transition-all ${
-              activeSubTab === 'candidates'
-                ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Candidate Stats ({candidateList.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('users')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center space-x-1 transition-all ${
-              activeSubTab === 'users'
-                ? 'bg-white text-rose-700 shadow-xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5 text-rose-600" />
-            <span>User Accounts</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('banners')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center space-x-1 transition-all ${
-              activeSubTab === 'banners'
-                ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <ImageIcon className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Showcase Banners</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('announcements')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center space-x-1 transition-all ${
-              activeSubTab === 'announcements'
-                ? 'bg-white text-amber-700 shadow-xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Megaphone className="w-3.5 h-3.5 text-amber-600" />
-            <span>Notices</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('visitors')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all ${
-              activeSubTab === 'visitors'
-                ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Globe className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Visitor Radar</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block ml-0.5" />
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('mysql')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center space-x-1 transition-all ${
-              activeSubTab === 'mysql'
-                ? 'bg-white text-emerald-700 shadow-xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Database className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Database Studio</span>
-          </button>
-          <button
-            onClick={() => setActiveSubTab('audit')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all ${
-              activeSubTab === 'audit'
-                ? 'bg-slate-950 text-emerald-400 shadow-xs border border-slate-800'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Terminal className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Audit & Terminal</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block ml-0.5" />
-          </button>
-          <button
-            onClick={() => setActiveSubTab('live')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border shadow-xs flex items-center space-x-2 ${
-              activeSubTab === 'live'
-                ? 'bg-rose-600 text-white border-rose-600'
-                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span>Live Exams Tracker</span>
-          </button>
+          {onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              className="px-3 py-1.5 rounded-lg bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 hover:border-rose-200 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sign Out</span>
+            </button>
+          )}
         </div>
       </div>
 
+      {/* Mobile Section Navigation */}
+      <div className="flex lg:hidden items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+        {navGroups.map((group) => {
+          const isSelected = activeGroup.id === group.id;
+          return (
+            <button
+              key={group.id}
+              type="button"
+              onClick={() => setActiveSubTab(group.defaultTab)}
+              className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap border transition-colors cursor-pointer ${
+                isSelected
+                  ? 'bg-slate-900 text-white border-slate-900'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              {group.icon}
+              <span>{group.label}</span>
+              {group.badge !== undefined && (
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                  {group.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Main Workspace: Clean Left Sidebar + Content */}
+      <div className="flex flex-col lg:flex-row gap-5 items-start">
+        <aside className="hidden lg:flex flex-col w-56 shrink-0 bg-white rounded-xl border border-slate-200 p-2 space-y-0.5 sticky top-20">
+          {navGroups.map((group) => {
+            const isSelected = activeGroup.id === group.id;
+            return (
+              <button
+                key={group.id}
+                type="button"
+                onClick={() => setActiveSubTab(group.defaultTab)}
+                className={`w-full px-3 py-2.5 rounded-lg text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                  isSelected
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                <span className="flex items-center gap-2.5">
+                  <span className={isSelected ? 'text-white' : 'text-slate-400'}>{group.icon}</span>
+                  <span>{group.label}</span>
+                </span>
+                {group.badge !== undefined && (
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
+                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {group.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </aside>
+
+        <div className="flex-1 min-w-0 w-full space-y-4">
+          {/* Sub-tab Strip inside grouped sections */}
+          {activeGroup.items.length > 1 && (
+            <div className="flex flex-wrap items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 w-fit">
+              {activeGroup.items.map((item) => {
+                const active = activeSubTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveSubTab(item.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                      active
+                        ? 'bg-slate-100 text-slate-900 font-bold'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <span>{item.label}</span>
+                    {item.count !== undefined && (
+                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-white border border-slate-200 text-slate-600">
+                        {item.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
       {activeSubTab === 'overview' && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {loadingStats && !stats ? (
-            <div className="p-12 text-center text-slate-400 text-xs font-medium bg-white rounded-3xl border border-slate-200">
-              Loading Executive Command Center stats...
+            <div className="p-10 text-center text-slate-500 text-xs font-medium bg-white rounded-xl border border-slate-200">
+              Loading overview metrics...
             </div>
           ) : stats ? (
             <>
-              {/* Analytics Metric Cards Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Total Visitors */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden flex flex-col justify-between h-28">
-                  <div className="flex items-center justify-between text-slate-500">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Total Visits</span>
-                    <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
-                      <Eye className="w-4.5 h-4.5" />
-                    </div>
+              {/* Clean 4-Metric Strip */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="bg-white p-4 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span className="text-[11px] font-semibold text-slate-500">Total Visits</span>
+                    <Eye className="w-4 h-4 text-slate-400" />
                   </div>
-                  <div className="mt-1">
-                    <span className="text-2xl font-black text-slate-900 font-mono">{(stats.totalVisitors || 0).toLocaleString()}</span>
-                    <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Unique Visitors Daily</p>
+                  <div className="mt-2 flex items-baseline justify-between gap-2">
+                    <span className="text-2xl font-bold text-slate-900 font-mono tabular-nums">{(stats.totalVisitors || 0).toLocaleString()}</span>
+                    <span className="text-[11px] text-slate-400">Daily unique</span>
                   </div>
                 </div>
 
-                {/* Candidates Online */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden flex flex-col justify-between h-28">
-                  <div className="flex items-center justify-between text-slate-500">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Candidates Online</span>
-                    <div className="flex items-center space-x-1">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping absolute" />
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-slate-500">Online Now</span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
                   </div>
-                  <div className="mt-1">
-                    <span className="text-2xl font-black text-emerald-600 font-mono">{stats.activeVisitorsCount || 1}</span>
-                    <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Active Heartbeats</p>
+                  <div className="mt-2 flex items-baseline justify-between gap-2">
+                    <span className="text-2xl font-bold text-slate-900 font-mono tabular-nums">{stats.activeVisitorsCount ?? 0}</span>
+                    <span className="text-[11px] text-slate-400">Active sessions</span>
                   </div>
                 </div>
 
-                {/* Live Exams */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden flex flex-col justify-between h-28">
-                  <div className="flex items-center justify-between text-slate-500">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Live Exams Running</span>
-                    <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
-                      <Clock className="w-4.5 h-4.5" />
-                    </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-slate-500">Live Exams</span>
+                    <Clock className="w-4 h-4 text-slate-400" />
                   </div>
-                  <div className="mt-1">
-                    <span className="text-2xl font-black text-indigo-600 font-mono">{stats.activeExamsCount || 0}</span>
-                    <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Candidates currently in CBT</p>
+                  <div className="mt-2 flex items-baseline justify-between gap-2">
+                    <span className="text-2xl font-bold text-slate-900 font-mono tabular-nums">{stats.activeExamsCount || 0}</span>
+                    <span className="text-[11px] text-slate-400">In progress</span>
                   </div>
                 </div>
 
-                {/* Platform Average */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden flex flex-col justify-between h-28">
-                  <div className="flex items-center justify-between text-slate-500">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Platform Average</span>
-                    <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
-                      <Trophy className="w-4 h-4" />
-                    </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-slate-500">Average Score</span>
+                    <Trophy className="w-4 h-4 text-slate-400" />
                   </div>
-                  <div className="mt-1">
-                    <span className="text-2xl font-black text-amber-600 font-mono">{stats.avgScore || 0}%</span>
-                    <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Pass Rate: {stats.passRate || 0}%</p>
+                  <div className="mt-2 flex items-baseline justify-between gap-2">
+                    <span className="text-2xl font-bold text-slate-900 font-mono tabular-nums">{stats.avgScore || 0}%</span>
+                    <span className="text-[11px] text-slate-500">Pass: {stats.passRate || 0}%</span>
                   </div>
                 </div>
               </div>
 
-              {/* Weekly Trend and Top Performers Layout */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                {/* Left 2-Cols: Weekly trend & Top Candidates */}
-                <div className="lg:col-span-2 space-y-6">
-                  
-                  {/* Attempts Weekly Trend Card */}
-                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
-                      <Activity className="w-4 h-4 text-indigo-600" />
-                      <span>Exams Attempts Weekly Trend</span>
-                    </h3>
-                    <div className="grid grid-cols-2 gap-4 mt-4">
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                        <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wide">This Week</p>
-                        <p className="text-2xl font-black text-slate-800 font-mono mt-1">{stats.attemptsThisWeek || 0}</p>
-                        <p className="text-[10px] text-slate-500 font-semibold mt-0.5">Attempts in past 7 days</p>
+              {/* Balanced Two-Column Overview */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+                <div className="lg:col-span-7 space-y-4">
+                  {/* Weekly Attempts */}
+                  <div className="bg-white p-5 rounded-xl border border-slate-200">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm font-bold text-slate-900">Weekly Exam Attempts</h3>
+                      {(() => {
+                        const diff = (stats.attemptsThisWeek || 0) - (stats.attemptsLastWeek || 0);
+                        const pct = stats.attemptsLastWeek > 0 ? Math.round((diff / stats.attemptsLastWeek) * 100) : 0;
+                        return (
+                          <span className={`px-2 py-0.5 rounded-md text-[11px] font-semibold ${
+                            diff >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                          }`}>
+                            {diff >= 0 ? `+${pct}%` : `${pct}%`} vs last week
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mt-4">
+                      <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200/80">
+                        <p className="text-[11px] text-slate-500 font-medium">This Week (Last 7 days)</p>
+                        <p className="text-xl font-bold text-slate-900 font-mono tabular-nums mt-1">{stats.attemptsThisWeek || 0}</p>
                       </div>
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                        <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wide">Last Week</p>
-                        <p className="text-2xl font-black text-slate-500 font-mono mt-1">{stats.attemptsLastWeek || 0}</p>
-                        <p className="text-[10px] text-slate-500 font-semibold mt-0.5">Attempts 7-14 days ago</p>
+                      <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200/80">
+                        <p className="text-[11px] text-slate-500 font-medium">Previous Week</p>
+                        <p className="text-xl font-bold text-slate-600 font-mono tabular-nums mt-1">{stats.attemptsLastWeek || 0}</p>
                       </div>
                     </div>
-
-                    {/* Performance percentage increase indicator */}
-                    {(() => {
-                      const diff = (stats.attemptsThisWeek || 0) - (stats.attemptsLastWeek || 0);
-                      const pct = stats.attemptsLastWeek > 0 ? Math.round((diff / stats.attemptsLastWeek) * 100) : 0;
-                      return (
-                        <div className="mt-4 flex items-center space-x-2 text-xs font-semibold">
-                          {diff >= 0 ? (
-                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-lg">
-                              ▲ +{pct}% Weekly Growth
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 bg-rose-100 text-rose-800 rounded-lg">
-                              ▼ {Math.abs(pct)}% Weekly Drop
-                            </span>
-                          )}
-                          <span className="text-slate-500 font-medium">compared to last week's attempt load.</span>
-                        </div>
-                      );
-                    })()}
                   </div>
 
-                  {/* Top 5 Smartest Candidates Card */}
-                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
-                        <Trophy className="w-5 h-5 text-amber-500" />
-                        <span>Top 5 Platform Performers (Smartest Candidates)</span>
-                      </h3>
-                      <p className="text-xs text-slate-500 font-medium mt-0.5">Highest average scores computed across all verification tests</p>
+                  {/* Top Performers */}
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">Top Performers</h3>
+                        <p className="text-xs text-slate-500">Highest average scores across submitted tests</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSubTab('candidates')}
+                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer"
+                      >
+                        View all
+                      </button>
                     </div>
 
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase">
+                        <thead className="border-y border-slate-200 bg-slate-50 text-slate-500 font-semibold">
                           <tr>
-                            <th className="p-3 text-center">Rank</th>
-                            <th className="p-3">Candidate</th>
-                            <th className="p-3 text-center">Tests Taken</th>
-                            <th className="p-3 text-right">Average Score %</th>
+                            <th className="py-2.5 px-3 w-12">#</th>
+                            <th className="py-2.5 px-3">Candidate</th>
+                            <th className="py-2.5 px-3 text-right">Attempts</th>
+                            <th className="py-2.5 px-3 text-right">Avg. Score</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 font-medium">
+                        <tbody className="divide-y divide-slate-100">
                           {(!stats.topPerformers || stats.topPerformers.length === 0) ? (
                             <tr>
                               <td colSpan={4} className="p-6 text-center text-slate-400">
-                                No candidate attempts recorded yet to rank.
+                                No candidate attempts recorded yet.
                               </td>
                             </tr>
                           ) : (
                             stats.topPerformers.map((cand: any, idx: number) => (
-                              <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                                <td className="p-3 text-center font-bold font-mono">
-                                  {idx === 0 ? '🏆' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                              <tr key={idx} className="hover:bg-slate-50/80">
+                                <td className="py-2.5 px-3 font-mono font-semibold text-slate-500">
+                                  #{idx + 1}
                                 </td>
-                                <td className="p-3">
-                                  <div>
-                                    <div className="text-slate-900 font-bold">{cand.candidateName}</div>
-                                    <div className="text-slate-400 text-[10px] font-mono">{cand.candidateEmail}</div>
-                                  </div>
+                                <td className="py-2.5 px-3">
+                                  <div className="font-semibold text-slate-900">{cand.candidateName}</div>
+                                  <div className="text-slate-400 text-[11px]">{cand.candidateEmail}</div>
                                 </td>
-                                <td className="p-3 text-center font-mono text-slate-700">{cand.attemptsCount} attempts</td>
-                                <td className="p-3 text-right font-mono font-black text-indigo-600 text-sm">
+                                <td className="py-2.5 px-3 text-right font-mono text-slate-600">
+                                  {cand.attemptsCount} {cand.attemptsCount === 1 ? 'attempt' : 'attempts'}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
                                   {cand.avgScore}%
                                 </td>
                               </tr>
@@ -685,49 +864,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 </div>
 
-                {/* Right Col: Scrolling Live Activity Feed */}
-                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs flex flex-col h-[400px]">
-                  <div className="flex items-center justify-between mb-4">
+                {/* Right Col: Clean Light Recent Activity */}
+                <div className="lg:col-span-5 bg-white p-5 rounded-xl border border-slate-200 flex flex-col">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                     <div>
-                      <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
-                        <Activity className="w-5 h-5 text-emerald-500 animate-pulse" />
-                        <span>Live Terminal Activity Feed</span>
-                      </h3>
-                      <p className="text-xs text-slate-500 font-medium mt-0.5">Real-time examination events & logins</p>
+                      <h3 className="text-sm font-bold text-slate-900">Recent Activity</h3>
+                      <p className="text-xs text-slate-500">Latest submissions and system events</p>
                     </div>
                     <button
+                      type="button"
                       onClick={() => setActiveSubTab('audit')}
-                      className="px-2.5 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold border border-indigo-200 transition-colors flex items-center space-x-1"
-                      title="Open dedicated Audit Logs & Terminal Vault with filters and pagination"
+                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
                     >
-                      <Terminal className="w-3 h-3 text-indigo-600" />
-                      <span>Open Vault ↗</span>
+                      All logs
                     </button>
                   </div>
 
-                  <div className="flex-1 bg-slate-950 rounded-2xl p-4 font-mono text-[11px] overflow-y-auto text-slate-300 border border-slate-800 space-y-3 shadow-inner">
+                  <div className="flex-1 overflow-y-auto max-h-[380px] divide-y divide-slate-100 mt-1">
                     {(!stats.liveActivityFeed || stats.liveActivityFeed.length === 0) ? (
-                      <p className="text-slate-500 text-center py-20">Waiting for live activities...</p>
+                      <p className="text-slate-400 text-xs text-center py-16">No recent activity recorded.</p>
                     ) : (
-                      stats.liveActivityFeed.map((act: any) => (
-                        <div key={act.id} className="border-b border-slate-900 pb-2 last:border-0">
-                          <div className="flex items-center justify-between gap-2 text-[9px] text-slate-500">
-                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase ${
-                              act.type === 'live' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900' : 'bg-indigo-950 text-indigo-400 border border-indigo-900'
+                      stats.liveActivityFeed.slice(0, 12).map((act: any) => (
+                        <div key={act.id} className="py-3 first:pt-2 last:pb-1">
+                          <div className="flex items-center justify-between gap-2 text-[11px]">
+                            <span className={`px-1.5 py-0.5 rounded font-medium capitalize ${
+                              act.type === 'live'
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : act.type === 'security_alert'
+                                  ? 'bg-rose-50 text-rose-700'
+                                  : 'bg-slate-100 text-slate-600'
                             }`}>
-                              {act.type}
+                              {String(act.type || 'event').replace(/_/g, ' ')}
                             </span>
-                            <span>{new Date(act.timestamp).toLocaleTimeString()}</span>
+                            <span className="text-slate-400 font-mono tabular-nums">
+                              {new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
                           </div>
-                          <p className={`mt-1 font-semibold ${act.type === 'live' ? 'text-emerald-400' : 'text-slate-200'}`}>
-                            {act.message}
+                          <p className="mt-1 text-xs text-slate-700 leading-snug">
+                            {String(act.message || '').replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]\s*/u, '')}
                           </p>
                         </div>
                       ))
                     )}
                   </div>
                 </div>
-
               </div>
             </>
           ) : null}
@@ -738,88 +918,252 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* SubTab: User Accounts Management (Delete Users) */}
       {activeSubTab === 'users' && (
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
-                <Users className="w-5 h-5 text-rose-600" />
-                <span>Registered User Accounts (MySQL DB)</span>
-              </h2>
-              <p className="text-xs text-slate-500 font-medium">Manage registered candidate profiles and delete unwanted accounts</p>
+        <div className="space-y-4">
+          {/* Clean Summary Strip */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="bg-white p-4 rounded-xl border border-slate-200">
+              <span className="text-[11px] font-semibold text-slate-500">Total Registered</span>
+              <div className="mt-1.5 flex items-baseline justify-between gap-2">
+                <span className="text-2xl font-bold text-slate-900 font-mono tabular-nums">{totalRegisteredCount}</span>
+                <span className="text-[11px] text-slate-400">Verified accounts</span>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handleSyncUsers}
-                className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-bold transition-colors border border-indigo-200"
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200">
+              <span className="text-[11px] font-semibold text-slate-500">Students</span>
+              <div className="mt-1.5 flex items-baseline justify-between gap-2">
+                <span className="text-2xl font-bold text-slate-900 font-mono tabular-nums">{studentCount}</span>
+                <span className="text-[11px] text-slate-400">Learners</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200">
+              <span className="text-[11px] font-semibold text-slate-500">Professionals</span>
+              <div className="mt-1.5 flex items-baseline justify-between gap-2">
+                <span className="text-2xl font-bold text-slate-900 font-mono tabular-nums">{professionalCount}</span>
+                <span className="text-[11px] text-slate-400">Faculty &amp; staff</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200">
+              <span className="text-[11px] font-semibold text-slate-500">Trainees &amp; Interns</span>
+              <div className="mt-1.5 flex items-baseline justify-between gap-2">
+                <span className="text-2xl font-bold text-slate-900 font-mono tabular-nums">{traineeInternCount}</span>
+                <span className="text-[11px] text-slate-400">Fellows</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Filter Toolbar & Actions */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+              <div className="relative flex-1 min-w-[200px] max-w-xs">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search name, email, phone, city..."
+                  value={userSearchQuery}
+                  onChange={(e) => { setUserSearchQuery(e.target.value); setUserPage(1); }}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-slate-400"
+                />
+              </div>
+
+              <select
+                value={userCategoryFilter}
+                onChange={(e) => { setUserCategoryFilter(e.target.value); setUserPage(1); }}
+                className="px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none"
               >
-                Sync Exam Candidates
+                <option value="all">All Categories</option>
+                <option value="student">Student</option>
+                <option value="working professional">Working Professional</option>
+                <option value="trainee">Trainee</option>
+                <option value="intern">Intern</option>
+              </select>
+
+              <select
+                value={userGenderFilter}
+                onChange={(e) => { setUserGenderFilter(e.target.value); setUserPage(1); }}
+                className="px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none"
+              >
+                <option value="all">All Genders</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+                <option value="other">Other</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={fetchUsers}
+                className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg border border-slate-200 transition cursor-pointer shrink-0"
+                title="Refresh Candidate List"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleSyncUsers}
+                className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors border border-slate-200 whitespace-nowrap cursor-pointer"
+              >
+                Sync Candidates
               </button>
               <button
-                onClick={fetchUsers}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-bold transition-colors"
+                type="button"
+                onClick={handleExportCandidatesCsv}
+                disabled={filteredUsers.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white transition disabled:opacity-50 whitespace-nowrap cursor-pointer"
               >
-                Refresh List
+                <Download className="w-3.5 h-3.5" />
+                <span>Export CSV</span>
               </button>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase">
-                <tr>
-                  <th className="p-3">User Profile</th>
-                  <th className="p-3">Email Address</th>
-                  <th className="p-3">Role</th>
-                  <th className="p-3">Joined Date</th>
-                  <th className="p-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                {registeredUsers.length === 0 ? (
+          {/* Demographic Data Table */}
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50/70 border-b border-slate-200 text-slate-600 font-extrabold uppercase text-[11px] tracking-wider">
                   <tr>
-                    <td colSpan={5} className="p-6 text-center text-slate-400">
-                      No registered user accounts found in MySQL database.
-                    </td>
+                    <th className="p-3.5">Candidate</th>
+                    <th className="p-3.5">Contact Details</th>
+                    <th className="p-3.5">Category & Role</th>
+                    <th className="p-3.5">City & Institute</th>
+                    <th className="p-3.5">Joined Date</th>
+                    <th className="p-3.5 text-right">Actions</th>
                   </tr>
-                ) : (
-                  registeredUsers.map(user => (
-                    <tr key={user.uid} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-3">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center font-bold text-xs uppercase border border-rose-100">
-                            {user.name ? user.name.charAt(0) : 'U'}
-                          </div>
-                          <div>
-                            <div className="text-slate-900 font-bold">{user.name || 'Candidate'}</div>
-                            <div className="text-slate-400 text-[10px] font-mono">UID: {user.uid}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-3 font-mono text-slate-700">{user.email}</td>
-                      <td className="p-3 font-mono">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          user.role === 'admin' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-700'
-                        }`}>
-                          {user.role}
-                        </span>
-                      </td>
-                      <td className="p-3 text-slate-500 font-mono">
-                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
-                      </td>
-                      <td className="p-3 text-right">
-                        <button
-                          onClick={() => handleDeleteUser(user.uid, user.name || user.email)}
-                          className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition-colors flex items-center space-x-1 ml-auto"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Delete User</span>
-                        </button>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {paginatedUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-10 text-center text-slate-400">
+                        No registered candidates found matching your filter criteria.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    paginatedUsers.map(user => (
+                      <tr key={user.uid} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="p-3.5">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-xs uppercase border border-indigo-100">
+                              {user.name ? user.name.charAt(0) : 'U'}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-slate-900 font-bold flex items-center gap-1.5">
+                                <span className="truncate">{user.name || 'Candidate'}</span>
+                                {user.gender && user.gender !== 'Prefer not to say' && (
+                                  <span className="text-[10px] text-slate-400 font-normal shrink-0">({user.gender})</span>
+                                )}
+                              </div>
+                              <div className="text-slate-400 text-[10px] font-mono whitespace-nowrap truncate max-w-[180px]" title={user.uid}>
+                                {user.uid}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3.5">
+                          <div className="text-slate-800 font-mono text-xs">{user.email}</div>
+                          {user.phone ? (
+                            <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1 mt-0.5">
+                              <Phone className="w-3 h-3 text-slate-400" />
+                              <span>{user.phone}</span>
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-slate-400 italic">No phone recorded</div>
+                          )}
+                        </td>
+                        <td className="p-3.5">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase ${
+                            user.occupationStatus === 'Working Professional'
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                              : user.occupationStatus === 'Trainee' || user.occupationStatus === 'Intern'
+                              ? 'bg-purple-50 text-purple-800 border border-purple-200'
+                              : 'bg-blue-50 text-blue-800 border border-blue-200'
+                          }`}>
+                            {user.occupationStatus || 'Student'}
+                          </span>
+                          {user.designation && (
+                            <div className="text-[11px] text-slate-600 font-medium mt-0.5">{user.designation}</div>
+                          )}
+                        </td>
+                        <td className="p-3.5">
+                          {user.city ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                              <MapPin className="w-3 h-3 text-slate-500" />
+                              {user.city}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 italic">City not set</span>
+                          )}
+                          {(user.universityInstitute || user.institution) && (
+                            <div className="text-[11px] text-slate-500 mt-0.5 truncate max-w-[180px]">
+                              {user.universityInstitute || user.institution}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-3.5 text-slate-500 font-mono text-[11px]">
+                          {user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                        </td>
+                        <td className="p-3.5 text-right">
+                          <button
+                            onClick={() => handleDeleteUser(user.uid, user.name || user.email)}
+                            className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition-colors flex items-center space-x-1 ml-auto"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls Footer */}
+            <div className="p-4 bg-slate-50/70 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500 font-medium">
+              <div className="flex items-center gap-2">
+                <span>Showing {filteredUsers.length > 0 ? (userPage - 1) * userLimit + 1 : 0} to {Math.min(userPage * userLimit, filteredUsers.length)} of {filteredUsers.length} candidates</span>
+                <span className="text-slate-300">|</span>
+                <div className="flex items-center gap-1">
+                  <span>Rows:</span>
+                  <select
+                    value={userLimit}
+                    onChange={(e) => { setUserLimit(Number(e.target.value)); setUserPage(1); }}
+                    className="bg-white border border-slate-200 rounded px-2 py-0.5 text-xs font-semibold focus:outline-none"
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setUserPage(p => Math.max(1, p - 1))}
+                  disabled={userPage <= 1}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-semibold text-slate-700 transition"
+                >
+                  <ChevronDown className="w-3.5 h-3.5 rotate-90" />
+                  Previous
+                </button>
+                <span className="px-2 font-bold text-slate-800">
+                  Page {userPage} of {totalUserPages}
+                </span>
+                <button
+                  onClick={() => setUserPage(p => Math.min(totalUserPages, p + 1))}
+                  disabled={userPage >= totalUserPages}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-semibold text-slate-700 transition"
+                >
+                  Next
+                  <ChevronDown className="w-3.5 h-3.5 -rotate-90" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -827,12 +1171,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* SubTab: Candidate Statistics & Inspector (Addressing Point #3!) */}
       {activeSubTab === 'candidates' && (
         <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 space-y-6">
-          <div>
-            <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
-              <Users className="w-5 h-5 text-indigo-600" />
-              <span>Registered Candidate Performance Inspector</span>
-            </h2>
-            <p className="text-xs text-slate-500 font-medium">Overview of candidate test attempt histories, average scores, and pass rates</p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
+                <Users className="w-5 h-5 text-indigo-600" />
+                <span>Registered Candidate Performance Inspector</span>
+              </h2>
+              <p className="text-xs text-slate-500 font-medium">Overview of candidate test attempt histories, average scores, and pass rates</p>
+            </div>
+            <span className="text-xs text-slate-500 font-mono">
+              Total: <strong className="text-slate-800">{filteredCandidateList.length}</strong> candidates
+            </span>
+          </div>
+
+          {/* Candidate Search & Filter Toolbar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/70 p-3.5 rounded-2xl border border-slate-200">
+            <div className="flex flex-wrap items-center gap-2.5 flex-1">
+              <div className="relative min-w-[220px] flex-1 max-w-md">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search candidate name or email..."
+                  value={candidateSearchQuery}
+                  onChange={(e) => { setCandidateSearchQuery(e.target.value); setCandidatePage(1); }}
+                  className="w-full pl-9 pr-3 py-1.5 text-xs font-medium rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
+                <Filter className="w-3.5 h-3.5 text-slate-400" />
+                <select
+                  value={candidatePerformanceFilter}
+                  onChange={(e) => { setCandidatePerformanceFilter(e.target.value as any); setCandidatePage(1); }}
+                  className="px-2.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 bg-white focus:outline-none"
+                >
+                  <option value="all">All Performance Levels</option>
+                  <option value="passed">Passing Avg (≥60%)</option>
+                  <option value="needs_improvement">Needs Improvement (&lt;60%)</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -847,15 +1225,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {candidateList.length === 0 ? (
+                {paginatedCandidateList.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="p-6 text-center text-slate-400">
-                      No candidate attempt statistics recorded yet.
+                      No candidate attempt statistics found matching your filter criteria.
                     </td>
                   </tr>
                 ) : (
-                  candidateList.map(cand => {
-                    const avg = Math.round(cand.totalScorePctSum / cand.totalAttempts);
+                  paginatedCandidateList.map(cand => {
+                    const avg = cand.totalAttempts > 0 ? Math.round(cand.totalScorePctSum / cand.totalAttempts) : 0;
                     const key = `${cand.candidateName}_${cand.candidateEmail}`;
                     const isExpanded = expandedCandidate === key;
                     const candAttempts = allAttemptResults.filter(r =>
@@ -882,9 +1260,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </td>
                           <td className="p-3 font-mono text-slate-700">{cand.totalAttempts} Exams</td>
                           <td className="p-3 font-mono font-bold">
-                            <span className={`px-2 py-0.5 rounded text-[11px] ${
-                              avg >= 60 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                            }`}>
+                            <span className={`px-2 py-0.5 rounded text-[11px] ${avg >= 60 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                              }`}>
                               {avg}%
                             </span>
                           </td>
@@ -941,41 +1318,81 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </tbody>
             </table>
           </div>
+
+          {/* Universal Pagination Controls Footer */}
+          <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500 font-medium border-t border-slate-100">
+            <div className="flex items-center gap-2">
+              <span>Showing {filteredCandidateList.length > 0 ? (candidatePage - 1) * candidateLimit + 1 : 0} to {Math.min(candidatePage * candidateLimit, filteredCandidateList.length)} of {filteredCandidateList.length} candidates</span>
+              <span className="text-slate-300">|</span>
+              <div className="flex items-center gap-1">
+                <span>Rows:</span>
+                <select
+                  value={candidateLimit}
+                  onChange={(e) => { setCandidateLimit(Number(e.target.value)); setCandidatePage(1); }}
+                  className="bg-white border border-slate-200 rounded px-2 py-0.5 text-xs font-semibold focus:outline-none"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCandidatePage(p => Math.max(1, p - 1))}
+                disabled={candidatePage <= 1}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-semibold text-slate-700 transition"
+              >
+                <ChevronDown className="w-3.5 h-3.5 rotate-90" />
+                Previous
+              </button>
+              <span className="px-2 font-bold text-slate-800">
+                Page {candidatePage} of {totalCandidatePages}
+              </span>
+              <button
+                onClick={() => setCandidatePage(p => Math.min(totalCandidatePages, p + 1))}
+                disabled={candidatePage >= totalCandidatePages}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-semibold text-slate-700 transition"
+              >
+                Next
+                <ChevronDown className="w-3.5 h-3.5 -rotate-90" />
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
       {/* SubTab: Live Exams Tracker */}
       {activeSubTab === 'live' && (
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black text-slate-900 flex items-center space-x-2">
-              <span className="relative flex h-3 w-3 mr-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
-              </span>
-              Real-Time Active Examinations
-            </h2>
-            <span className="px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-full font-bold text-xs">
-              {liveSessions.length} Active Sessions
+        <div className="bg-white p-5 sm:p-6 rounded-xl border border-slate-200 space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Active Exam Sessions</h2>
+              <p className="text-xs text-slate-500">Live progress of candidates currently taking tests</p>
+            </div>
+            <span className="px-2.5 py-1 bg-slate-100 text-slate-700 border border-slate-200 rounded-md font-semibold text-xs">
+              {liveSessions.length} active
             </span>
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
+          <div className="overflow-x-auto rounded-lg border border-slate-200">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-extrabold uppercase">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
                 <tr>
-                  <th className="px-4 py-3">Candidate</th>
-                  <th className="px-4 py-3">Exam</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Progress</th>
-                  <th className="px-4 py-3">Time Remaining</th>
-                  <th className="px-4 py-3">Last Ping</th>
+                  <th className="px-4 py-2.5">Candidate</th>
+                  <th className="px-4 py-2.5">Exam</th>
+                  <th className="px-4 py-2.5">Status</th>
+                  <th className="px-4 py-2.5">Progress</th>
+                  <th className="px-4 py-2.5">Time Remaining</th>
+                  <th className="px-4 py-2.5">Last Ping</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white font-medium">
                 {liveSessions.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-500 font-bold">
+                    <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
                       No candidates currently taking exams.
                     </td>
                   </tr>
@@ -1016,11 +1433,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     }
 
                     return (
-                      <tr key={idx} className={`hover:bg-slate-50 transition-colors ${
-                        isCompleted ? 'bg-emerald-50/30' :
+                      <tr key={idx} className={`hover:bg-slate-50 transition-colors ${isCompleted ? 'bg-emerald-50/30' :
                         isTimedOut ? 'bg-slate-50/60 opacity-60' :
-                        isIdle ? 'bg-amber-50/30' : ''
-                      }`}>
+                          isIdle ? 'bg-amber-50/30' : ''
+                        }`}>
                         <td className="px-4 py-3 font-bold text-slate-900">
                           {session.candidateName}
                           {session.candidateEmail && (
@@ -1057,81 +1473,69 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* SubTab: MySQL Live Database Status Studio (Replaces legacy Cloud tab - Addressing Point #5!) */}
+      {/* SubTab: System & Database Status */}
       {activeSubTab === 'mysql' && (
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div className="bg-white rounded-xl border border-slate-200 p-5 sm:p-6 space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
             <div>
-              <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
-                <Database className="w-5 h-5 text-emerald-600" />
-                <span>MySQL Production Backend Database Studio</span>
-              </h2>
-              <p className="text-xs text-slate-500 font-medium">Real-time status of `evalnium_db` on Express Server Port 5050</p>
+              <h2 className="text-base font-bold text-slate-900">System & Database Status</h2>
+              <p className="text-xs text-slate-500">Storage and API connectivity summary</p>
             </div>
-            <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-mono text-xs font-bold flex items-center space-x-1">
-              <CheckCircle className="w-4 h-4 text-emerald-600" />
-              <span>MySQL 5050 Connected</span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Database Online</span>
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-3 bg-slate-50 p-5 rounded-2xl border border-slate-200 text-xs">
-              <h3 className="font-bold text-slate-900 text-sm">Database Engine Specifications:</h3>
-              <div className="space-y-2 font-mono text-[11px] text-slate-700">
-                <div className="flex justify-between p-2 rounded-xl bg-white border">
-                  <span>Host & Port:</span>
-                  <span className="font-bold text-indigo-700">localhost:3306</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2.5 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+              <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wide">Configuration</h3>
+              <div className="space-y-2 text-xs text-slate-700">
+                <div className="flex justify-between p-2.5 rounded-lg bg-white border border-slate-200">
+                  <span className="text-slate-500">Database Engine</span>
+                  <span className="font-mono font-semibold text-slate-900">MySQL</span>
                 </div>
-                <div className="flex justify-between p-2 rounded-xl bg-white border">
-                  <span>Database Name:</span>
-                  <span className="font-bold text-indigo-700">evalnium_db</span>
+                <div className="flex justify-between p-2.5 rounded-lg bg-white border border-slate-200">
+                  <span className="text-slate-500">Schema</span>
+                  <span className="font-mono font-semibold text-slate-900">evalnium_db</span>
                 </div>
-                <div className="flex justify-between p-2 rounded-xl bg-white border">
-                  <span>API Base Endpoint:</span>
-                  <span className="font-bold text-indigo-700">http://10.24.65.78:5050/api</span>
+                <div className="flex justify-between p-2.5 rounded-lg bg-white border border-slate-200">
+                  <span className="text-slate-500">API Route</span>
+                  <span className="font-mono font-semibold text-slate-900">/api</span>
                 </div>
-                <div className="flex justify-between p-2 rounded-xl bg-white border">
-                  <span>Query Latency:</span>
-                  <span className="font-bold text-emerald-600">&lt; 10 ms (Indexed)</span>
+                <div className="flex justify-between p-2.5 rounded-lg bg-white border border-slate-200">
+                  <span className="text-slate-500">Auth Cookies</span>
+                  <span className="font-semibold text-emerald-700">HTTP-Only Signed</span>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-3 bg-slate-50 p-5 rounded-2xl border border-slate-200 text-xs font-medium leading-relaxed">
-              <h3 className="font-bold text-slate-900 text-sm">MySQL Database Integration Status:</h3>
+            <div className="space-y-2.5 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs leading-relaxed">
+              <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wide">Active Persistence</h3>
               <p className="text-slate-600">
-                1. 🟢 All Quiz definitions, MCQ questions, and Sectional timing rules persist in MySQL table `quizzes`.
+                All exam definitions, question banks, and timing settings persist in <code className="px-1 py-0.5 rounded bg-white border border-slate-200 font-mono text-[11px]">quizzes</code> &amp; <code className="px-1 py-0.5 rounded bg-white border border-slate-200 font-mono text-[11px]">questions</code>.
               </p>
               <p className="text-slate-600">
-                2. 🟢 All Candidate test attempts and rankings persist in MySQL table `results` indexed by `quiz_id` & `candidate_name`.
+                Candidate attempts, scores, audit events, and email logs are stored and server-graded in MySQL.
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* SubTab: Visitor Intelligence & Live Device Radar */}
+      {/* SubTab: Visitor Traffic */}
       {activeSubTab === 'visitors' && (
         <div className="space-y-6">
           {/* Header & Control Bar */}
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 space-y-6">
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+          <div className="bg-white rounded-xl border border-slate-200 p-5 sm:p-6 space-y-5">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-slate-100 pb-4">
               <div>
-                <div className="flex items-center space-x-2">
-                  <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-mono font-bold uppercase tracking-wider border border-indigo-200">
-                    REAL-TIME & HISTORICAL ARCHIVE
-                  </span>
-                  <span className="flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold border border-emerald-200">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Live Radar Pulse</span>
-                  </span>
-                </div>
-                <h2 className="text-xl font-black text-slate-900 flex items-center space-x-2 mt-1.5">
-                  <Globe className="w-5 h-5 text-indigo-600" />
-                  <span>Visitor Intelligence & Historical Traffic Radar</span>
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-slate-500" />
+                  <span>Visitor Traffic &amp; Session History</span>
                 </h2>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Comprehensive real-time telemetry and permanent database session history of student traffic, device fingerprints, exam paths, and session durations.
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Active sessions, device breakdown, top pages, and historical visit logs.
                 </p>
               </div>
 
@@ -1149,11 +1553,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <button
                       key={tab.id}
                       onClick={() => setVisitorTimeRange(tab.id as any)}
-                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
-                        visitorTimeRange === tab.id
-                          ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${visitorTimeRange === tab.id
+                        ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                        : 'text-slate-600 hover:text-slate-900'
+                        }`}
                     >
                       {tab.label}
                     </button>
@@ -1470,50 +1873,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   type="text"
                   placeholder="Filter by IP, Name, Email, Country, OS, Browser, Page..."
                   value={visitorSearch}
-                  onChange={(e) => setVisitorSearch(e.target.value)}
+                  onChange={(e) => { setVisitorSearch(e.target.value); setVisitorPage(1); }}
                   className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-indigo-500 focus:bg-white transition-all"
                 />
               </div>
 
               <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
                 <button
-                  onClick={() => setVisitorFilter('all')}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    visitorFilter === 'all'
-                      ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  onClick={() => { setVisitorFilter('all'); setVisitorPage(1); }}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${visitorFilter === 'all'
+                    ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                    }`}
                 >
                   All Logs
                 </button>
                 <button
-                  onClick={() => setVisitorFilter('active')}
-                  className={`px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1 ${
-                    visitorFilter === 'active'
-                      ? 'bg-white text-emerald-700 shadow-xs border border-slate-200'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  onClick={() => { setVisitorFilter('active'); setVisitorPage(1); }}
+                  className={`px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1 ${visitorFilter === 'active'
+                    ? 'bg-white text-emerald-700 shadow-xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                    }`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
                   <span>Active Now</span>
                 </button>
                 <button
-                  onClick={() => setVisitorFilter('registered')}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    visitorFilter === 'registered'
-                      ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  onClick={() => { setVisitorFilter('registered'); setVisitorPage(1); }}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${visitorFilter === 'registered'
+                    ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                    }`}
                 >
                   Registered Users
                 </button>
                 <button
-                  onClick={() => setVisitorFilter('guest')}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    visitorFilter === 'guest'
-                      ? 'bg-white text-slate-800 shadow-xs border border-slate-200'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  onClick={() => { setVisitorFilter('guest'); setVisitorPage(1); }}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${visitorFilter === 'guest'
+                    ? 'bg-white text-slate-800 shadow-xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                    }`}
                 >
                   Guests
                 </button>
@@ -1547,48 +1946,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white font-medium">
-                  {(() => {
-                    const logs = visitorsData?.recentVisitorLogs || [];
-                    const activeMap = new Set((visitorsData?.activeVisitors || []).map(a => a.sessionId));
-
-                    const filtered = logs.filter(v => {
-                      const isActive = activeMap.has(v.sessionId);
-                      if (visitorFilter === 'active' && !isActive) return false;
-                      if (visitorFilter === 'registered' && !v.isRegistered) return false;
-                      if (visitorFilter === 'guest' && v.isRegistered) return false;
-
-                      if (visitorSearch.trim()) {
-                        const q = visitorSearch.toLowerCase();
-                        const matchName = (v.candidateName || '').toLowerCase().includes(q);
-                        const matchEmail = (v.candidateEmail || '').toLowerCase().includes(q);
-                        const matchIp = (v.ipAddress || '').toLowerCase().includes(q);
-                        const matchCountry = (v.country || '').toLowerCase().includes(q);
-                        const matchOs = (v.os || '').toLowerCase().includes(q);
-                        const matchBrowser = (v.browser || '').toLowerCase().includes(q);
-                        const matchPage = (v.currentPage || '').toLowerCase().includes(q);
-                        if (!matchName && !matchEmail && !matchIp && !matchCountry && !matchOs && !matchBrowser && !matchPage) {
-                          return false;
-                        }
-                      }
-                      return true;
-                    });
-
-                    if (filtered.length === 0) {
-                      return (
-                        <tr>
-                          <td colSpan={8} className="px-4 py-12 text-center text-slate-400 font-medium">
-                            <div className="flex flex-col items-center justify-center space-y-2">
-                              <Globe className="w-8 h-8 text-slate-300 stroke-1" />
-                              <p className="text-xs font-bold text-slate-600">No visitor records matching your current filter.</p>
-                              <p className="text-[11px] text-slate-400">Heartbeats will automatically record as visitors navigate the portal.</p>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    }
-
-                    return filtered.map((v, idx) => {
-                      const isActive = activeMap.has(v.sessionId);
+                  {paginatedVisitorLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="px-4 py-12 text-center text-slate-400 font-medium">
+                        <div className="flex flex-col items-center justify-center space-y-2">
+                          <Globe className="w-8 h-8 text-slate-300 stroke-1" />
+                          <p className="text-xs font-bold text-slate-600">No visitor records matching your current filter.</p>
+                          <p className="text-[11px] text-slate-400">Heartbeats will automatically record as visitors navigate the portal.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedVisitorLogs.map((v, idx) => {
+                      const isActive = activeVisitorSessionIds.has(v.sessionId);
                       const lastSeenDate = v.lastSeen ? new Date(v.lastSeen) : null;
                       const firstSeenDate = v.firstSeen ? new Date(v.firstSeen) : null;
                       const secsSince = lastSeenDate ? Math.round((Date.now() - lastSeenDate.getTime()) / 1000) : 9999;
@@ -1751,10 +2121,53 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </td>
                         </tr>
                       );
-                    });
-                  })()}
+                    })
+                  )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Universal Pagination Controls Footer for Visitor Logs */}
+            <div className="p-4 bg-slate-50/70 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500 font-medium">
+              <div className="flex items-center gap-2">
+                <span>Showing {filteredVisitorLogs.length > 0 ? (visitorPage - 1) * visitorLimit + 1 : 0} to {Math.min(visitorPage * visitorLimit, filteredVisitorLogs.length)} of {filteredVisitorLogs.length} session records</span>
+                <span className="text-slate-300">|</span>
+                <div className="flex items-center gap-1">
+                  <span>Rows:</span>
+                  <select
+                    value={visitorLimit}
+                    onChange={(e) => { setVisitorLimit(Number(e.target.value)); setVisitorPage(1); }}
+                    className="bg-white border border-slate-200 rounded px-2 py-0.5 text-xs font-semibold focus:outline-none"
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setVisitorPage(p => Math.max(1, p - 1))}
+                  disabled={visitorPage <= 1}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-semibold text-slate-700 transition"
+                >
+                  <ChevronDown className="w-3.5 h-3.5 rotate-90" />
+                  Previous
+                </button>
+                <span className="px-2 font-bold text-slate-800">
+                  Page {visitorPage} of {totalVisitorPages}
+                </span>
+                <button
+                  onClick={() => setVisitorPage(p => Math.min(totalVisitorPages, p + 1))}
+                  disabled={visitorPage >= totalVisitorPages}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-semibold text-slate-700 transition"
+                >
+                  Next
+                  <ChevronDown className="w-3.5 h-3.5 -rotate-90" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1777,30 +2190,59 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <AuditLogsManager />
       )}
 
-      {/* SubTab: Exams Registry with Edit Button (Addressing Point #4!) */}
+      {activeSubTab === 'emails' && (
+        <EmailManager />
+      )}
+
+
+      {/* SubTab: Exams Registry */}
       {activeSubTab === 'manage' && (
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-xs space-y-4 p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
-              <Layers className="w-5 h-5 text-indigo-600" />
-              <span>Published Exams Registry</span>
-            </h2>
-            <button
-              onClick={() => setActiveSubTab('import')}
-              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs flex items-center space-x-1"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Create New Exam</span>
-            </button>
+        <div className="bg-white rounded-xl border border-slate-200 space-y-4 p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Exams Registry</h2>
+              <p className="text-xs text-slate-500">Edit questions, toggle publish status, or export JSON</p>
+            </div>
+            <span className="text-xs text-slate-500 font-mono">
+              Total: <strong className="text-slate-800">{filteredQuizzes.length}</strong>
+            </span>
           </div>
 
-          {quizzes.length === 0 ? (
+          {/* Exam Search & Status Filter Toolbar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+            <div className="flex flex-wrap items-center gap-2.5 flex-1">
+              <div className="relative min-w-[220px] flex-1 max-w-md">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search exams by title, topic, description..."
+                  value={quizSearchQuery}
+                  onChange={(e) => { setQuizSearchQuery(e.target.value); setQuizPage(1); }}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-slate-400"
+                />
+              </div>
+
+              <select
+                value={quizStatusFilter}
+                onChange={(e) => { setQuizStatusFilter(e.target.value as any); setQuizPage(1); }}
+                className="px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white focus:outline-none"
+              >
+                <option value="all">All Statuses</option>
+                <option value="published">Published Only</option>
+                <option value="draft">Drafts Only</option>
+              </select>
+            </div>
+          </div>
+
+          {filteredQuizzes.length === 0 ? (
             <div className="text-center py-12 text-slate-500 font-medium text-xs">
-              No exams published yet. Click "Import Quiz" above to upload your first exam file.
+              {quizzes.length === 0
+                ? 'No exams published yet. Click "Create New Exam" above to upload your first exam file.'
+                : 'No exams found matching your search and filter criteria.'}
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {quizzes.map((quiz) => (
+              {paginatedQuizzes.map((quiz) => (
                 <div key={quiz.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2">
@@ -1810,7 +2252,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <h3 className="font-bold text-slate-900 text-sm">{quiz.title}</h3>
                     </div>
                     <p className="text-xs text-slate-500 line-clamp-1">{quiz.description}</p>
-                    <div className="flex items-center space-x-3 text-[11px] text-slate-400 font-mono pt-0.5">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400 font-mono pt-0.5">
                       <span>{quiz.questions.length} Questions</span>
                       <span>•</span>
                       <span className="flex items-center space-x-1">
@@ -1820,6 +2262,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <span>•</span>
                       <span>Pass: {quiz.passingPercentage}%</span>
                       {quiz.negativeMarks ? <span className="text-rose-600 font-bold">• Neg: -{quiz.negativeMarks}</span> : null}
+                      {(() => {
+                        const quizResults = allAttemptResults.filter(r => r.quizId === quiz.id);
+                        if (quizResults.length === 0) return null;
+                        const avgPct = Math.round(quizResults.reduce((s, r) => s + r.percentage, 0) / quizResults.length);
+                        return (
+                          <span className="text-slate-600 font-semibold">
+                            • {quizResults.length} {quizResults.length === 1 ? 'attempt' : 'attempts'} (Avg {avgPct}%)
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -1836,11 +2288,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                     <button
                       onClick={() => onTogglePublish(quiz)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                        quiz.isPublished
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                          : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
-                      }`}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${quiz.isPublished
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                        : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                        }`}
                     >
                       {quiz.isPublished ? 'Published' : 'Draft'}
                     </button>
@@ -1865,9 +2316,55 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               ))}
             </div>
           )}
+
+          {/* Universal Pagination Controls Footer */}
+          <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500 font-medium border-t border-slate-100">
+            <div className="flex items-center gap-2">
+              <span>Showing {filteredQuizzes.length > 0 ? (quizPage - 1) * quizLimit + 1 : 0} to {Math.min(quizPage * quizLimit, filteredQuizzes.length)} of {filteredQuizzes.length} exams</span>
+              <span className="text-slate-300">|</span>
+              <div className="flex items-center gap-1">
+                <span>Rows:</span>
+                <select
+                  value={quizLimit}
+                  onChange={(e) => { setQuizLimit(Number(e.target.value)); setQuizPage(1); }}
+                  className="bg-white border border-slate-200 rounded px-2 py-0.5 text-xs font-semibold focus:outline-none"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setQuizPage(p => Math.max(1, p - 1))}
+                disabled={quizPage <= 1}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-semibold text-slate-700 transition"
+              >
+                <ChevronDown className="w-3.5 h-3.5 rotate-90" />
+                Previous
+              </button>
+              <span className="px-2 font-bold text-slate-800">
+                Page {quizPage} of {totalQuizPages}
+              </span>
+              <button
+                onClick={() => setQuizPage(p => Math.min(totalQuizPages, p + 1))}
+                disabled={quizPage >= totalQuizPages}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-semibold text-slate-700 transition"
+              >
+                Next
+                <ChevronDown className="w-3.5 h-3.5 -rotate-90" />
+              </button>
+            </div>
+          </div>
         </div>
       )}
-      
+
+        </div>
+      </div>
+
       {viewingResult && (
         <CandidateResponseModal
           attemptResult={viewingResult}

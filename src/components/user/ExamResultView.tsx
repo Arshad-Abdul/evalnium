@@ -253,7 +253,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
   const timeSeconds = result.timeSpentSeconds % 60;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
 
       {/* Official Scorecard Transcript Banner */}
       <div className="portal-card p-6 sm:p-7 bg-white border border-slate-200 space-y-6">

@@ -35,6 +35,7 @@ export function saveBookmarkedQuestion(question: Question, uid?: string): Questi
     fetch(`${getApiBase()}/bookmarks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ uid, questionId: question.id, question }),
     }).catch(() => {});
   }
@@ -48,6 +49,7 @@ export function removeBookmarkedQuestion(qId: string, uid?: string): Question[] 
   if (uid) {
     fetch(`${getApiBase()}/bookmarks/${encodeURIComponent(qId)}?uid=${encodeURIComponent(uid)}`, {
       method: 'DELETE',
+      credentials: 'include',
     }).catch(() => {});
   }
   return updated;
@@ -63,7 +65,9 @@ export const RevisionHubModal: React.FC<RevisionHubModalProps> = ({ isOpen, onCl
     setBookmarks(local);
     // Sync from MySQL if logged in and merge with localStorage
     if (currentUser?.uid) {
-      fetch(`${getApiBase()}/bookmarks?uid=${encodeURIComponent(currentUser.uid)}`)
+      fetch(`${getApiBase()}/bookmarks?uid=${encodeURIComponent(currentUser.uid)}`, {
+        credentials: 'include'
+      })
         .then(r => r.ok ? r.json() : null)
         .then((remote: Question[] | null) => {
           if (!remote || remote.length === 0) return;

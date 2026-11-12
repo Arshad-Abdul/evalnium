@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { UserProfile } from '../types/auth';
+import type { UserProfile, CandidateRegistrationData } from '../types/auth';
 
 interface AuthContextType {
   currentUser: UserProfile | null;
   isAdminAuthenticated: boolean;
-  registerCandidate: (name: string, email: string, password?: string) => Promise<UserProfile>;
-  loginCandidate: (email: string, name?: string) => Promise<UserProfile>;
-  resetPassword: (email: string, otp: string, newPassword: string) => Promise<void>;
+  registerCandidate: (name: string, email: string, password?: string, extraData?: CandidateRegistrationData, verificationToken?: string) => Promise<UserProfile>;
+  loginCandidate: (email: string, password?: string) => Promise<UserProfile>;
+  resetPassword: (email: string, otpOrToken: string, newPassword: string) => Promise<void>;
   checkCandidateExists: (email: string) => Promise<boolean>;
   loginAdmin: (passcode: string) => Promise<boolean>;
   logoutAdmin: () => void;
@@ -45,17 +45,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const getApiUrl = () => {
-    const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-    return `http://${host}:5050/api/users`;
+    return '/api/users';
   };
 
-  const registerCandidate = async (name: string, email: string, password?: string): Promise<UserProfile> => {
+  const registerCandidate = async (
+    name: string,
+    email: string,
+    password?: string,
+    extraData?: CandidateRegistrationData,
+    verificationToken?: string
+  ): Promise<UserProfile> => {
     const uid = `usr_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     const payload = {
       uid,
       name: name.trim() || 'Candidate',
       email: email.trim().toLowerCase(),
       password: password || '',
+      verificationToken: verificationToken || '',
+      ...(extraData || {})
     };
     
     const res = await fetch(`${getApiUrl()}/register`, {
@@ -77,11 +84,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       name: resData.user.name,
       email: resData.user.email,
       role: resData.user.role,
+      phone: resData.user.phone,
+      gender: resData.user.gender,
+      occupationStatus: resData.user.occupationStatus,
+      designation: resData.user.designation,
+      universityInstitute: resData.user.universityInstitute,
+      city: resData.user.city,
+      address: resData.user.address,
+      targetExam: resData.user.targetExam,
       totalExamsTaken: 0,
       createdAt: new Date().toISOString()
     };
 
     setCurrentUser(newUser);
+    setIsAdminAuthenticated(false);
     return newUser;
   };
 
@@ -124,20 +140,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       targetExam: data.targetExam,
       phone: data.phone,
       institution: data.institution,
+      gender: data.gender,
+      occupationStatus: data.occupationStatus,
+      designation: data.designation,
+      universityInstitute: data.universityInstitute,
+      city: data.city,
+      address: data.address,
       createdAt: data.createdAt,
     };
     
     setCurrentUser(user);
+    setIsAdminAuthenticated(false);
     return user;
   };
 
-  const resetPassword = async (email: string, otp: string, newPassword: string): Promise<void> => {
+  const resetPassword = async (email: string, otpOrToken: string, newPassword: string): Promise<void> => {
+    const isHexToken = /^[a-f0-9]{64}$/i.test(otpOrToken.trim());
     const res = await fetch(`${getApiUrl()}/reset-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         email: email.trim().toLowerCase(),
-        otp: otp.trim(),
+        ...(isHexToken ? { verificationToken: otpOrToken.trim() } : { otp: otpOrToken.trim() }),
         newPassword 
       }),
     });
@@ -156,14 +180,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginAdmin = async (passcode: string): Promise<boolean> => {
     try {
-      const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-      const res = await fetch(`http://${host}:5050/api/admin/login`, {
+      const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ passcode }),
         credentials: 'include',
+      }).catch(() => {
+        const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
+        return fetch(`http://${host}:5050/api/admin/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ passcode }),
+          credentials: 'include',
+        });
       });
-      if (res.ok) {
+      if (res && res.ok) {
         setIsAdminAuthenticated(true);
         if (currentUser) {
           setCurrentUser({ ...currentUser, role: 'admin' });
@@ -177,11 +208,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logoutAdmin = () => {
-    const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-    fetch(`http://${host}:5050/api/users/logout`, {
+    const clientId = typeof window !== 'undefined' ? localStorage.getItem('evalnium_client_id') : null;
+    fetch('/api/users/logout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId }),
       credentials: 'include',
+    }).catch(() => {
+      const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
+      return fetch(`http://${host}:5050/api/users/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId }),
+        credentials: 'include',
+      });
     }).catch(e => console.error('Logout request failed:', e));
 
     setIsAdminAuthenticated(false);
@@ -191,13 +231,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logoutCandidate = () => {
-    const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-    fetch(`http://${host}:5050/api/users/logout`, {
+    const clientId = typeof window !== 'undefined' ? localStorage.getItem('evalnium_client_id') : null;
+    fetch('/api/users/logout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId }),
       credentials: 'include',
+    }).catch(() => {
+      const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
+      return fetch(`http://${host}:5050/api/users/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId }),
+        credentials: 'include',
+      });
     }).catch(e => console.error('Logout request failed:', e));
 
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('evalnium_client_id');
+    }
     setCurrentUser(null);
   };
 

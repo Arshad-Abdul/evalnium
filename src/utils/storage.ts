@@ -8,6 +8,14 @@ export const ANNOUNCEMENTS_KEY = 'evalnium_announcements_v1';
 
 const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
+    // Primary: use relative /api which seamlessly routes via Vite proxy on both localhost and LAN
+    return '/api';
+  }
+  return 'http://localhost:5050/api';
+};
+
+const getDirectApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
     const host = window.location.hostname || 'localhost';
     const isLocalhost = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0';
     return isLocalhost ? 'http://localhost:5050/api' : `http://${host}:5050/api`;
@@ -24,22 +32,42 @@ const shouldSkipApiCall = () => {
 // --- QUIZZES CLOUD & LOCAL SYNC ---
 export async function syncQuizzesFromMySQL(): Promise<Quiz[] | null> {
   if (shouldSkipApiCall()) return null;
-  try {
-    const res = await fetch(`${getApiBaseUrl()}/quizzes`, { signal: AbortSignal.timeout(6000) });
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        // Normalize missing difficulty
-        const normalizedData = data.map(q => ({
-          ...q,
-          difficulty: q.difficulty || 'Medium',
-        }));
-        localStorage.setItem(QUIZZES_KEY, JSON.stringify(normalizedData));
-        return normalizedData;
+
+  const endpoints = [
+    `${getApiBaseUrl()}/quizzes`,
+    `${getDirectApiBaseUrl()}/quizzes`,
+    'http://localhost:5050/api/quizzes'
+  ];
+
+  for (const url of Array.from(new Set(endpoints))) {
+    try {
+      const res = await fetch(url, { credentials: 'include', signal: AbortSignal.timeout(6000) });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          // Normalize missing difficulty
+          const normalizedData = data.map(q => ({
+            ...q,
+            difficulty: q.difficulty || 'Medium',
+          }));
+          try {
+            localStorage.setItem(QUIZZES_KEY, JSON.stringify(normalizedData));
+          } catch (storageErr) {
+            console.warn('LocalStorage limit reached when caching quizzes, attempting metadata-only fallback:', storageErr);
+            try {
+              const lightQuizzes = normalizedData.map(q => ({
+                ...q,
+                questions: []
+              }));
+              localStorage.setItem(QUIZZES_KEY, JSON.stringify(lightQuizzes));
+            } catch {}
+          }
+          return normalizedData;
+        }
       }
+    } catch {
+      // Try next endpoint fallback
     }
-  } catch {
-    // API server offline fallback
   }
   return null;
 }
@@ -86,6 +114,7 @@ export function saveQuiz(quiz: Quiz): Quiz[] {
   fetch(`${getApiBaseUrl()}/quizzes`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(quiz),
   }).then(async res => {
     if (!res.ok) {
@@ -111,6 +140,7 @@ export function deleteQuiz(id: string): Quiz[] {
 
   fetch(`${getApiBaseUrl()}/quizzes/${id}`, {
     method: 'DELETE',
+    credentials: 'include',
   }).catch(() => {});
 
   return updated;
@@ -119,17 +149,30 @@ export function deleteQuiz(id: string): Quiz[] {
 // --- RESULTS & LEADERBOARD CLOUD & LOCAL SYNC ---
 export async function syncResultsFromMySQL(): Promise<QuizAttemptResult[] | null> {
   if (shouldSkipApiCall()) return null;
-  try {
-    const res = await fetch(`${getApiBaseUrl()}/results`, { signal: AbortSignal.timeout(6000) });
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        localStorage.setItem(RESULTS_KEY, JSON.stringify(data));
-        return data;
+
+  const endpoints = [
+    `${getApiBaseUrl()}/results`,
+    `${getDirectApiBaseUrl()}/results`,
+    'http://localhost:5050/api/results'
+  ];
+
+  for (const url of Array.from(new Set(endpoints))) {
+    try {
+      const res = await fetch(url, { credentials: 'include', signal: AbortSignal.timeout(6000) });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          try {
+            localStorage.setItem(RESULTS_KEY, JSON.stringify(data));
+          } catch (storageErr) {
+            console.warn('LocalStorage limit reached when caching results:', storageErr);
+          }
+          return data;
+        }
       }
+    } catch {
+      // Try next endpoint fallback
     }
-  } catch {
-    // API server offline fallback
   }
   return null;
 }
@@ -180,6 +223,7 @@ export function saveResult(result: QuizAttemptResult): QuizAttemptResult[] {
   fetch(`${getApiBaseUrl()}/results`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(result),
   }).catch(() => {});
 
@@ -207,17 +251,30 @@ export function getStoredAnnouncements(): Announcement[] {
 
 export async function syncAnnouncementsFromMySQL(): Promise<Announcement[] | null> {
   if (shouldSkipApiCall()) return null;
-  try {
-    const res = await fetch(`${getApiBaseUrl()}/announcements`, { signal: AbortSignal.timeout(6000) });
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        localStorage.setItem(ANNOUNCEMENTS_KEY, JSON.stringify(data));
-        return data;
+
+  const endpoints = [
+    `${getApiBaseUrl()}/announcements`,
+    `${getDirectApiBaseUrl()}/announcements`,
+    'http://localhost:5050/api/announcements'
+  ];
+
+  for (const url of Array.from(new Set(endpoints))) {
+    try {
+      const res = await fetch(url, { credentials: 'include', signal: AbortSignal.timeout(6000) });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          try {
+            localStorage.setItem(ANNOUNCEMENTS_KEY, JSON.stringify(data));
+          } catch (storageErr) {
+            console.warn('LocalStorage limit reached when caching announcements:', storageErr);
+          }
+          return data;
+        }
       }
+    } catch {
+      // Try next endpoint fallback
     }
-  } catch {
-    // fallback
   }
   return null;
 }
@@ -226,6 +283,7 @@ export function saveAnnouncementToCloud(ann: Announcement): void {
   fetch(`${getApiBaseUrl()}/announcements`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(ann),
   }).catch(() => {});
 }
@@ -233,5 +291,6 @@ export function saveAnnouncementToCloud(ann: Announcement): void {
 export function deleteAnnouncementFromCloud(id: string): void {
   fetch(`${getApiBaseUrl()}/announcements/${id}`, {
     method: 'DELETE',
+    credentials: 'include',
   }).catch(() => {});
 }

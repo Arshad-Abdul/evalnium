@@ -29,35 +29,35 @@ export const AnnouncementBanner: React.FC<AnnouncementBannerProps> = ({
   const isUpcoming = scheduledDate > new Date();
 
   return (
-    <div className="bg-gradient-to-r from-amber-50/95 via-orange-50/40 to-amber-50/80 text-slate-800 p-3.5 sm:p-4 rounded-2xl border border-amber-200/90 shadow-2xs mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in duration-300">
-      <div className="flex items-center space-x-3 w-full sm:w-auto">
-        <div className="p-2.5 rounded-xl bg-amber-500 text-white font-bold flex-shrink-0 shadow-xs ring-4 ring-amber-100/80">
-          <Megaphone className="w-4 h-4 sm:w-5 sm:h-5" />
+    <div className="portal-card border-l-4 border-l-amber-500 p-3.5 sm:px-5 sm:py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+      <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+        <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200/80 text-amber-700 flex items-center justify-center shrink-0">
+          <Megaphone className="w-4 h-4" />
         </div>
 
-        <div className="space-y-0.5 flex-1 min-w-0">
+        <div className="min-w-0 flex-1 space-y-0.5">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300/80 text-[10px] font-mono font-bold uppercase tracking-wider">
-              {isUpcoming ? 'SCHEDULED EXAM NOTICE' : 'LIVE BULLETIN'}
+            <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-mono font-semibold uppercase tracking-wide">
+              {isUpcoming ? 'Exam Notice' : 'Bulletin'}
             </span>
             {activeAnnouncements.length > 1 && (
-              <span className="text-[10px] font-mono text-amber-800/80 bg-amber-100/70 px-1.5 py-0.2 rounded font-semibold">
+              <span className="text-[10px] font-mono text-slate-500 font-semibold">
                 {currentIndex + 1}/{activeAnnouncements.length}
               </span>
             )}
-            <h4 className="font-bold text-sm text-slate-900 truncate">{current.title}</h4>
+            <h4 className="font-semibold text-sm text-slate-900 truncate">{current.title}</h4>
           </div>
-          <p className="text-xs text-slate-600 font-medium leading-relaxed">{current.message}</p>
+          <p className="text-xs text-slate-600 leading-relaxed">{current.message}</p>
         </div>
       </div>
 
-      <div className="flex items-center justify-between sm:justify-end space-x-3 flex-shrink-0 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-amber-200/50">
-        <div className="text-left sm:text-right text-xs font-mono text-slate-500">
-          <span className="flex items-center space-x-1 text-amber-900 font-semibold sm:justify-end">
-            <Calendar className="w-3.5 h-3.5 text-amber-600" />
+      <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+        <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:gap-0.5 text-[11px] font-mono text-slate-500">
+          <span className="flex items-center gap-1 text-slate-700 font-semibold">
+            <Calendar className="w-3 h-3 text-slate-400" />
             <span>{scheduledDate.toLocaleDateString()}</span>
           </span>
-          <span className="flex items-center space-x-1 text-[11px] text-slate-500 sm:justify-end">
+          <span className="flex items-center gap-1 text-slate-500">
             <Clock className="w-3 h-3 text-slate-400" />
             <span>{scheduledDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
           </span>
@@ -65,8 +65,9 @@ export const AnnouncementBanner: React.FC<AnnouncementBannerProps> = ({
 
         {current.targetQuizId && onSelectQuizById && (
           <button
+            type="button"
             onClick={() => onSelectQuizById(current.targetQuizId!)}
-            className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs flex items-center space-x-1.5 transition-all hover:shadow-sm cursor-pointer"
+            className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
           >
             <span>Open Exam</span>
             <ArrowRight className="w-3.5 h-3.5" />

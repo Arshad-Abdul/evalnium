@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Plus, Trash2, Edit, Eye, EyeOff, Sparkles, Image as ImageIcon, 
+  Plus, Trash2, Edit, Eye, EyeOff, Image as ImageIcon, 
   Link2, ExternalLink, RefreshCw, Upload, CheckCircle2, Megaphone,
   LayoutGrid, Layers
 } from 'lucide-react';
@@ -18,7 +18,7 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
   const [editingBanner, setEditingBanner] = useState<BannerItem | null>(null);
 
   // Filter State
-  const [filterSlot, setFilterSlot] = useState<'all' | 'hero' | 'header_ad' | 'catalog_ad'>('all');
+  const [filterSlot, setFilterSlot] = useState<'all' | 'hero' | 'header_ad' | 'catalog_ad' | 'footer_ad'>('all');
 
   // Form State
   const [title, setTitle] = useState('');
@@ -38,14 +38,18 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file');
 
   const getApiBaseUrl = () => {
-    const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-    return `http://${host}:5050/api`;
+    if (typeof window !== 'undefined') {
+      return '/api';
+    }
+    return 'http://localhost:5050/api';
   };
 
   const fetchBanners = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${getApiBaseUrl()}/banners?all=true`);
+      const res = await fetch(`${getApiBaseUrl()}/banners?all=true`, {
+        credentials: 'include'
+      });
       if (res.ok) {
         const data = await res.json();
         setBanners(data);
@@ -65,8 +69,8 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
     setTitle('');
     setSubtitle('');
     setImageUrl('');
-    setBadgeText('FULL-LENGTH CBT MOCK');
-    setCtaText('Take Test Now');
+    setBadgeText('');
+    setCtaText('');
     setCtaLink('/');
     setQuizId('');
     setSlotType('hero');
@@ -82,24 +86,17 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
     resetForm();
     setSlotType(preferredSlot);
     setAllowDismiss(true);
-    setImageOnly(preferredSlot === 'catalog_ad');
-    if (preferredSlot === 'header_ad') {
-      setBadgeText('Ad');
-      setCtaText('Explore Series');
-    } else if (preferredSlot === 'catalog_ad') {
-      setBadgeText('Sponsored');
-      setCtaText('Practice Now');
-    }
+    setImageOnly(preferredSlot !== 'hero');
     setShowAddModal(true);
   };
 
   const handleOpenEdit = (banner: BannerItem) => {
     setEditingBanner(banner);
-    setTitle(banner.title);
+    setTitle(banner.title || '');
     setSubtitle(banner.subtitle || '');
-    setImageUrl(banner.imageUrl);
-    setBadgeText(banner.badgeText || 'SPOTLIGHT');
-    setCtaText(banner.ctaText || 'Take Test Now');
+    setImageUrl(banner.imageUrl || '');
+    setBadgeText(banner.badgeText || '');
+    setCtaText(banner.ctaText || '');
     setCtaLink(banner.ctaLink || '/');
     setQuizId(banner.quizId || '');
     setSlotType(banner.slotType || 'hero');
@@ -120,19 +117,62 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
       return;
     }
 
-    // Limit check to ~5MB
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Image file is large (>5MB). Please upload a smaller image.');
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Image file is too large (>10MB). Please upload a smaller image.');
       return;
     }
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      if (event.target?.result) {
-        setImageUrl(event.target.result as string);
+      const dataUrl = event.target?.result as string;
+      if (!dataUrl) return;
+
+      // SVGs or small files (< 500KB) are kept verbatim
+      if (file.type === 'image/svg+xml' || file.size < 500 * 1024) {
+        setImageUrl(dataUrl);
+        return;
       }
+
+      // Compress larger raster images cleanly to prevent slow page loads & payload limits
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const maxWidth = 1600;
+          const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            setImageUrl(dataUrl);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const compressed = canvas.toDataURL('image/webp', 0.85);
+          setImageUrl(compressed.length < dataUrl.length ? compressed : dataUrl);
+        } catch {
+          setImageUrl(dataUrl);
+        }
+      };
+      img.onerror = () => setImageUrl(dataUrl);
+      img.src = dataUrl;
     };
     reader.readAsDataURL(file);
+  };
+
+  const extractErrorMessage = async (res: Response, fallback: string) => {
+    try {
+      const text = await res.text();
+      if (text) {
+        try {
+          const parsed = JSON.parse(text);
+          if (parsed?.error) return `${fallback} (${res.status}: ${parsed.error})`;
+        } catch {
+          return `${fallback} (${res.status}: ${text.slice(0, 120)})`;
+        }
+      }
+    } catch {}
+    return `${fallback} (HTTP ${res.status})`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -141,13 +181,9 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
       alert('Please provide an Image (uploaded or URL).');
       return;
     }
-    if (!imageOnly && !title.trim()) {
-      alert('Please provide a Title for this banner.');
-      return;
-    }
 
     const payload = {
-      title: title.trim() || (imageOnly ? 'Graphic Banner' : ''),
+      title: title.trim(),
       subtitle: subtitle.trim(),
       imageUrl: imageUrl.trim(),
       badgeText: badgeText.trim(),
@@ -166,6 +202,7 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
         const res = await fetch(`${getApiBaseUrl()}/banners/${editingBanner.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify(payload),
         });
         if (res.ok) {
@@ -176,12 +213,13 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
             window.dispatchEvent(new Event('evalnium_banners_updated'));
           }
         } else {
-          alert('Failed to update banner.');
+          alert(await extractErrorMessage(res, 'Failed to update banner'));
         }
       } else {
         const res = await fetch(`${getApiBaseUrl()}/banners`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify(payload),
         });
         if (res.ok) {
@@ -192,18 +230,21 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
             window.dispatchEvent(new Event('evalnium_banners_updated'));
           }
         } else {
-          alert('Failed to create banner.');
+          alert(await extractErrorMessage(res, 'Failed to create banner'));
         }
       }
     } catch (e) {
       console.error(e);
-      alert('Error saving banner.');
+      alert('Network error saving banner. Please ensure backend server is running.');
     }
   };
 
   const handleToggleActive = async (id: number) => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/banners/${id}/toggle`, { method: 'PATCH' });
+      const res = await fetch(`${getApiBaseUrl()}/banners/${id}/toggle`, {
+        method: 'PATCH',
+        credentials: 'include'
+      });
       if (res.ok) {
         setBanners((prev) =>
           prev.map((b) => (b.id === id ? { ...b, isActive: !b.isActive } : b))
@@ -220,7 +261,10 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
   const handleDelete = async (id: number, bannerTitle: string) => {
     if (!confirm(`Are you sure you want to delete banner "${bannerTitle}"?`)) return;
     try {
-      const res = await fetch(`${getApiBaseUrl()}/banners/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${getApiBaseUrl()}/banners/${id}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
       if (res.ok) {
         setBanners((prev) => prev.filter((b) => b.id !== id));
         if (typeof window !== 'undefined') {
@@ -241,224 +285,211 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
   return (
     <div className="space-y-6">
       {/* Header Bar */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-4 sm:p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+      <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-mono font-bold uppercase tracking-wider border border-indigo-200">
-                PROMOTIONAL ENGINE & AD MODULE
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold border border-emerald-200">
-                {banners.filter((b) => b.isActive).length} Live Showcase Items
+              <h2 className="text-base font-bold text-slate-900">Banners &amp; Ad Slots</h2>
+              <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[11px] font-semibold border border-emerald-200/80">
+                {banners.filter((b) => b.isActive).length} active
               </span>
             </div>
-            <h2 className="text-lg sm:text-xl font-black text-slate-900 flex items-center space-x-2 mt-1">
-              <Sparkles className="w-5 h-5 text-indigo-600" />
-              <span>Homepage Banners, Header Ads & Picture Showcase</span>
-            </h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Upload promotional ad graphics from your PC, manage top notification strips, and configure hero carousel slides.
+            <p className="text-xs text-slate-500 mt-0.5">
+              Manage hero slides, header/footer strips, and catalog promotional cards.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
+              type="button"
               onClick={fetchBanners}
               disabled={loading}
-              className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-300 flex items-center space-x-1.5 transition-all cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
             </button>
 
             <button
-              onClick={() => handleOpenAdd('header_ad')}
-              className="px-3 py-2 rounded-xl bg-amber-900/90 hover:bg-amber-800 text-white text-xs font-bold shadow-xs flex items-center space-x-1.5 transition-all cursor-pointer"
+              type="button"
+              onClick={() => handleOpenAdd(filterSlot !== 'all' ? filterSlot : 'hero')}
+              className="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
             >
-              <Megaphone className="w-3.5 h-3.5 text-amber-300" />
-              <span>Add Top Header Ad</span>
-            </button>
-
-            <button
-              onClick={() => handleOpenAdd('catalog_ad')}
-              className="px-3 py-2 rounded-xl bg-purple-900/90 hover:bg-purple-800 text-white text-xs font-bold shadow-xs flex items-center space-x-1.5 transition-all cursor-pointer"
-            >
-              <Layers className="w-3.5 h-3.5 text-purple-300" />
-              <span>Add Catalog In-Between Ad</span>
-            </button>
-
-            <button
-              onClick={() => handleOpenAdd('hero')}
-              className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs flex items-center space-x-1.5 transition-all cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Hero Slide</span>
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Banner</span>
             </button>
           </div>
         </div>
 
         {/* Filter Navigation Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200 w-fit text-xs font-bold">
+        <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 w-fit text-xs font-semibold">
           <button
+            type="button"
             onClick={() => setFilterSlot('all')}
-            className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center space-x-1.5 ${
+            className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
               filterSlot === 'all'
-                ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                ? 'bg-white text-slate-900 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            <span>All Showcase ({banners.length})</span>
+            All ({banners.length})
           </button>
 
           <button
+            type="button"
             onClick={() => setFilterSlot('hero')}
-            className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center space-x-1.5 ${
+            className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
               filterSlot === 'hero'
-                ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                ? 'bg-white text-slate-900 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Hero Slider ({banners.filter((b) => (b.slotType || 'hero') === 'hero').length})</span>
+            Hero Slider ({banners.filter((b) => (b.slotType || 'hero') === 'hero').length})
           </button>
 
           <button
+            type="button"
             onClick={() => setFilterSlot('header_ad')}
-            className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center space-x-1.5 ${
+            className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
               filterSlot === 'header_ad'
-                ? 'bg-white text-amber-700 shadow-xs border border-slate-200'
+                ? 'bg-white text-slate-900 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Megaphone className="w-3.5 h-3.5 text-amber-500" />
-            <span>Top Header Ad ({banners.filter((b) => b.slotType === 'header_ad').length})</span>
+            Top Header ({banners.filter((b) => b.slotType === 'header_ad').length})
           </button>
 
           <button
+            type="button"
             onClick={() => setFilterSlot('catalog_ad')}
-            className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center space-x-1.5 ${
+            className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
               filterSlot === 'catalog_ad'
-                ? 'bg-white text-purple-700 shadow-xs border border-slate-200'
+                ? 'bg-white text-slate-900 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Layers className="w-3.5 h-3.5 text-purple-500" />
-            <span>Catalog In-Between ({banners.filter((b) => b.slotType === 'catalog_ad').length})</span>
+            Catalog Card ({banners.filter((b) => b.slotType === 'catalog_ad').length})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterSlot('footer_ad')}
+            className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
+              filterSlot === 'footer_ad'
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Footer Ad ({banners.filter((b) => b.slotType === 'footer_ad').length})
           </button>
         </div>
 
         {/* Banners Grid */}
         {visibleBanners.length === 0 ? (
-          <div className="text-center py-12 text-slate-400 text-xs font-medium bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-            No banners found in this category. Click one of the buttons above to publish.
+          <div className="text-center py-12 text-slate-400 text-xs font-medium bg-slate-50 rounded-xl border border-dashed border-slate-200">
+            No banners found in this slot. Click &ldquo;Add Banner&rdquo; to create one.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {visibleBanners.map((b) => {
               const isHeaderAd = b.slotType === 'header_ad';
               const isCatalogAd = b.slotType === 'catalog_ad';
+              const isFooterAd = b.slotType === 'footer_ad';
+              const slotLabel = isHeaderAd ? 'Header Ad' : isFooterAd ? 'Footer Ad' : isCatalogAd ? 'Catalog Ad' : 'Hero Slide';
 
               return (
                 <div
                   key={b.id}
-                  className={`group relative bg-slate-900 text-white rounded-2xl overflow-hidden border transition-all ${
+                  className={`group relative bg-white rounded-xl overflow-hidden border transition-all flex flex-col ${
                     b.isActive
-                      ? 'border-slate-800 shadow-md hover:border-indigo-500'
-                      : 'border-slate-800 opacity-60'
+                      ? 'border-slate-200 hover:border-slate-300 shadow-2xs'
+                      : 'border-slate-200 opacity-65'
                   }`}
                 >
                   {/* Banner Thumbnail Image */}
-                  <div className="relative h-40 w-full overflow-hidden bg-slate-950">
+                  <div className="relative h-36 w-full overflow-hidden bg-slate-100 border-b border-slate-100">
                     <img
                       src={b.imageUrl}
-                      alt={b.title}
-                      className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 opacity-75"
+                      alt={b.title || 'Banner graphic'}
+                      className="w-full h-full object-cover object-center"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
 
-                    {/* Top Badges */}
-                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-1.5">
-                      <div className="flex flex-wrap items-center gap-1">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold text-white border ${
-                          isHeaderAd 
-                            ? 'bg-amber-600 border-amber-400/40' 
-                            : isCatalogAd
-                            ? 'bg-purple-600 border-purple-400/40'
-                            : 'bg-indigo-600 border-indigo-400/40'
-                        }`}>
-                          {isHeaderAd ? 'HEADER AD' : isCatalogAd ? 'CATALOG AD' : 'HERO SLIDE'}
-                        </span>
-                        
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-800/80 text-slate-200 border border-slate-700">
-                          {b.badgeText || 'SPOTLIGHT'}
-                        </span>
-
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold border ${
-                          b.allowDismiss !== false 
-                            ? 'bg-slate-800/90 text-slate-300 border-slate-700' 
-                            : 'bg-amber-950/80 text-amber-300 border-amber-700/60'
-                        }`}>
-                          {b.allowDismiss !== false ? '✕ Closeable' : 'Fixed'}
-                        </span>
-
-                        {b.imageOnly && (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-700/60">
-                            🖼️ Image Only
-                          </span>
-                        )}
-                      </div>
+                    {/* Minimal Overlay Pills */}
+                    <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-2">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-900/85 text-white backdrop-blur-xs">
+                        {slotLabel}
+                      </span>
 
                       <button
+                        type="button"
                         onClick={() => handleToggleActive(b.id)}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all flex items-center space-x-1 cursor-pointer ${
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-colors flex items-center gap-1 cursor-pointer ${
                           b.isActive
-                            ? 'bg-emerald-500 text-white border-emerald-400'
-                            : 'bg-slate-800 text-slate-400 border-slate-700'
+                            ? 'bg-emerald-600 text-white border-emerald-500'
+                            : 'bg-white/95 text-slate-600 border-slate-300'
                         }`}
                       >
                         {b.isActive ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                         <span>{b.isActive ? 'Active' : 'Draft'}</span>
                       </button>
                     </div>
-
-                    {/* Priority Order */}
-                    <div className="absolute bottom-2 left-3 font-mono text-[10px] text-slate-400">
-                      Order: #{b.displayOrder}
-                    </div>
                   </div>
 
                   {/* Banner Body */}
-                  <div className="p-4 space-y-2">
-                    <h3 className="font-bold text-sm text-white line-clamp-1 leading-snug">{b.title}</h3>
-                    <p className="text-xs text-slate-300 line-clamp-2">{b.subtitle}</p>
+                  <div className="p-4 flex-1 flex flex-col justify-between gap-3">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-bold text-sm text-slate-900 truncate">
+                          {b.title || (b.imageOnly ? 'Image Banner' : 'Untitled Banner')}
+                        </h3>
+                        <span className="text-[11px] font-mono text-slate-400 shrink-0">#{b.displayOrder}</span>
+                      </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-[11px] font-mono text-slate-400">
-                      <span>CTA: <strong className="text-indigo-300">{b.ctaText}</strong></span>
-                      {b.quizId ? (
-                        <span className="text-emerald-400">Test: {b.quizId}</span>
-                      ) : (
-                        <span className="text-slate-400 truncate max-w-[120px]">{b.ctaLink || 'General'}</span>
+                      {b.subtitle && (
+                        <p className="text-xs text-slate-500 line-clamp-2">{b.subtitle}</p>
                       )}
+
+                      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                        <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-medium">
+                          {b.allowDismiss !== false ? 'Closeable' : 'Fixed'}
+                        </span>
+                        {b.imageOnly && (
+                          <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-medium">
+                            Image Only
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center justify-end space-x-2 pt-2">
-                      <button
-                        onClick={() => handleOpenEdit(b)}
-                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 flex items-center space-x-1 cursor-pointer"
-                      >
-                        <Edit className="w-3 h-3 text-indigo-400" />
-                        <span>Edit</span>
-                      </button>
+                    <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1 text-[11px] text-slate-500 space-y-0.5">
+                        <div className="truncate">
+                          CTA: <strong className="text-slate-800 font-semibold">{b.ctaText || 'None'}</strong>
+                        </div>
+                        <div className="truncate font-mono text-[10px] text-slate-400" title={b.quizId || b.ctaLink || '/'}>
+                          {b.quizId ? `Quiz: ${b.quizId}` : (b.ctaLink || '/')}
+                        </div>
+                      </div>
 
-                      <button
-                        onClick={() => handleDelete(b.id, b.title)}
-                        className="p-1 rounded-lg bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-400 border border-slate-700 cursor-pointer"
-                        title="Delete Banner"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(b)}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 flex items-center gap-1 cursor-pointer"
+                        >
+                          <Edit className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(b.id, b.title)}
+                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 cursor-pointer"
+                          title="Delete Banner"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -471,11 +502,11 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
       {/* Add / Edit Banner Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full p-5 sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-xl w-full p-5 sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-black text-slate-900 flex items-center space-x-2">
-                <Sparkles className="w-4.5 h-4.5 text-indigo-600" />
-                <span>{editingBanner ? 'Edit Showcase Graphic' : 'Create New Promotional Showcase / Ad'}</span>
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-slate-600" />
+                <span>{editingBanner ? 'Edit Showcase Graphic' : 'Create Showcase Banner / Ad'}</span>
               </h3>
               <button
                 onClick={() => setShowAddModal(false)}
@@ -490,7 +521,7 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
               {/* Placement Slot Selection */}
               <div className="space-y-1.5">
                 <label className="font-bold text-slate-900">Placement Slot / Module *</label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setSlotType('hero')}
@@ -500,8 +531,8 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
                         : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    <div className="font-bold text-xs flex items-center space-x-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                    <div className="font-bold text-xs flex items-center gap-1.5">
+                      <ImageIcon className="w-3.5 h-3.5 text-slate-600" />
                       <span>Hero Slider</span>
                     </div>
                     <p className="text-[10px] text-slate-500 mt-1 leading-normal">
@@ -544,6 +575,24 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
                       Full-width ad placed centered between exam card rows.
                     </p>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSlotType('footer_ad')}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                      slotType === 'footer_ad'
+                        ? 'bg-teal-50/80 border-teal-500 text-teal-900 ring-2 ring-teal-500/20 shadow-xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="font-bold text-xs flex items-center space-x-1.5">
+                      <Megaphone className="w-3.5 h-3.5 text-teal-600" />
+                      <span>Footer Ad</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1 leading-normal">
+                      Bottom billboard banner above the portal footer.
+                    </p>
+                  </button>
                 </div>
               </div>
 
@@ -584,8 +633,8 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
                   </div>
                 </div>
                 {imageOnly && (
-                  <div className="p-2 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-900 text-[11px] font-medium leading-relaxed">
-                    💡 <strong>Image-Only Active:</strong> The ad will render as a 100% full-bleed picture filling the card box. Title, subtitle, and buttons will be hidden from candidates. Clicking anywhere on the picture will launch the destination link.
+                  <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium leading-relaxed">
+                    <strong>Image-Only Mode Active:</strong> Only the clean picture will be shown (all badge labels, headlines, and CTA buttons are hidden). Switch to <strong>Card with Text</strong> above if you want to show text or buttons on top.
                   </div>
                 )}
               </div>
@@ -593,29 +642,33 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
               {/* Title */}
               <div className="space-y-1">
                 <label className="font-bold text-slate-900">
-                  {imageOnly ? 'Internal Reference Title (Hidden on Card)' : 'Banner Headline / Notice Title *'}
+                  {imageOnly ? 'Internal Reference Label (Hidden from Candidates)' : 'Banner Headline / Title'}
+                  {!imageOnly && <span className="text-[10px] font-normal text-slate-400 ml-1">(Optional — Leave empty to hide)</span>}
                 </label>
                 <input
                   type="text"
-                  required={!imageOnly}
-                  placeholder={imageOnly ? 'e.g. LIS Exam Promo Poster' : 'e.g. Special Edition UGC NET 2026 Test Series Available'}
+                  placeholder={imageOnly ? 'e.g. Library Photo Banner' : 'Leave empty to hide'}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:border-indigo-600"
                 />
               </div>
 
-              {/* Subtitle */}
-              <div className="space-y-1">
-                <label className="font-bold text-slate-900">Description / Subtitle (Optional)</label>
-                <textarea
-                  rows={2}
-                  placeholder="e.g. Comprehensive Bilingual Assessment covering Teaching & Research Aptitude."
-                  value={subtitle}
-                  onChange={(e) => setSubtitle(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:border-indigo-600"
-                />
-              </div>
+              {/* Subtitle (only relevant in Card with Text mode) */}
+              {!imageOnly && (
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-900">
+                    Description / Subtitle <span className="text-[10px] font-normal text-slate-400">(Optional — Leave empty to hide)</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Leave empty to hide"
+                    value={subtitle}
+                    onChange={(e) => setSubtitle(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:border-indigo-600"
+                  />
+                </div>
+              )}
 
               {/* Image / Picture Upload from Local PC or URL */}
               <div className="space-y-2">
@@ -742,29 +795,33 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
                 </div>
               </div>
 
-              {/* Badge & CTA Button Text */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-900">Badge Label</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. LIMITED ENROLLMENT"
-                    value={badgeText}
-                    onChange={(e) => setBadgeText(e.target.value)}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:border-indigo-600"
-                  />
-                </div>
+              {/* Badge, CTA Button Text & Display Order */}
+              <div className={`grid grid-cols-1 ${imageOnly ? 'sm:grid-cols-1' : 'sm:grid-cols-3'} gap-3`}>
+                {!imageOnly && (
+                  <>
+                    <div className="space-y-1">
+                      <label className="font-bold text-slate-900">Badge Label <span className="text-[10px] font-normal text-slate-400">(Optional)</span></label>
+                      <input
+                        type="text"
+                        placeholder="Leave empty to hide"
+                        value={badgeText}
+                        onChange={(e) => setBadgeText(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:border-indigo-600"
+                      />
+                    </div>
 
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-900">Button CTA Text</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Explore Series"
-                    value={ctaText}
-                    onChange={(e) => setCtaText(e.target.value)}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:border-indigo-600"
-                  />
-                </div>
+                    <div className="space-y-1">
+                      <label className="font-bold text-slate-900">Button CTA Text <span className="text-[10px] font-normal text-slate-400">(Optional)</span></label>
+                      <input
+                        type="text"
+                        placeholder="Leave empty to hide"
+                        value={ctaText}
+                        onChange={(e) => setCtaText(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:border-indigo-600"
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div className="space-y-1">
                   <label className="font-bold text-slate-900">Display Order</label>

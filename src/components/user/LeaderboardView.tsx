@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import type { LeaderboardEntry } from '../../types/auth';
+import type { Quiz, QuizAttemptResult } from '../../types/quiz';
 import { getStoredResults, getStoredQuizzes } from '../../utils/storage';
 import { exportLeaderboardToCSV } from '../../utils/export';
 import { 
-  Trophy, Award, Medal, Search, Sparkles, Filter, Clock, Download, 
+  Trophy, Award, Medal, Search, Filter, Clock, Download, 
   Lock, LogIn, BookOpen, ShieldCheck, HelpCircle, CheckCircle2, ChevronRight,
   Calculator, Gauge, Activity, Percent
 } from 'lucide-react';
@@ -11,10 +12,16 @@ import { useAuth } from '../../context/AuthContext';
 import { AuthModal } from '../auth/AuthModal';
 
 interface LeaderboardViewProps {
+  quizzes?: Quiz[];
+  attemptsHistory?: QuizAttemptResult[];
   onNavigateToCatalog?: () => void;
 }
 
-export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCatalog }) => {
+export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
+  quizzes: liveQuizzes,
+  attemptsHistory: liveResults,
+  onNavigateToCatalog,
+}) => {
   const { currentUser, isAdminAuthenticated } = useAuth();
   const isSuperAdmin = isAdminAuthenticated && (!currentUser || currentUser?.role === 'admin');
   const isAuthenticated = Boolean(currentUser) || isAdminAuthenticated;
@@ -25,9 +32,11 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCa
   const [selectedTopic, setSelectedTopic] = useState('All Topics');
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  const normalizeTopic = (value?: string) => (value || '').replace(/\s+/g, ' ').trim();
+
   useEffect(() => {
-    const activeQuizzes = getStoredQuizzes();
-    const results = getStoredResults();
+    const activeQuizzes = liveQuizzes && liveQuizzes.length > 0 ? liveQuizzes : getStoredQuizzes();
+    const results = liveResults && liveResults.length > 0 ? liveResults : getStoredResults();
     
     // Filter out deleted quizzes (Live/Published and Drafted quizzes remain!)
     const validResults = results.filter(r => {
@@ -35,19 +44,22 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCa
       return activeQuizzes.some(q => q.id === r.quizId || q.title === r.quizTitle);
     });
 
-    const formatted: LeaderboardEntry[] = validResults.map((r) => ({
-      id: r.id,
-      candidateId: `cand_${r.candidateName}`,
-      candidateName: r.candidateName || 'Candidate',
-      quizId: r.quizId,
-      quizTitle: r.quizTitle,
-      topic: r.topic,
-      score: r.score,
-      maxScore: r.maxScore,
-      percentage: r.percentage,
-      timeSpentSeconds: r.timeSpentSeconds,
-      attemptedAt: r.attemptedAt
-    }));
+    const formatted: LeaderboardEntry[] = validResults.map((r) => {
+      const matchedQuiz = activeQuizzes.find(q => q.id === r.quizId || q.title === r.quizTitle);
+      return {
+        id: r.id,
+        candidateId: `cand_${r.candidateName}`,
+        candidateName: r.candidateName || 'Candidate',
+        quizId: r.quizId,
+        quizTitle: matchedQuiz?.title || r.quizTitle,
+        topic: normalizeTopic(matchedQuiz?.topic || r.topic),
+        score: r.score,
+        maxScore: r.maxScore,
+        percentage: r.percentage,
+        timeSpentSeconds: r.timeSpentSeconds,
+        attemptedAt: r.attemptedAt
+      };
+    });
 
     // Sort by Percentage (descending), then Time Spent (ascending)
     const sorted = formatted.sort((a, b) => {
@@ -58,17 +70,18 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCa
     });
 
     setEntries(sorted);
-  }, []);
+  }, [liveQuizzes, liveResults]);
 
-  const quizTitles = ['All Exams (Overall Cumulative)', ...Array.from(new Set(entries.map((e) => e.quizTitle)))];
-  const topics = ['All Topics', ...Array.from(new Set(entries.map((e) => e.topic)))];
+  const quizTitles = ['All Exams (Overall Cumulative)', ...Array.from(new Set(entries.map((e) => normalizeTopic(e.quizTitle)).filter(Boolean)))];
+  const topics = ['All Topics', ...Array.from(new Set(entries.map((e) => normalizeTopic(e.topic)).filter(Boolean)))];
 
   const filteredEntriesRaw = entries.filter((e) => {
     const matchesSearch =
       e.candidateName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       e.quizTitle.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTopic = selectedTopic === 'All Topics' || selectedTopic === 'All' || e.topic === selectedTopic;
-    const matchesQuiz = selectedQuizTitle === 'All Exams (Overall Cumulative)' || e.quizTitle === selectedQuizTitle;
+    const normalizedTopic = normalizeTopic(e.topic);
+    const matchesTopic = selectedTopic === 'All Topics' || selectedTopic === 'All' || normalizedTopic === selectedTopic;
+    const matchesQuiz = selectedQuizTitle === 'All Exams (Overall Cumulative)' || normalizeTopic(e.quizTitle) === selectedQuizTitle;
     return matchesSearch && matchesTopic && matchesQuiz;
   });
 
@@ -122,73 +135,69 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCa
 
   // Methodology and scoring explanation section
   const renderMethodologySection = () => (
-    <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-6 shadow-xs">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+    <div className="portal-card p-5 sm:p-6 space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3.5">
         <div>
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200 uppercase tracking-wider">
-            SCORING METHODOLOGY
+          <span className="text-[10px] font-mono font-semibold text-slate-500 uppercase tracking-wider">
+            Scoring Methodology
           </span>
-          <h3 className="text-base sm:text-lg font-black text-slate-900 flex items-center space-x-2 mt-1">
-            <Calculator className="w-5 h-5 text-blue-600" />
-            <span>How Rankings, Scores, Percentiles & Ratings Are Calculated</span>
+          <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2 mt-0.5">
+            <Calculator className="w-4 h-4 text-slate-600" />
+            <span>How Rankings, Scores & Ratings Are Calculated</span>
           </h3>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-        {/* 1. Raw Scores & Accuracy */}
-        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-          <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
-            <Percent className="w-4 h-4" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 text-xs">
+        <div className="p-4 rounded-lg bg-slate-50 border border-slate-200/80 space-y-2">
+          <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
+            <Percent className="w-4 h-4 text-slate-600 shrink-0" />
+            <span>1. Score & Accuracy %</span>
           </div>
-          <h4 className="font-bold text-slate-900 text-xs">1. Raw Score & Accuracy %</h4>
           <p className="text-[11px] text-slate-600 leading-relaxed">
-            Raw score equals total marks from correct responses minus penalties for incorrect answers. Accuracy percentage is computed as:
+            Raw score adds correct marks and subtracts any negative marking penalties:
           </p>
-          <div className="p-2 rounded-lg bg-white border border-slate-200 font-mono text-[10px] text-blue-700 font-bold">
-            Accuracy % = (Marks Obtained ÷ Max Marks) × 100
+          <div className="p-2 rounded bg-white border border-slate-200 font-mono text-[10px] text-slate-700 font-semibold">
+            Accuracy % = (Marks ÷ Max) × 100
           </div>
         </div>
 
-        {/* 2. Speed & Time Spent Tie-Breaker */}
-        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-          <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
-            <Clock className="w-4 h-4" />
+        <div className="p-4 rounded-lg bg-slate-50 border border-slate-200/80 space-y-2">
+          <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
+            <Clock className="w-4 h-4 text-slate-600 shrink-0" />
+            <span>2. Speed Tie-Breaker</span>
           </div>
-          <h4 className="font-bold text-slate-900 text-xs">2. Speed & Time Tie-Breaker</h4>
           <p className="text-[11px] text-slate-600 leading-relaxed">
-            When two or more candidates achieve the exact same score/accuracy %, the candidate who finished in <strong>lesser elapsed time</strong> ranks higher:
+            When two candidates match on accuracy, the candidate who finished in <strong>less time</strong> ranks higher:
           </p>
-          <div className="p-2 rounded-lg bg-white border border-slate-200 font-mono text-[10px] text-amber-700 font-bold">
-            Primary Tie-Breaker: Time Spent (Ascending)
+          <div className="p-2 rounded bg-white border border-slate-200 font-mono text-[10px] text-slate-700 font-semibold">
+            Tie-Breaker: Elapsed Time (Asc)
           </div>
         </div>
 
-        {/* 3. Candidate Percentile Score */}
-        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-          <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
-            <Gauge className="w-4 h-4" />
+        <div className="p-4 rounded-lg bg-slate-50 border border-slate-200/80 space-y-2">
+          <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
+            <Gauge className="w-4 h-4 text-slate-600 shrink-0" />
+            <span>3. Candidate Percentile</span>
           </div>
-          <h4 className="font-bold text-slate-900 text-xs">3. Candidate Percentile</h4>
           <p className="text-[11px] text-slate-600 leading-relaxed">
-            Percentile reflects the proportion of candidates scoring equal to or below a student's score across the test session:
+            Percentile reflects the share of attempts scoring equal to or below your score:
           </p>
-          <div className="p-2 rounded-lg bg-white border border-slate-200 font-mono text-[10px] text-purple-700 font-bold">
-            Percentile = (Candidates ≤ Your Score ÷ Total) × 100
+          <div className="p-2 rounded bg-white border border-slate-200 font-mono text-[10px] text-slate-700 font-semibold">
+            Percentile = (≤ Score ÷ Total) × 100
           </div>
         </div>
 
-        {/* 4. Evalnium Hybrid Cumulative Rating */}
-        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-          <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-            <Activity className="w-4 h-4" />
+        <div className="p-4 rounded-lg bg-slate-50 border border-slate-200/80 space-y-2">
+          <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
+            <Activity className="w-4 h-4 text-slate-600 shrink-0" />
+            <span>4. Cumulative Rating</span>
           </div>
-          <h4 className="font-bold text-slate-900 text-xs">4. Cumulative Hybrid Rating</h4>
           <p className="text-[11px] text-slate-600 leading-relaxed">
-            On the All-Exams Leaderboard, consistency is rewarded. Rating points combine cumulative marks with average accuracy:
+            Cumulative rankings combine total earned marks with average accuracy across attempts:
           </p>
-          <div className="p-2 rounded-lg bg-white border border-slate-200 font-mono text-[10px] text-emerald-700 font-bold">
-            Rating Points = Total Marks × (Accuracy % ÷ 100)
+          <div className="p-2 rounded bg-white border border-slate-200 font-mono text-[10px] text-slate-700 font-semibold">
+            Rating = Total Marks × (Accuracy ÷ 100)
           </div>
         </div>
       </div>
@@ -198,56 +207,50 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCa
   // If visitor is NOT logged in: Show the Protected Leaderboard Gate
   if (!isAuthenticated) {
     return (
-      <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-200 select-none">
+      <div className="w-full space-y-6 animate-in fade-in duration-200 select-none">
         {/* Top Header Card */}
-        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
-            <div className="space-y-1.5">
-              <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-50 text-amber-700 border border-amber-200 uppercase tracking-wider inline-flex items-center space-x-1.5">
-                <Trophy className="w-3.5 h-3.5 text-amber-600" />
-                <span>Candidate Standings & Ranks</span>
-              </span>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900">
-                Evalnium Practice & Quiz Leaderboard
+        <div className="portal-card p-5 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                Candidate Rankings & Standings
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-xl">
+              <p className="text-xs sm:text-sm text-slate-500 max-w-2xl">
                 Competitive rankings and percentiles for UGC NET & SET Library Science practice exams.
               </p>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <span className="px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-800 text-xs font-mono font-bold border border-amber-300/60 flex items-center space-x-1.5">
-                <Lock className="w-3.5 h-3.5 text-amber-600" />
-                <span>Candidate Restricted</span>
-              </span>
-            </div>
+            <span className="self-start sm:self-auto px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 text-xs font-mono font-semibold border border-slate-200 inline-flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5 text-slate-500" />
+              <span>Candidate Sign-In Required</span>
+            </span>
           </div>
         </div>
 
-        {/* High-Converting Protected Access Hero Card */}
-        <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-md p-8 sm:p-12 text-center space-y-6">
-          <div className="w-20 h-20 mx-auto rounded-3xl bg-amber-50 border-2 border-amber-200 text-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/10">
-            <Lock className="w-10 h-10 text-amber-600" />
+        {/* Protected Access Gate Card */}
+        <div className="portal-card p-6 sm:p-10 text-center space-y-5">
+          <div className="w-12 h-12 mx-auto rounded-lg bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center">
+            <Lock className="w-5 h-5" />
           </div>
 
-          <div className="max-w-xl mx-auto space-y-2">
-            <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-700 font-mono text-[11px] font-bold uppercase tracking-wider border border-slate-200">
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-              <span>Authentication Gate</span>
+          <div className="max-w-xl mx-auto space-y-1.5">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-mono font-semibold text-slate-500 uppercase tracking-wider">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Protected Portal Data</span>
             </span>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
               Sign In to View Practice Rankings & Scorecards
             </h2>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
-              To safeguard student privacy and prevent unauthorized score harvesting, live candidate merit lists, percentiles, and individual test rankings are exclusively available to registered candidates and verified evaluators.
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              Live candidate merit lists, percentiles, and individual test rankings are available to signed-in candidates and evaluators.
             </p>
           </div>
 
-          {/* Action CTAs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
+              type="button"
               onClick={() => setShowAuthModal(true)}
-              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all cursor-pointer active:scale-98"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
               <LogIn className="w-4 h-4" />
               <span>Candidate Sign In / Register</span>
@@ -255,8 +258,9 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCa
 
             {onNavigateToCatalog && (
               <button
+                type="button"
                 onClick={onNavigateToCatalog}
-                className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-200 flex items-center justify-center space-x-2 transition-all cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center justify-center gap-2 transition-colors cursor-pointer"
               >
                 <BookOpen className="w-4 h-4 text-slate-500" />
                 <span>Explore Exam Catalog</span>
@@ -264,69 +268,63 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCa
             )}
           </div>
 
-          {/* Trust Highlights */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-6 border-t border-slate-100 max-w-2xl mx-auto text-left">
-            <div className="flex items-start space-x-2 text-xs text-slate-600">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-              <span><strong>Free Instant Sign Up</strong> via Email OTP with zero passwords needed.</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-5 border-t border-slate-100 max-w-2xl mx-auto text-left">
+            <div className="flex items-start gap-2 text-xs text-slate-600">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <span><strong>Email OTP Sign Up</strong> with passwordless or standard login.</span>
             </div>
-            <div className="flex items-start space-x-2 text-xs text-slate-600">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-              <span><strong>Instant Personal Rank</strong> calculated live after every CBT mock attempt.</span>
+            <div className="flex items-start gap-2 text-xs text-slate-600">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <span><strong>Live Rank Calculation</strong> updated after every submitted mock test.</span>
             </div>
-            <div className="flex items-start space-x-2 text-xs text-slate-600">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-              <span><strong>Competitive Percentile Benchmark</strong> against actual UGC NET aspirants.</span>
+            <div className="flex items-start gap-2 text-xs text-slate-600">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <span><strong>Percentile Benchmark</strong> compared across registered aspirants.</span>
             </div>
           </div>
         </div>
 
-        {/* Transparent Methodology & Scoring Formula Note */}
         {renderMethodologySection()}
 
-        {/* Authentication Modal */}
         <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       </div>
     );
   }
 
-  // If user IS logged in (Candidate or Admin): Show the Full Leaderboard + Personal Standing + Methodology
+  // If user IS logged in (Candidate or Admin): Show the Full Leaderboard + Methodology
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-200">
+    <div className="w-full space-y-6 animate-in fade-in duration-200">
       
-      {/* Header Banner */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs relative overflow-hidden">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
-          <div className="space-y-2">
-            <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-50 text-amber-700 border border-amber-200 uppercase tracking-wider inline-flex items-center space-x-1.5">
-              <Trophy className="w-3.5 h-3.5 text-amber-600" />
-              <span>Candidate Practice Standings</span>
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-              Evalnium Practice & Quiz Leaderboard
+      {/* Header Bar */}
+      <div className="portal-card p-5 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+              Candidate Rankings
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 max-w-xl font-medium">
-              Real-time competitive ranking of candidates based on score percentage and speed.
+            <p className="text-xs sm:text-sm text-slate-500">
+              Real-time standings ordered by score, accuracy, and completion speed.
             </p>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             {isSuperAdmin && (
               <button
+                type="button"
                 onClick={() => exportLeaderboardToCSV(filteredEntries)}
-                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs flex items-center space-x-2 transition-all cursor-pointer"
+                className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                 title="Admin Only: Export Rankings CSV"
               >
-                <Download className="w-4 h-4" />
-                <span>Export Ranks to CSV</span>
+                <Download className="w-3.5 h-3.5" />
+                <span>Export CSV</span>
               </button>
             )}
 
-            <div className="flex items-center space-x-3 bg-indigo-50/60 p-4 rounded-2xl border border-indigo-100">
-              <Sparkles className="w-8 h-8 text-indigo-600 flex-shrink-0" />
-              <div>
-                <span className="text-xl font-black font-mono text-indigo-950">{entries.length}</span>
-                <p className="text-[11px] text-indigo-700 font-bold uppercase">Total Exam Rankings Logged</p>
+            <div className="px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 flex items-center gap-2.5">
+              <Trophy className="w-4 h-4 text-slate-500 shrink-0" />
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-base font-bold font-mono text-slate-900 tabular-nums">{entries.length}</span>
+                <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Attempts Logged</span>
               </div>
             </div>
           </div>
@@ -335,105 +333,102 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCa
 
       {/* Top 3 Podium Display */}
       {filteredEntries.length >= 3 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
-          
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2 items-end">
           {/* Rank 2 (Silver) */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs text-center space-y-3 relative md:order-1">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs text-center space-y-3 relative md:order-1">
             <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-100 border border-slate-300 text-slate-600 flex items-center justify-center shadow-xs">
               <Award className="w-7 h-7" />
             </div>
-            <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-700 uppercase">
+            <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-700 uppercase tracking-wide">
               Rank #2 • Silver 🥈
             </span>
             <div>
-              <h3 className="font-extrabold text-slate-900 text-base">{top2.candidateName}</h3>
-              <p className="text-xs text-slate-500 truncate font-medium">{top2.quizTitle}</p>
+              <h3 className="font-bold text-slate-900 text-base truncate">{top2.candidateName}</h3>
+              <p className="text-xs text-slate-500 truncate mt-0.5">{top2.quizTitle}</p>
             </div>
-            <div className="pt-2 border-t border-slate-100">
-              <span className="text-2xl font-black font-mono text-slate-900">{top2.percentage}%</span>
-              <p className="text-[10px] text-slate-400 font-semibold font-mono">Time: {formatTime(top2.timeSpentSeconds)}</p>
+            <div className="pt-2.5 border-t border-slate-100">
+              <span className="text-2xl font-bold font-mono text-slate-900 tabular-nums">{top2.percentage}%</span>
+              <p className="text-[11px] text-slate-400 font-semibold font-mono tabular-nums">Time: {formatTime(top2.timeSpentSeconds)}</p>
             </div>
           </div>
 
           {/* Rank 1 (Gold - Center & Elevated) */}
-          <div className="bg-gradient-to-b from-amber-500/10 to-white p-6 rounded-3xl border-2 border-amber-300 shadow-lg text-center space-y-3 relative md:order-2 md:-translate-y-3">
+          <div className="bg-gradient-to-b from-amber-500/10 to-white p-6 rounded-2xl border-2 border-amber-300 shadow-md text-center space-y-3 relative md:order-2 md:-translate-y-2">
             <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-500/30">
               <Trophy className="w-8 h-8" />
             </div>
-            <span className="inline-block px-3 py-1 rounded-full text-xs font-black bg-amber-500 text-white uppercase tracking-wider shadow-xs">
-              👑 Rank #1 • Champion 🏆
+            <span className="inline-block px-3 py-1 rounded-full text-[11px] font-extrabold bg-amber-500 text-white uppercase tracking-wider shadow-xs">
+              👑 Rank #1 • Champion 🥇
             </span>
             <div>
-              <h3 className="font-black text-slate-900 text-lg">{top1.candidateName}</h3>
-              <p className="text-xs text-slate-500 truncate font-semibold">{top1.quizTitle}</p>
+              <h3 className="font-bold text-slate-900 text-lg truncate">{top1.candidateName}</h3>
+              <p className="text-xs text-slate-600 truncate font-medium mt-0.5">{top1.quizTitle}</p>
             </div>
-            <div className="pt-2 border-t border-slate-200/60">
-              <span className="text-3xl font-black font-mono text-amber-600">{top1.percentage}%</span>
-              <p className="text-[11px] text-amber-700/80 font-bold font-mono">Speed: {formatTime(top1.timeSpentSeconds)}</p>
+            <div className="pt-2.5 border-t border-amber-200/60">
+              <span className="text-3xl font-bold font-mono text-amber-950 tabular-nums">{top1.percentage}%</span>
+              <p className="text-xs text-amber-700 font-semibold font-mono tabular-nums">Speed: {formatTime(top1.timeSpentSeconds)}</p>
             </div>
           </div>
 
           {/* Rank 3 (Bronze) */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs text-center space-y-3 relative md:order-3">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs text-center space-y-3 relative md:order-3">
             <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shadow-xs">
               <Medal className="w-7 h-7" />
             </div>
-            <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-800 uppercase">
+            <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 uppercase tracking-wide">
               Rank #3 • Bronze 🥉
             </span>
             <div>
-              <h3 className="font-extrabold text-slate-900 text-base">{top3.candidateName}</h3>
-              <p className="text-xs text-slate-500 truncate font-medium">{top3.quizTitle}</p>
+              <h3 className="font-bold text-slate-900 text-base truncate">{top3.candidateName}</h3>
+              <p className="text-xs text-slate-500 truncate mt-0.5">{top3.quizTitle}</p>
             </div>
-            <div className="pt-2 border-t border-slate-100">
-              <span className="text-2xl font-black font-mono text-slate-900">{top3.percentage}%</span>
-              <p className="text-[10px] text-slate-400 font-semibold font-mono">Time: {formatTime(top3.timeSpentSeconds)}</p>
+            <div className="pt-2.5 border-t border-slate-100">
+              <span className="text-2xl font-bold font-mono text-slate-900 tabular-nums">{top3.percentage}%</span>
+              <p className="text-[11px] text-slate-400 font-semibold font-mono tabular-nums">Time: {formatTime(top3.timeSpentSeconds)}</p>
             </div>
           </div>
-
         </div>
       )}
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+      <div className="portal-card p-3.5 sm:p-4 space-y-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="relative w-full sm:w-80">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search candidate name..."
+              placeholder="Search candidate or paper..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:border-indigo-500 transition-colors"
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:bg-white focus:outline-none focus:border-slate-400 transition-colors"
             />
           </div>
 
-          <div className="flex items-center space-x-2 w-full sm:w-auto">
-            <select
-              value={selectedQuizTitle}
-              onChange={(e) => setSelectedQuizTitle(e.target.value)}
-              className="w-full sm:w-auto px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer"
-            >
-              {quizTitles.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={selectedQuizTitle}
+            onChange={(e) => setSelectedQuizTitle(e.target.value)}
+            className="w-full sm:w-auto px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:bg-white focus:outline-none focus:border-slate-400 transition-colors cursor-pointer"
+          >
+            {quizTitles.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
         </div>
 
-        {/* Topic Filter Pills */}
-        <div className="flex items-center space-x-2 overflow-x-auto pb-1 text-xs">
-          <span className="text-slate-400 font-bold flex items-center space-x-1 shrink-0">
+        {/* Topic Filter Bar */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs no-scrollbar">
+          <span className="text-slate-500 font-medium flex items-center gap-1 shrink-0 mr-1">
             <Filter className="w-3.5 h-3.5" />
-            <span>Topic Filter:</span>
+            <span>Subject:</span>
           </span>
           {topics.map((t) => (
             <button
               key={t}
+              type="button"
               onClick={() => setSelectedTopic(t)}
-              className={`px-3 py-1 rounded-lg font-bold shrink-0 transition-colors cursor-pointer ${
+              className={`px-2.5 py-1 rounded-md font-semibold shrink-0 transition-colors cursor-pointer ${
                 selectedTopic === t
-                  ? 'bg-indigo-600 text-white'
+                  ? 'bg-slate-900 text-white'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -444,33 +439,33 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCa
       </div>
 
       {/* Leaderboard Table */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+      <div className="portal-card overflow-hidden">
         {filteredEntries.length === 0 ? (
           <div className="p-12 text-center text-slate-500 space-y-2">
-            <Trophy className="w-10 h-10 mx-auto text-slate-300" />
-            <p className="text-sm font-bold text-slate-700">No Leaderboard Logs Found</p>
+            <Trophy className="w-9 h-9 mx-auto text-slate-300" />
+            <p className="text-sm font-bold text-slate-700">No Leaderboard Records Found</p>
             <p className="text-xs">Take an exam or adjust your search filter to view rankings.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr>
-                  <th className="px-4 py-3 border-b-2 border-indigo-200">Rank</th>
-                  <th className="px-4 py-3 border-b-2 border-indigo-200">Candidate Name</th>
-                  <th className="px-4 py-3 border-b-2 border-indigo-200">Exam Title / Volume</th>
-                  <th className="px-4 py-3 border-b-2 border-indigo-200">Score & Rating</th>
-                  <th className="px-4 py-3 border-b-2 border-indigo-200">Accuracy %</th>
-                  <th className="px-4 py-3 border-b-2 border-indigo-200">Completion Time</th>
-                  <th className="px-4 py-3 border-b-2 border-indigo-200">Attempt Date</th>
+                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  <th className="px-4 py-3">Rank</th>
+                  <th className="px-4 py-3">Candidate Name</th>
+                  <th className="px-4 py-3">Exam / Volume</th>
+                  <th className="px-4 py-3">Score & Rating</th>
+                  <th className="px-4 py-3">Accuracy</th>
+                  <th className="px-4 py-3">Time Used</th>
+                  <th className="px-4 py-3">Attempt Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+              <tbody className="divide-y divide-slate-100 text-slate-700">
                 {filteredEntries.map((entry, idx) => {
                   const rankNum = idx + 1;
                   const isCurrentCandidate = currentUser && currentUser.name && entry.candidateName.toLowerCase() === currentUser.name.toLowerCase();
 
-                  let rankBadge = <span className="font-mono font-bold text-slate-700">#{rankNum}</span>;
+                  let rankBadge = <span className="font-mono font-semibold text-slate-600 tabular-nums">#{rankNum}</span>;
 
                   if (rankNum === 1) rankBadge = <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-extrabold text-[10px]">🥇 #1 GOLD</span>;
                   else if (rankNum === 2) rankBadge = <span className="px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-800 font-extrabold text-[10px]">🥈 #2 SILVER</span>;
@@ -481,54 +476,58 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCa
                       key={entry.id} 
                       className={`transition-colors ${
                         isCurrentCandidate 
-                          ? 'bg-blue-50/80 font-bold border-l-4 border-blue-600' 
-                          : 'hover:bg-slate-50/60'
+                          ? 'bg-blue-50/70 font-semibold border-l-2 border-l-blue-600' 
+                          : 'hover:bg-slate-50/70'
                       }`}
                     >
-                      <td className="py-4 px-5">{rankBadge}</td>
-                      <td className="py-4 px-5 font-bold text-slate-900 flex items-center space-x-2">
-                        <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-xs">
-                          {entry.candidateName.charAt(0).toUpperCase()}
+                      <td className="py-3.5 px-4 whitespace-nowrap">{rankBadge}</td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-2.5 font-semibold text-slate-900">
+                          <div className="w-7 h-7 rounded-md bg-slate-100 border border-slate-200 text-slate-700 font-bold flex items-center justify-center text-xs shrink-0">
+                            {entry.candidateName.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="truncate max-w-[180px]">{entry.candidateName}</span>
+                          {isCurrentCandidate && (
+                            <span className="px-1.5 py-0.5 rounded bg-slate-900 text-white text-[9px] font-bold uppercase tracking-wider">
+                              You
+                            </span>
+                          )}
                         </div>
-                        <span>{entry.candidateName}</span>
-                        {isCurrentCandidate && (
-                          <span className="px-1.5 py-0.5 rounded bg-blue-600 text-white text-[9px] font-bold">
-                            YOU
-                          </span>
-                        )}
                       </td>
-                      <td className="px-4 py-4 font-bold text-slate-800">
-                        {entry.quizTitle}
+                      <td className="px-4 py-3.5 font-medium text-slate-800">
+                        <span>{entry.quizTitle}</span>
                         {entry.attemptsCount && entry.attemptsCount > 1 && (
-                          <span className="ml-2 px-1.5 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] rounded border border-indigo-200 font-extrabold uppercase">
-                            {entry.attemptsCount} Tests
+                          <span className="ml-2 px-1.5 py-0.5 bg-slate-100 text-slate-600 text-[10px] rounded border border-slate-200 font-mono font-semibold">
+                            {entry.attemptsCount} tests
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-4 text-slate-900 font-black font-mono">
-                        {entry.score.toFixed(2)} <span className="text-slate-400 font-bold">/ {entry.maxScore}</span>
+                      <td className="px-4 py-3.5 text-slate-900 font-bold font-mono tabular-nums whitespace-nowrap">
+                        {entry.score.toFixed(2)} <span className="text-slate-400 font-medium">/ {entry.maxScore}</span>
                         {selectedQuizTitle === 'All Exams (Overall Cumulative)' && (
-                          <div className="text-[10px] text-emerald-600 font-bold uppercase mt-0.5">
+                          <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">
                             Rating: {(entry.score * (entry.percentage / 100)).toFixed(2)} pts
                           </div>
                         )}
                       </td>
-                      <td className="py-4 px-5">
-                        <span className={`px-2.5 py-0.5 rounded-full font-mono font-extrabold ${
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span className={`px-2 py-0.5 rounded font-mono font-semibold tabular-nums ${
                           entry.percentage >= 80
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             : entry.percentage >= 60
-                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
                             : 'bg-amber-50 text-amber-700 border border-amber-200'
                         }`}>
                           {entry.percentage}%
                         </span>
                       </td>
-                      <td className="py-4 px-5 font-mono text-slate-500 flex items-center space-x-1">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{formatTime(entry.timeSpentSeconds)}</span>
+                      <td className="py-3.5 px-4 font-mono text-slate-600 whitespace-nowrap tabular-nums">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span>{formatTime(entry.timeSpentSeconds)}</span>
+                        </div>
                       </td>
-                      <td className="py-4 px-5 text-slate-400 text-[11px]">
+                      <td className="py-3.5 px-4 text-slate-500 text-[11px] font-mono whitespace-nowrap tabular-nums">
                         {new Date(entry.attemptedAt).toLocaleDateString()}
                       </td>
                     </tr>
@@ -540,7 +539,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onNavigateToCa
         )}
       </div>
 
-      {/* Official Calculation Methodology & Merit Formula Note */}
+      {/* Scoring Methodology Reference */}
       {renderMethodologySection()}
 
     </div>

@@ -10,6 +10,14 @@ export default defineConfig({
   ],
   server: {
     host: true, // Listens on 0.0.0.0 (all network interfaces, e.g. 10.24.65.78)
-    port: 5173
+    port: 5175,
+    strictPort: true,
+    allowedHosts: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5050',
+        changeOrigin: true,
+      }
+    }
   }
 })

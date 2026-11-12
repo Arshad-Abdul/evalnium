@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { X, Download, Award, ShieldCheck, CheckCircle2, Sparkles } from 'lucide-react';
+import { X, Download, Award, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -85,35 +85,38 @@ export const PDFCertificateModal: React.FC<PDFCertificateModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white max-w-4xl w-full rounded-3xl border border-slate-200 shadow-2xl overflow-hidden space-y-4 my-8 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-[2px] flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white max-w-4xl w-full rounded-xl border border-slate-200 shadow-2xl overflow-hidden space-y-4 my-8 animate-in fade-in duration-200">
         
         {/* Top Controls Header */}
-        <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400">
+        <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-amber-400">
               <Award className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-sm font-bold tracking-wide">Evalnium Certificate of Completion</h3>
-              <p className="text-[11px] text-slate-400 font-medium">Verified Practice Credential</p>
+              <p className="text-[11px] text-slate-400">Verified Practice Credential</p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center gap-2.5">
             <button
+              type="button"
               onClick={handleDownloadPDF}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs shadow-md shadow-amber-500/20 flex items-center space-x-2 transition-all cursor-pointer"
+              className="px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Download className="w-4 h-4" />
-              <span>Download PDF Certificate</span>
+              <span>Download PDF</span>
             </button>
 
             <button
+              type="button"
               onClick={onClose}
-              className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
+              className="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer"
+              aria-label="Close certificate preview"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -135,10 +138,9 @@ export const PDFCertificateModal: React.FC<PDFCertificateModalProps> = ({
             <div className="absolute inset-3 border border-slate-200 rounded-lg pointer-events-none" />
 
             {/* Header Badge */}
-            <div className="flex justify-center items-center space-x-2 text-indigo-900 font-black text-xs uppercase tracking-[4px]">
-              <Sparkles className="w-4 h-4 text-amber-500" />
+            <div className="flex justify-center items-center gap-2 text-indigo-900 font-bold text-xs uppercase tracking-[3px]">
+              <ShieldCheck className="w-4 h-4 text-amber-600" />
               <span>Evalnium Online Practice Portal</span>
-              <Sparkles className="w-4 h-4 text-amber-500" />
             </div>
 
             {/* Title */}

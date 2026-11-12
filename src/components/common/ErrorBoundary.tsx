@@ -24,7 +24,15 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error('Evalnium System Error Caught by ErrorBoundary:', error, errorInfo);
   }
 
+  private isLegacyPort = () => {
+    return typeof window !== 'undefined' && window.location.port === '5173';
+  };
+
   private handleReload = () => {
+    if (this.isLegacyPort()) {
+      window.location.port = '5175';
+      return;
+    }
     window.location.reload();
   };
 
@@ -44,6 +52,12 @@ export class ErrorBoundary extends Component<Props, State> {
               </p>
             </div>
 
+            {this.isLegacyPort() && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium text-left">
+                <strong>Legacy Port Detected:</strong> This window was loaded on legacy port <strong>5173</strong>. The Evalnium server is currently running on port <strong>5175</strong>.
+              </div>
+            )}
+
             {this.state.error && (
               <div className="p-3 rounded-lg bg-slate-100 border border-slate-200 text-[11px] font-mono text-slate-700 text-left overflow-x-auto max-h-28">
                 {this.state.error.toString()}
@@ -52,10 +66,10 @@ export class ErrorBoundary extends Component<Props, State> {
 
             <button
               onClick={this.handleReload}
-              className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs flex items-center justify-center space-x-2 transition-all"
+              className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md flex items-center justify-center space-x-2 transition-all cursor-pointer"
             >
-              <RotateCcw className="w-4 h-4 text-emerald-400" />
-              <span>Reload Evalnium Portal</span>
+              <RotateCcw className="w-4 h-4 text-white" />
+              <span>{this.isLegacyPort() ? 'Switch to Active Portal (Port 5175)' : 'Reload Evalnium Portal'}</span>
             </button>
           </div>
         </div>

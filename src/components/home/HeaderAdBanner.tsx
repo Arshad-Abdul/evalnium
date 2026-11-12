@@ -7,7 +7,7 @@ interface HeaderAdBannerProps {
   quizzes?: Quiz[];
   onSelectQuiz?: (quiz: Quiz) => void;
   apiBaseUrl?: string;
-  slotType?: string; // 'header_ad' | 'catalog_ad' | string
+  slotType?: string;
   className?: string;
   containerClassName?: string;
 }
@@ -24,12 +24,11 @@ export const HeaderAdBanner: React.FC<HeaderAdBannerProps> = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [dismissedMap, setDismissedMap] = useState<Record<number, boolean>>({});
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const getBaseUrl = () => {
     if (apiBaseUrl) return apiBaseUrl;
-    const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-    return `http://${host}:5050/api`;
+    return '/api';
   };
 
   const fetchAdBanners = async () => {
@@ -52,14 +51,9 @@ export const HeaderAdBanner: React.FC<HeaderAdBannerProps> = ({
   useEffect(() => {
     fetchAdBanners();
 
-    // 1. Instant event listener triggered when Admin Studio saves or edits banners
     const handleUpdate = () => fetchAdBanners();
     window.addEventListener('evalnium_banners_updated', handleUpdate);
-
-    // 2. Poll every 4 seconds to guarantee front-end reflects changes without manual refresh
     const pollTimer = setInterval(fetchAdBanners, 4000);
-
-    // 3. Re-fetch on window focus / tab switch
     window.addEventListener('focus', handleUpdate);
 
     return () => {
@@ -69,10 +63,8 @@ export const HeaderAdBanner: React.FC<HeaderAdBannerProps> = ({
     };
   }, [slotType]);
 
-  // Filter out banners dismissed during current session
   const visibleAds = adBanners.filter((b) => !dismissedMap[b.id]);
 
-  // Carousel auto-advance (5.5 seconds per slide, paused when hovered)
   useEffect(() => {
     if (visibleAds.length <= 1 || isPaused) {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -111,7 +103,6 @@ export const HeaderAdBanner: React.FC<HeaderAdBannerProps> = ({
   };
 
   const handleBannerClick = (banner: BannerItem) => {
-    // If targeted to a specific quiz
     if (banner.quizId && onSelectQuiz && quizzes.length > 0) {
       const match = quizzes.find((q) => q.id === banner.quizId);
       if (match) {
@@ -120,106 +111,144 @@ export const HeaderAdBanner: React.FC<HeaderAdBannerProps> = ({
       }
     }
 
-    // If external link or path
     if (banner.ctaLink && banner.ctaLink !== '/') {
-      if (banner.ctaLink.startsWith('http')) {
-        window.open(banner.ctaLink, '_blank', 'noopener,noreferrer');
-      } else {
-        window.location.href = banner.ctaLink;
+      const trimmedLink = banner.ctaLink.trim();
+      if (trimmedLink.startsWith('https://') || trimmedLink.startsWith('http://')) {
+        window.open(trimmedLink, '_blank', 'noopener,noreferrer');
+      } else if (trimmedLink.startsWith('/') && !trimmedLink.startsWith('//')) {
+        window.location.href = trimmedLink;
       }
       return;
     }
 
-    // Default action: first quiz if available
-    if (quizzes.length > 0 && onSelectQuiz) {
+    if (quizzes.length > 0 && onSelectQuiz && banner.quizId) {
       onSelectQuiz(quizzes[0]);
     }
   };
 
+  const badgeLabel = !currentAd.imageOnly ? currentAd.badgeText?.trim() : '';
+
   return (
     <aside
-      aria-label="Promotional & Announcement Banner"
-      className={className || "w-full transition-all duration-300"}
+      aria-label="Promotional Banner"
+      className={className || 'w-full transition-all duration-300'}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      <div className={containerClassName || "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}>
-        {/* Billboard Ad Frame - Matches Exam Catalog Grid Width Pixel-for-Pixel */}
-        <div className="relative group w-full h-28 xs:h-32 sm:h-40 md:h-44 lg:h-48 rounded-xl sm:rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 shadow-xs hover:shadow-md transition-shadow select-none">
-          
-          {/* Sliding Carousel Track */}
+      <div className={containerClassName || 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}>
+        <div className="relative group w-full h-24 xs:h-28 sm:h-36 md:h-44 rounded-xl overflow-hidden border border-slate-200 bg-white shadow-2xs select-none">
           <div
             className="flex w-full h-full transition-transform duration-500 ease-in-out"
             style={{ transform: `translateX(-${activeIndex * 100}%)` }}
           >
-            {visibleAds.map((banner) => (
-              <div
-                key={banner.id}
-                onClick={() => handleBannerClick(banner)}
-                className="w-full h-full shrink-0 relative cursor-pointer"
-              >
-                {banner.imageUrl ? (
-                  /* 100% Full-bleed graphic ad: Image fills the exact width & height */
-                  <img
-                    src={banner.imageUrl}
-                    alt={banner.title || 'Promotional Banner'}
-                    className="w-full h-full object-cover object-center"
-                    loading="lazy"
-                  />
-                ) : (
-                  /* Clean editorial fallback when no image is uploaded */
-                  <div className="w-full h-full bg-linear-to-r from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-between px-6 sm:px-10">
-                    <div className="space-y-1 max-w-xl">
-                      <span className="text-[10px] uppercase font-mono tracking-widest text-indigo-400 font-bold">
-                        {banner.badgeText || 'Announcement'}
-                      </span>
-                      <h4 className="text-base sm:text-xl font-bold text-white tracking-tight line-clamp-1">
-                        {banner.title}
-                      </h4>
-                      {banner.subtitle && (
-                        <p className="text-xs sm:text-sm text-slate-300 line-clamp-1">
-                          {banner.subtitle}
-                        </p>
+            {visibleAds.map((banner) => {
+              const bBadge = banner.badgeText?.trim() || '';
+              const bTitle = banner.title?.trim() || '';
+              const bSubtitle = banner.subtitle?.trim() || '';
+              const bCta = banner.ctaText?.trim() || '';
+
+              return (
+                <div
+                  key={banner.id}
+                  onClick={() => handleBannerClick(banner)}
+                  className="w-full h-full shrink-0 relative cursor-pointer"
+                >
+                  {banner.imageUrl ? (
+                    <>
+                      <img
+                        src={banner.imageUrl}
+                        alt={bTitle || 'Promotional Banner'}
+                        className="w-full h-full object-cover object-center"
+                        loading="lazy"
+                      />
+                      {!banner.imageOnly && (bTitle || bSubtitle || bCta) && (
+                        <>
+                          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/75 via-slate-950/35 to-transparent pointer-events-none" />
+                          <div className="absolute inset-0 flex items-center justify-between px-5 sm:px-8 gap-4 pointer-events-none">
+                            <div className="space-y-0.5 max-w-xl min-w-0">
+                              {bTitle && (
+                                <h4 className="text-sm sm:text-lg font-bold text-white tracking-tight line-clamp-1">
+                                  {bTitle}
+                                </h4>
+                              )}
+                              {bSubtitle && (
+                                <p className="text-xs text-slate-200 line-clamp-1">
+                                  {bSubtitle}
+                                </p>
+                              )}
+                            </div>
+                            {bCta && (
+                              <span className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold shadow-xs mr-6">
+                                <span>{bCta}</span>
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </span>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <div className="w-full h-full bg-slate-900 flex items-center justify-between px-6 sm:px-10">
+                      <div className="space-y-1 max-w-xl">
+                        {bBadge && (
+                          <span className="text-[10px] uppercase font-mono tracking-wider text-blue-400 font-semibold">
+                            {bBadge}
+                          </span>
+                        )}
+                        {bTitle && (
+                          <h4 className="text-base sm:text-xl font-bold text-white tracking-tight line-clamp-1">
+                            {bTitle}
+                          </h4>
+                        )}
+                        {bSubtitle && (
+                          <p className="text-xs sm:text-sm text-slate-300 line-clamp-1">
+                            {bSubtitle}
+                          </p>
+                        )}
+                      </div>
+                      {bCta && (
+                        <span className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold">
+                          <span>{bCta}</span>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </span>
                       )}
                     </div>
-                    <span className="shrink-0 inline-flex items-center space-x-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs">
-                      <span>{banner.ctaText || 'Learn More'}</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </span>
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          {/* Minimalist Professional "Ad" Micro-Badge */}
-          <div className="absolute top-2 left-2 sm:top-2.5 sm:left-3 z-20 pointer-events-none">
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-black/60 dark:bg-black/70 backdrop-blur-xs text-white/90 text-[10px] font-semibold tracking-wider uppercase border border-white/10 shadow-xs">
-              {currentAd.badgeText || 'Ad'}
-            </span>
-          </div>
+          {/* Optional Badge Label (hidden if empty or imageOnly) */}
+          {badgeLabel && (
+            <div className="absolute top-2 left-2 sm:top-2.5 sm:left-3 z-20 pointer-events-none">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-900/75 text-white text-[10px] font-semibold tracking-wide uppercase">
+                {badgeLabel}
+              </span>
+            </div>
+          )}
 
-          {/* Dismiss (✕) Button - Controlled by Admin 'allowDismiss' Setting */}
+          {/* Dismiss (✕) Button */}
           {currentAd.allowDismiss !== false && (
             <button
               type="button"
               onClick={handleDismiss}
               aria-label="Dismiss banner"
-              className="absolute top-2 right-2 sm:top-2.5 sm:right-2.5 z-20 p-1 rounded-full bg-black/50 hover:bg-black/80 text-white/80 hover:text-white backdrop-blur-xs transition-colors cursor-pointer border border-white/10 shadow-xs active:scale-95"
-              title="Dismiss ad"
+              className="absolute top-2 right-2 sm:top-2.5 sm:right-2.5 z-20 p-1 rounded-full bg-white/85 hover:bg-white text-slate-700 hover:text-slate-950 transition-colors cursor-pointer border border-slate-200 shadow-xs"
+              title="Dismiss"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           )}
 
-          {/* Multi-banner Navigation Arrows (Appear on hover if >1 banner) */}
+          {/* Carousel Controls */}
           {visibleAds.length > 1 && (
             <>
               <button
                 type="button"
                 onClick={handlePrev}
                 aria-label="Previous banner"
-                className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 rounded-full bg-black/50 hover:bg-black/80 text-white/90 backdrop-blur-xs opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer border border-white/10 active:scale-90"
+                className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 rounded-full bg-white/90 hover:bg-white text-slate-800 border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-sm"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -228,13 +257,12 @@ export const HeaderAdBanner: React.FC<HeaderAdBannerProps> = ({
                 type="button"
                 onClick={handleNext}
                 aria-label="Next banner"
-                className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 rounded-full bg-black/50 hover:bg-black/80 text-white/90 backdrop-blur-xs opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer border border-white/10 active:scale-90"
+                className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 rounded-full bg-white/90 hover:bg-white text-slate-800 border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-sm"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
 
-              {/* Minimal Pagination Dots */}
-              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex items-center space-x-1.5 bg-black/40 backdrop-blur-xs px-2 py-1 rounded-full border border-white/10">
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 bg-slate-900/55 px-2 py-1 rounded-full">
                 {visibleAds.map((_, idx) => (
                   <button
                     key={idx}
@@ -247,7 +275,7 @@ export const HeaderAdBanner: React.FC<HeaderAdBannerProps> = ({
                     className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
                       idx === activeIndex
                         ? 'w-5 bg-white'
-                        : 'w-1.5 bg-white/40 hover:bg-white/70'
+                        : 'w-1.5 bg-white/50 hover:bg-white/80'
                     }`}
                   />
                 ))}

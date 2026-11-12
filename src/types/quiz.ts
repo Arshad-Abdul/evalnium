@@ -43,8 +43,10 @@ export interface Quiz {
   scheduledStartDateTime?: string; // ISO string e.g. "2026-08-10T10:00"
   scheduledEndDateTime?: string; // ISO string e.g. "2026-08-10T12:00"
   defaultLanguageMode?: 'en' | 'hi' | 'dual';
+  hasAccessCode?: boolean;
   accessCode?: string;
   allowedEmails?: string[];
+  questionCount?: number;
   questions: Question[];
   isPublished: boolean;
   createdAt: string;
@@ -72,8 +74,11 @@ export interface Quiz {
   preventEarlyNextQuestion?: boolean;
   questionViewMode?: 'both' | 'single_only' | 'all_only';
   allowManualEarlyMove?: boolean; // Allow candidate to manually finish section early & move to next (but cannot return)
-}
 
+
+  notifyCandidates?: boolean; // If true, triggers new_exam_alert email broadcast to all candidates upon publishing
+
+}
 export interface UserAnswer {
   questionId: string;
   selectedOptionId: string | null;

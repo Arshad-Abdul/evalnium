@@ -25,8 +25,10 @@ export const ProctoringMonitor: React.FC<ProctoringMonitorProps> = ({
   const [warningMessage, setWarningMessage] = useState('');
 
   const getApiBaseUrl = () => {
-    const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-    return `http://${host}:5050/api`;
+    if (typeof window !== 'undefined') {
+      return '/api';
+    }
+    return 'http://localhost:5050/api';
   };
 
   const sessionId = useRef(`proc_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`).current;
@@ -88,6 +90,7 @@ export const ProctoringMonitor: React.FC<ProctoringMonitorProps> = ({
       await fetch(`${getApiBaseUrl()}/proctoring/log`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           sessionId,
           quizId,

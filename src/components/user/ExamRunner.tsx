@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Quiz, UserAnswer, QuizAttemptResult } from '../../types/quiz';
-import { ChevronLeft, ChevronRight, AlertTriangle, Send, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, Send, Clock, X } from 'lucide-react';
 import { saveBookmarkedQuestion } from './RevisionHubModal';
 import { ExamHeader } from '../exam/ExamHeader';
 import { QuestionPalette } from '../exam/QuestionPalette';
@@ -54,6 +54,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     return {};
   });
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showMobilePalette, setShowMobilePalette] = useState(false);
   const [languageMode, setLanguageMode] = useState<'dual' | 'en' | 'hi'>(quiz.defaultLanguageMode || 'en');
   const [examViewMode, setExamViewMode] = useState<'single' | 'all'>(quiz.questionViewMode === 'all_only' ? 'all' : 'single');
   const [sectionTimeRemainingSeconds, setSectionTimeRemainingSeconds] = useState<number>(0);
@@ -239,14 +240,17 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     const timer = setInterval(updateTimer, 1000);
 
     const getApiBaseUrl = () => {
-      const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-      return `http://${host}:5050/api`;
+      if (typeof window !== 'undefined') {
+        return '/api';
+      }
+      return 'http://localhost:5050/api';
     };
 
     const pingHeartbeat = () => {
       fetch(`${getApiBaseUrl()}/sessions/heartbeat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           quizId: quiz.id,
           quizTitle: quiz.title,
@@ -470,7 +474,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
   const reviewCount = Object.values(userAnswers).filter(a => a.isMarkedForReview).length;
 
   return (
-    <div className="min-h-[88vh] flex flex-col justify-between space-y-6">
+    <div className="min-h-[92vh] flex flex-col justify-between space-y-4 sm:space-y-6">
       
       {/* Exam Header */}
       <ExamHeader
@@ -486,6 +490,9 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         questionTimeRemainingSeconds={quiz.timingMode === 'question' ? questionTimeRemainingSeconds : undefined}
         sectionTimeRemainingSeconds={quiz.timingMode === 'sectional' ? sectionTimeRemainingSeconds : undefined}
         currentSectionName={quiz.timingMode === 'sectional' && quiz.sectionalConfig?.[currentSectionIdx] ? quiz.sectionalConfig[currentSectionIdx].sectionName : undefined}
+        answeredCount={answeredCount}
+        totalQuestions={activeQuestions.length}
+        onToggleMobilePalette={() => setShowMobilePalette(true)}
         onOpenSubmitModal={() => setShowSubmitModal(true)}
       />
 
@@ -638,23 +645,72 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
             </div>
           </div>
 
-          {/* Right Question Palette */}
-          <QuestionPalette
-            questions={activeQuestions}
-            currentQuestionIndex={currentQuestionIndex}
-            userAnswers={userAnswers}
-            preventPreviousQuestion={quiz.preventPreviousQuestionReturn === true}
-            onSelectQuestion={setCurrentQuestionIndex}
-            onOpenSubmitModal={() => setShowSubmitModal(true)}
-            sectionBoundaries={sectionBoundaries}
-            currentSectionIdx={currentSectionIdx}
-            lockToCurrentSection={
-              quiz.timingMode === 'sectional' &&
-              quiz.preventEarlyNextSection === true &&
-              !quiz.allowManualEarlyMove &&
-              sectionTimeRemainingSeconds > 0
-            }
-          />
+          {/* Desktop Right Question Palette */}
+          <div className="hidden lg:block">
+            <QuestionPalette
+              questions={activeQuestions}
+              currentQuestionIndex={currentQuestionIndex}
+              userAnswers={userAnswers}
+              preventPreviousQuestion={quiz.preventPreviousQuestionReturn === true}
+              onSelectQuestion={setCurrentQuestionIndex}
+              onOpenSubmitModal={() => setShowSubmitModal(true)}
+              sectionBoundaries={sectionBoundaries}
+              currentSectionIdx={currentSectionIdx}
+              lockToCurrentSection={
+                quiz.timingMode === 'sectional' &&
+                quiz.preventEarlyNextSection === true &&
+                !quiz.allowManualEarlyMove &&
+                sectionTimeRemainingSeconds > 0
+              }
+            />
+          </div>
+
+          {/* Mobile & Tablet Question Palette Slide-Over Sheet */}
+          {showMobilePalette && (
+            <div className="fixed inset-0 z-50 lg:hidden flex justify-end" role="dialog" aria-modal="true" aria-label="Question palette">
+              <div
+                className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px]"
+                onClick={() => setShowMobilePalette(false)}
+              />
+              <div className="relative z-10 w-[88vw] max-w-[340px] h-full bg-white shadow-2xl flex flex-col">
+                <div className="h-14 px-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+                  <span className="text-sm font-bold text-slate-900">Question Palette</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowMobilePalette(false)}
+                    className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                    aria-label="Close question palette"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-3">
+                  <QuestionPalette
+                    questions={activeQuestions}
+                    currentQuestionIndex={currentQuestionIndex}
+                    userAnswers={userAnswers}
+                    preventPreviousQuestion={quiz.preventPreviousQuestionReturn === true}
+                    onSelectQuestion={(idx) => {
+                      setCurrentQuestionIndex(idx);
+                      setShowMobilePalette(false);
+                    }}
+                    onOpenSubmitModal={() => {
+                      setShowMobilePalette(false);
+                      setShowSubmitModal(true);
+                    }}
+                    sectionBoundaries={sectionBoundaries}
+                    currentSectionIdx={currentSectionIdx}
+                    lockToCurrentSection={
+                      quiz.timingMode === 'sectional' &&
+                      quiz.preventEarlyNextSection === true &&
+                      !quiz.allowManualEarlyMove &&
+                      sectionTimeRemainingSeconds > 0
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         /* All Questions Per Screen View */

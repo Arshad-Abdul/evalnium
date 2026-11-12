@@ -89,8 +89,10 @@ export const AuditLogsManager: React.FC = () => {
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
   const getApiBaseUrl = () => {
-    const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-    return `http://${host}:5050/api`;
+    if (typeof window !== 'undefined') {
+      return '/api';
+    }
+    return 'http://localhost:5050/api';
   };
 
   const fetchLogs = async (pageOverride?: number) => {
@@ -107,7 +109,9 @@ export const AuditLogsManager: React.FC = () => {
         search: searchQuery
       });
 
-      const res = await fetch(`${getApiBaseUrl()}/admin/audit-logs?${params.toString()}`);
+      const res = await fetch(`${getApiBaseUrl()}/admin/audit-logs?${params.toString()}`, {
+        credentials: 'include'
+      });
       if (res.ok) {
         const data = await res.json();
         setLogs(data.logs || []);
@@ -174,7 +178,8 @@ export const AuditLogsManager: React.FC = () => {
     try {
       setPurging(true);
       const res = await fetch(`${getApiBaseUrl()}/admin/audit-logs/purge?days=${daysVal}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        credentials: 'include'
       });
       if (res.ok) {
         const data = await res.json();

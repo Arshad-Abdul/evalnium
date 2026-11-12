@@ -35,14 +35,18 @@ export const QuestionDiscussion: React.FC<QuestionDiscussionProps> = ({
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
 
   const getApiBaseUrl = () => {
-    const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-    return `http://${host}:5050/api`;
+    if (typeof window !== 'undefined') {
+      return '/api';
+    }
+    return 'http://localhost:5050/api';
   };
 
   const fetchDiscussions = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${getApiBaseUrl()}/discussions/${encodeURIComponent(quizId)}/${encodeURIComponent(questionId)}`);
+      const res = await fetch(`${getApiBaseUrl()}/discussions/${encodeURIComponent(quizId)}/${encodeURIComponent(questionId)}`, {
+        credentials: 'include'
+      });
       if (res.ok) {
         const data = await res.json();
         setDiscussions(data);
@@ -74,6 +78,7 @@ export const QuestionDiscussion: React.FC<QuestionDiscussionProps> = ({
       const res = await fetch(`${getApiBaseUrl()}/discussions/${encodeURIComponent(quizId)}/${encodeURIComponent(questionId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(payload),
       });
 
@@ -95,7 +100,10 @@ export const QuestionDiscussion: React.FC<QuestionDiscussionProps> = ({
       prev.map((d) => (d.id === id ? { ...d, likesCount: d.likesCount + 1 } : d))
     );
     try {
-      await fetch(`${getApiBaseUrl()}/discussions/${id}/like`, { method: 'POST' });
+      await fetch(`${getApiBaseUrl()}/discussions/${id}/like`, { 
+        method: 'POST',
+        credentials: 'include' 
+      });
     } catch (e) {
       console.error(e);
     }

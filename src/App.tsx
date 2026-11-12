@@ -21,18 +21,35 @@ import { AdminLockModal } from './components/admin/AdminLockModal';
 import { TopicCatalog } from './components/user/TopicCatalog';
 import { AuthModal } from './components/auth/AuthModal';
 import { QuizInstructionsModal } from './components/user/QuizInstructionsModal';
-import { ExamRunner } from './components/user/ExamRunner';
-import { ExamResultView } from './components/user/ExamResultView';
 import { ScrollToTopButton } from './components/common/ScrollToTopButton';
 import { AnnouncementBanner } from './components/user/AnnouncementBanner';
-import { RevisionHubModal } from './components/user/RevisionHubModal';
-import { CandidateDashboard } from './components/user/CandidateDashboard';
 import { HeaderAdBanner } from './components/home/HeaderAdBanner';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
-// Lazy loaded heavy components for fast initial bundle load
-const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
-const LeaderboardView = lazy(() => import('./components/user/LeaderboardView').then(m => ({ default: m.LeaderboardView })));
+// Resilient lazy loader: handles chunk loading retries and legacy port synchronization
+const lazyWithRetry = <T extends React.ComponentType<any>>(componentImport: () => Promise<{ default: T }>) =>
+  lazy(async () => {
+    try {
+      return await componentImport();
+    } catch (error: any) {
+      console.warn('Initial dynamic import failed. Checking origin and retrying...', error);
+      // Auto-recover if the browser was loaded on legacy port 5173
+      if (typeof window !== 'undefined' && window.location.port === '5173') {
+        window.location.port = '5175';
+        return { default: (() => null) as unknown as T };
+      }
+      // Wait 300ms and retry once
+      await new Promise(res => setTimeout(res, 300));
+      return await componentImport();
+    }
+  });
+
+const AdminDashboard = lazyWithRetry(() => import('./components/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const LeaderboardView = lazyWithRetry(() => import('./components/user/LeaderboardView').then(m => ({ default: m.LeaderboardView })));
+const CandidateDashboard = lazyWithRetry(() => import('./components/user/CandidateDashboard').then(m => ({ default: m.CandidateDashboard })));
+const ExamRunner = lazyWithRetry(() => import('./components/user/ExamRunner').then(m => ({ default: m.ExamRunner })));
+const ExamResultView = lazyWithRetry(() => import('./components/user/ExamResultView').then(m => ({ default: m.ExamResultView })));
+const RevisionHubModal = lazyWithRetry(() => import('./components/user/RevisionHubModal').then(m => ({ default: m.RevisionHubModal })));
 
 function MainAppContent() {
   const { isAdminAuthenticated, logoutAdmin, currentUser } = useAuth();
@@ -44,6 +61,7 @@ function MainAppContent() {
   const [showAdminLockModal, setShowAdminLockModal] = useState<boolean>(false);
   const [showRevisionHubModal, setShowRevisionHubModal] = useState<boolean>(false);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [portalNotice, setPortalNotice] = useState<string | null>(null);
   
   // Real-Time Visitor & Heartbeat Stats
   const [totalVisitors, setTotalVisitors] = useState<number>(0);
@@ -88,7 +106,8 @@ function MainAppContent() {
     if (currentUser?.name) {
       setCandidateName(currentUser.name);
     }
-  }, [currentUser]);
+    refreshDataFromMySQL();
+  }, [currentUser?.uid, isAdminAuthenticated]);
 
   // Client ID helper for heartbeat tracking
   const getClientId = () => {
@@ -102,33 +121,46 @@ function MainAppContent() {
 
   const logPageVisit = async () => {
     try {
-      const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-      await fetch(`http://${host}:5050/api/site/visit`, { method: 'POST' });
+      await fetch('/api/site/visit', { method: 'POST' }).catch(() => {
+        const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
+        return fetch(`http://${host}:5050/api/site/visit`, { method: 'POST' });
+      });
     } catch {}
   };
 
   const sendHeartbeat = async () => {
     try {
-      const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
       const clientId = getClientId();
+      const isAdminSession = Boolean(isAdminAuthenticated || activeTab === 'admin');
       const currentPage = examPhase === 'running' 
         ? `Taking Exam: ${selectedQuiz?.title || 'CBT Assessment'}` 
         : (activeTab === 'dashboard' ? 'Candidate Dashboard' : (activeTab === 'leaderboard' ? 'Live Rankings' : (activeTab === 'admin' ? 'Admin Studio' : 'Exam Catalog')));
 
-      const res = await fetch(`http://${host}:5050/api/site/heartbeat`, {
+      const body = JSON.stringify({
+        clientId,
+        name: isAdminSession && !currentUser ? 'Administrator' : (currentUser?.name || 'Guest Candidate'),
+        email: isAdminSession && !currentUser ? null : (currentUser?.email || null),
+        role: isAdminSession ? 'admin' : (currentUser?.role || 'guest'),
+        isRegistered: Boolean(currentUser),
+        currentPage,
+        clientCountry: 'India'
+      });
+
+      const res = await fetch('/api/site/heartbeat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId,
-          name: currentUser?.name || 'Guest Candidate',
-          email: currentUser?.email || null,
-          role: currentUser?.role || (isAdminAuthenticated ? 'admin' : 'guest'),
-          isRegistered: Boolean(currentUser),
-          currentPage,
-          clientCountry: 'India'
-        })
+        credentials: 'include',
+        body
+      }).catch(() => {
+        const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
+        return fetch(`http://${host}:5050/api/site/heartbeat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body
+        });
       });
-      if (res.ok) {
+      if (res && res.ok) {
         const data = await res.json();
         setTotalVisitors(data.totalVisitors || 0);
         setActiveVisitorsCount(data.activeVisitorsCount || 0);
@@ -142,7 +174,49 @@ function MainAppContent() {
     sendHeartbeat();
     const heartbeatTimer = setInterval(sendHeartbeat, 20000);
     return () => clearInterval(heartbeatTimer);
-  }, [currentUser, isAdminAuthenticated]);
+  }, [currentUser, isAdminAuthenticated, activeTab]);
+
+  const clearAdminUrlTrigger = () => {
+    if (typeof window === 'undefined') return;
+    if (window.location.hash === '#/admin' || window.location.pathname === '/admin') {
+      const nextPath = window.location.pathname === '/admin' ? '/' : window.location.pathname;
+      window.history.replaceState(null, '', `${nextPath}${window.location.search}`);
+    }
+  };
+
+  const triggerPrivateAdminGate = () => {
+    if (currentUser && currentUser.role !== 'admin') return;
+    if (isAdminAuthenticated) {
+      setShowAdminLockModal(false);
+      setActiveTab('admin');
+      clearAdminUrlTrigger();
+    } else {
+      setShowAdminLockModal(true);
+    }
+  };
+
+  useEffect(() => {
+    const checkAdminRoute = () => {
+      if (window.location.hash === '#/admin' || window.location.pathname === '/admin') {
+        triggerPrivateAdminGate();
+      }
+    };
+
+    const handleAdminShortcut = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        triggerPrivateAdminGate();
+      }
+    };
+
+    checkAdminRoute();
+    window.addEventListener('hashchange', checkAdminRoute);
+    window.addEventListener('keydown', handleAdminShortcut);
+    return () => {
+      window.removeEventListener('hashchange', checkAdminRoute);
+      window.removeEventListener('keydown', handleAdminShortcut);
+    };
+  }, [isAdminAuthenticated, currentUser]);
 
   const handleTabChange = (tab: 'user' | 'dashboard' | 'leaderboard' | 'admin') => {
     if (tab === 'admin') {
@@ -163,6 +237,7 @@ function MainAppContent() {
   const handleUnlockAdmin = () => {
     setShowAdminLockModal(false);
     setActiveTab('admin');
+    clearAdminUrlTrigger();
   };
 
   const handleAdminLogout = () => {
@@ -211,12 +286,17 @@ function MainAppContent() {
       setShowAuthModal(true);
       return;
     }
-    if (quiz.accessCode) {
+    if (quiz.hasAccessCode || quiz.accessCode) {
       setPendingPasscodeQuiz(quiz);
       setPasscodeInput('');
       setPasscodeError('');
       return;
     }
+    if (quiz.questions.length === 0) {
+      setPortalNotice(`"${quiz.title}" is not open yet. Please check its scheduled start time.`);
+      return;
+    }
+    setPortalNotice(null);
     proceedWithQuizStart(quiz);
   };
 
@@ -225,13 +305,41 @@ function MainAppContent() {
     setExamPhase('instructions');
   };
 
-  const handleVerifyGlobalPasscode = () => {
+  const handleVerifyGlobalPasscode = async () => {
     if (!pendingPasscodeQuiz) return;
-    if (passcodeInput.trim() === pendingPasscodeQuiz.accessCode) {
-      proceedWithQuizStart(pendingPasscodeQuiz);
-      setPendingPasscodeQuiz(null);
-    } else {
-      setPasscodeError('Incorrect Passcode. Please try again.');
+    const entered = passcodeInput.trim();
+    if (!entered) {
+      setPasscodeError('Please enter the exam passcode.');
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/quizzes/${encodeURIComponent(pendingPasscodeQuiz.id)}/verify-access`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ passcode: entered }),
+      });
+
+      if (res.ok) {
+        const targetId = pendingPasscodeQuiz.id;
+        let unlockedQuiz = pendingPasscodeQuiz;
+        const refreshedQuizzes = await syncQuizzesFromMySQL();
+        if (refreshedQuizzes) {
+          setQuizzes(refreshedQuizzes);
+          const freshMatch = refreshedQuizzes.find(q => q.id === targetId);
+          if (freshMatch) {
+            unlockedQuiz = freshMatch;
+          }
+        }
+        proceedWithQuizStart(unlockedQuiz);
+        setPendingPasscodeQuiz(null);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setPasscodeError(errData.error || 'Incorrect Passcode. Please try again.');
+      }
+    } catch {
+      setPasscodeError('Unable to verify passcode right now. Please try again.');
     }
   };
 
@@ -285,21 +393,38 @@ function MainAppContent() {
     return true;
   });
 
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={handleTabChange}
-        isAdminAuthenticated={isAdminAuthenticated}
-        onAdminLogout={handleAdminLogout}
-        onCandidateLogout={handleCandidateLogout}
-        totalQuizzesCount={candidateVisibleQuizzes.length}
-        onOpenRevisionHub={() => setShowRevisionHubModal(true)}
-      />
+  const isExamRunning = activeTab === 'user' && examPhase === 'running';
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-8 space-y-6">
-        {/* Top Header Ad Strip - Only visible for candidates/students, completely hidden in Admin Studio */}
-        {activeTab !== 'admin' && (
+  return (
+    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+      {!isExamRunning && (
+        <Navbar
+          activeTab={activeTab}
+          setActiveTab={handleTabChange}
+          isAdminAuthenticated={isAdminAuthenticated}
+          onAdminLogout={handleAdminLogout}
+          onCandidateLogout={handleCandidateLogout}
+          totalQuizzesCount={candidateVisibleQuizzes.length}
+          onOpenRevisionHub={() => setShowRevisionHubModal(true)}
+        />
+      )}
+
+      <main className={`flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 ${isExamRunning ? 'pt-0 pb-8' : 'pt-4 sm:pt-6 pb-10 space-y-6'}`}>
+        {portalNotice && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-medium text-amber-900 flex items-center justify-between gap-3">
+            <span>{portalNotice}</span>
+            <button
+              type="button"
+              onClick={() => setPortalNotice(null)}
+              className="text-amber-700 hover:text-amber-950 font-semibold cursor-pointer shrink-0"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Top Header Ad Strip - Only visible for candidates outside live exam */}
+        {activeTab !== 'admin' && !isExamRunning && (
           <HeaderAdBanner quizzes={candidateVisibleQuizzes} onSelectQuiz={handleSelectQuiz} className="w-full" containerClassName="w-full" />
         )}
 
@@ -327,7 +452,11 @@ function MainAppContent() {
               onNavigateToCatalog={() => setActiveTab('user')}
             />
           ) : activeTab === 'leaderboard' ? (
-            <LeaderboardView onNavigateToCatalog={() => setActiveTab('user')} />
+            <LeaderboardView
+              quizzes={quizzes}
+              attemptsHistory={attemptsHistory}
+              onNavigateToCatalog={() => setActiveTab('user')}
+            />
           ) : (
             <>
               {examPhase === 'catalog' && (
@@ -341,6 +470,7 @@ function MainAppContent() {
                     quizzes={candidateVisibleQuizzes}
                     attemptsHistory={attemptsHistory}
                     onSelectQuiz={handleSelectQuiz}
+                    onRequireAuth={() => setShowAuthModal(true)}
                   />
                 </>
               )}
@@ -379,15 +509,20 @@ function MainAppContent() {
       {showAdminLockModal && (
         <AdminLockModal
           onUnlock={handleUnlockAdmin}
-          onCancel={() => setShowAdminLockModal(false)}
+          onCancel={() => {
+            setShowAdminLockModal(false);
+            clearAdminUrlTrigger();
+          }}
         />
       )}
 
       {showRevisionHubModal && (
-        <RevisionHubModal
-          isOpen={showRevisionHubModal}
-          onClose={() => setShowRevisionHubModal(false)}
-        />
+        <Suspense fallback={null}>
+          <RevisionHubModal
+            isOpen={showRevisionHubModal}
+            onClose={() => setShowRevisionHubModal(false)}
+          />
+        </Suspense>
       )}
 
       {showAuthModal && (
@@ -450,43 +585,47 @@ function MainAppContent() {
         </div>
       )}
 
-      <footer className="bg-white border-t border-slate-200 py-6 text-slate-500 font-medium">
-        <div className="max-w-7xl mx-auto px-4 space-y-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            {/* Copyright Section */}
+      {!isExamRunning && activeTab !== 'admin' && (
+        <HeaderAdBanner
+          quizzes={candidateVisibleQuizzes}
+          onSelectQuiz={handleSelectQuiz}
+          slotType="footer_ad"
+          className="w-full"
+          containerClassName="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pb-6"
+        />
+      )}
+
+      {!isExamRunning && (
+      <footer className="bg-white border-t border-slate-200 py-6 text-slate-500">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+            {/* Copyright */}
             <div className="text-xs text-center md:text-left text-slate-500">
-              <span>Copyright © 2026 <strong>Arshad Abdul</strong>. All Rights Reserved.</span>
+              <span>© 2026 <strong className="font-semibold text-slate-700">Arshad Abdul</strong>. All Rights Reserved.</span>
             </div>
 
-            {/* Global Community Scale Bar */}
-            <div className="flex items-center justify-center space-x-4 bg-slate-50 border border-slate-200/80 px-4 py-1.5 rounded-full text-xs shadow-2xs">
-              <span className="flex items-center space-x-1.5 font-bold text-slate-700">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>{activeVisitorsCount || 1} Online</span>
+            {/* Live Activity Summary */}
+            <div className="flex items-center justify-center gap-3 text-xs text-slate-600 font-mono tabular-nums">
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span>{activeVisitorsCount || 1} active</span>
               </span>
-              <span className="text-slate-300">|</span>
-              <span className="flex items-center space-x-1.5 text-slate-600 font-medium">
-                <span>👁️ {totalVisitors ? totalVisitors.toLocaleString() : '1'} Visits</span>
-              </span>
+              <span className="text-slate-300">·</span>
+              <span>{totalVisitors ? totalVisitors.toLocaleString() : '1'} visits</span>
             </div>
 
-            {/* Platform Version & Admin Link */}
-            <div className="flex items-center space-x-3 text-slate-400 font-mono text-[11px] justify-center md:justify-end">
-              <span>Evalnium Platform v2.0</span>
-              {(!currentUser || currentUser.role === 'admin') && (
+            {/* Platform Version & Authenticated Admin Studio Shortcut */}
+            <div className="flex items-center gap-2.5 text-slate-400 font-mono text-[11px] justify-center md:justify-end">
+              <span>Evalnium v2.0</span>
+              {isAdminAuthenticated && (!currentUser || currentUser.role === 'admin') && (
                 <>
-                  <span>•</span>
+                  <span>·</span>
                   <button
-                    onClick={() => {
-                      if (isAdminAuthenticated) {
-                        setActiveTab('admin');
-                      } else {
-                        setShowAdminLockModal(true);
-                      }
-                    }}
-                    className="text-slate-400 hover:text-indigo-600 font-bold transition-colors flex items-center space-x-1 cursor-pointer"
+                    type="button"
+                    onClick={() => setActiveTab('admin')}
+                    className="text-slate-500 hover:text-slate-900 font-semibold transition-colors cursor-pointer"
                   >
-                    <span>{isAdminAuthenticated ? 'Admin Studio 🔓' : 'Admin Access 🔒'}</span>
+                    Admin Studio
                   </button>
                 </>
               )}
@@ -495,12 +634,13 @@ function MainAppContent() {
 
           {/* Legal Non-Affiliation Disclaimer */}
           <div className="border-t border-slate-100 pt-3 text-center">
-            <p className="text-[10px] text-slate-400 leading-relaxed max-w-4xl mx-auto font-normal">
-              <strong>Legal Disclaimer:</strong> Evalnium is an independent educational quiz and practice platform. It is not affiliated with, authorized, endorsed by, or in any way officially connected with the National Testing Agency (NTA), University Grants Commission (UGC), or any government examination authority. All examination names, acronyms, and trademarks (such as UGC NET, SET) belong to their respective owners and are used strictly for educational preparation and identification purposes under nominative fair use.
+            <p className="text-[11px] text-slate-400 leading-relaxed max-w-4xl mx-auto">
+              Evalnium is an independent educational quiz and practice platform and is not affiliated with or endorsed by NTA, UGC, or any government examination authority. Examination names and trademarks belong to their respective owners and are used strictly for educational identification.
             </p>
           </div>
         </div>
       </footer>
+      )}
 
       <ScrollToTopButton />
     </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { User, Mail, Sparkles, X, CheckCircle, ShieldCheck, KeyRound, RefreshCw, ArrowLeft, Loader2 } from 'lucide-react';
+import { User, Mail, X, CheckCircle, ShieldCheck, KeyRound, RefreshCw, ArrowLeft, Loader2, Phone, MapPin, Briefcase, Building2, GraduationCap } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -15,6 +15,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [city, setCity] = useState('');
+  const [gender, setGender] = useState('Prefer not to say');
+  const [occupationStatus, setOccupationStatus] = useState('Student');
+  const [designation, setDesignation] = useState('');
+  const [universityInstitute, setUniversityInstitute] = useState('');
 
   // OTP Verification State
   const [step, setStep] = useState<'details' | 'otp_verify'>('details');
@@ -46,6 +52,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
+
+    if (tab === 'register') {
+      if (!phone.trim()) {
+        setOtpError('Mobile / Phone number is compulsory for registration.');
+        return;
+      }
+      if (!city.trim()) {
+        setOtpError('City of residence is compulsory for registration.');
+        return;
+      }
+    }
 
     setIsLoading(true);
     setOtpError(null);
@@ -118,6 +135,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
     setIsLoading(true);
     setOtpError(null);
 
+    let verificationToken = '';
     try {
       const res = await fetch(`${getApiUrl()}/verify-otp`, {
         method: 'POST',
@@ -132,17 +150,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         setOtpError(data.error || 'Incorrect OTP code entered.');
         return;
       }
+      verificationToken = data.verificationToken || '';
     } catch {
       setIsLoading(false);
+      setOtpError('Network error while verifying OTP. Please try again.');
+      return;
     }
 
     // OTP Verified! Complete registration or reset password
     try {
       if (tab === 'forgot_password') {
-        await resetPassword(email, enteredOtp, password);
+        await resetPassword(email, verificationToken || enteredOtp, password);
         setSuccessMsg('✅ Password Reset Successfully! You can now log in.');
       } else {
-        await registerCandidate(name || 'Candidate', email, password);
+        await registerCandidate(
+          name || 'Candidate',
+          email,
+          password,
+          {
+            phone: phone.trim(),
+            city: city.trim(),
+            gender,
+            occupation_status: occupationStatus,
+            designation: designation.trim() || undefined,
+            university_institute: universityInstitute.trim() || undefined,
+          },
+          verificationToken
+        );
         setSuccessMsg('✅ Email Verified & Candidate Account Created Successfully!');
       }
     } catch (err: any) {
@@ -159,31 +193,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white max-w-md w-full p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-2xl space-y-6 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4">
+      <div className="bg-white max-w-lg w-full max-h-[92vh] overflow-y-auto p-5 sm:p-6 rounded-xl border border-slate-200 shadow-xl space-y-5 animate-in fade-in duration-200">
         
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-          <div className="flex items-center space-x-2">
-            <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900">
-                {step === 'otp_verify' ? 'Email OTP Verification' : tab === 'forgot_password' ? 'Reset Password' : 'Student Access Portal'}
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                {step === 'otp_verify' ? 'Email OTP Verification' : tab === 'forgot_password' ? 'Reset Password' : 'Candidate Sign In'}
               </h3>
-              <p className="text-xs text-slate-500 font-medium">
-                {step === 'otp_verify' ? `Check email inbox of ${email}` : tab === 'forgot_password' ? 'Enter email and new password' : 'Join candidate network to track ranks & performance'}
+              <p className="text-xs text-slate-500">
+                {step === 'otp_verify' ? `Enter the verification code sent to ${email}` : tab === 'forgot_password' ? 'Enter email and new password' : 'Track scores, revisions, and exam standings'}
               </p>
             </div>
           </div>
           
           <button
+            type="button"
             onClick={() => {
               setStep('details');
               onClose();
             }}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -193,13 +228,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         {step === 'details' && (
           <>
             {tab !== 'forgot_password' ? (
-              <div className="flex items-center space-x-1 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
                 <button
                   type="button"
                   onClick={() => setTab('register')}
-                  className={`w-1/2 py-2 rounded-xl text-xs font-bold transition-all ${
+                  className={`w-1/2 py-2 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                     tab === 'register'
-                      ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                      ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -263,20 +298,124 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 </div>
               )}
               {tab === 'register' && (
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700">Full Candidate Name</label>
-                  <div className="relative">
-                    <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                    <input
-                      type="text"
-                      required
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="e.g. Arshad Abdul"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                    />
+                <>
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">Full Candidate Name</label>
+                    <div className="relative">
+                      <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                      <input
+                        type="text"
+                        required
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="e.g. Arshad Abdul"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
                   </div>
-                </div>
+
+                  {/* Mandatory Phone & City */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-slate-700">
+                        Mobile Number <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                        <input
+                          type="tel"
+                          required
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          placeholder="+91 98765 43210"
+                          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-slate-700">
+                        City of Residence <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                        <input
+                          type="text"
+                          required
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                          placeholder="e.g. Hyderabad, Delhi"
+                          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Gender & Occupation Category */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-slate-700">Gender</label>
+                      <select
+                        value={gender}
+                        onChange={(e) => setGender(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-medium bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      >
+                        <option value="Prefer not to say">Prefer not to say</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-slate-700">Candidate Category</label>
+                      <div className="relative">
+                        <Briefcase className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
+                        <select
+                          value={occupationStatus}
+                          onChange={(e) => setOccupationStatus(e.target.value)}
+                          className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-200 text-xs font-medium bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                        >
+                          <option value="Student">Student</option>
+                          <option value="Trainee">Trainee</option>
+                          <option value="Intern">Intern</option>
+                          <option value="Working Professional">Working Professional</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Designation & University/Institute */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-slate-700">Current Designation</label>
+                      <div className="relative">
+                        <GraduationCap className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                        <input
+                          type="text"
+                          value={designation}
+                          onChange={(e) => setDesignation(e.target.value)}
+                          placeholder="e.g. Scholar, Student"
+                          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-slate-700">University / College</label>
+                      <div className="relative">
+                        <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                        <input
+                          type="text"
+                          value={universityInstitute}
+                          onChange={(e) => setUniversityInstitute(e.target.value)}
+                          placeholder="e.g. IITH, DU, JNU"
+                          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
 
               <div className="space-y-1.5">
@@ -438,7 +577,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-4 h-4" />
+                      <CheckCircle className="w-4 h-4" />
                       <span>Verify Email & Complete Sign In</span>
                     </>
                   )}
