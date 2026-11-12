@@ -29,6 +29,7 @@ export interface CandidateRegistrationData {
   university_institute?: string;
   address?: string;
   target_exam?: string;
+  termsAccepted?: boolean;
 }
 
 export interface AuthContextType {

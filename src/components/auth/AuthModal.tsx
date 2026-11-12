@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { User, Mail, X, CheckCircle, ShieldCheck, KeyRound, RefreshCw, ArrowLeft, Loader2, Phone, MapPin, Briefcase, Building2, GraduationCap } from 'lucide-react';
+import { LegalPolicyModal, type LegalDocType } from '../common/LegalPolicyModal';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -21,6 +22,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const [occupationStatus, setOccupationStatus] = useState('Student');
   const [designation, setDesignation] = useState('');
   const [universityInstitute, setUniversityInstitute] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [legalDoc, setLegalDoc] = useState<LegalDocType | null>(null);
 
   // OTP Verification State
   const [step, setStep] = useState<'details' | 'otp_verify'>('details');
@@ -60,6 +63,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       }
       if (!city.trim()) {
         setOtpError('City of residence is compulsory for registration.');
+        return;
+      }
+      if (!termsAccepted) {
+        setOtpError('Please agree to the Terms & Conditions and Privacy Policy to continue.');
         return;
       }
     }
@@ -174,10 +181,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             occupation_status: occupationStatus,
             designation: designation.trim() || undefined,
             university_institute: universityInstitute.trim() || undefined,
+            termsAccepted: true,
           },
           verificationToken
         );
-        setSuccessMsg('✅ Email Verified & Candidate Account Created Successfully!');
+        setSuccessMsg('Email verified and candidate account created successfully.');
       }
     } catch (err: any) {
       setOtpError(err.message || 'Authentication failed');
@@ -450,12 +458,51 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 </div>
               </div>
 
+              {tab === 'register' && (
+                <label className="flex items-start gap-2.5 pt-1 text-xs text-slate-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => {
+                      setTermsAccepted(e.target.checked);
+                      if (e.target.checked) setOtpError(null);
+                    }}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer shrink-0"
+                  />
+                  <span className="leading-relaxed">
+                    I agree to the{' '}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setLegalDoc('terms');
+                      }}
+                      className="font-semibold text-blue-600 hover:underline cursor-pointer"
+                    >
+                      Terms &amp; Conditions
+                    </button>{' '}
+                    and{' '}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setLegalDoc('privacy');
+                      }}
+                      className="font-semibold text-blue-600 hover:underline cursor-pointer"
+                    >
+                      Privacy Policy
+                    </button>
+                    , including exam conduct rules and academic email updates.
+                  </span>
+                </label>
+              )}
+
               {tab === 'signin' && (
                 <div className="flex justify-end pt-1">
                   <button
                     type="button"
                     onClick={() => setTab('forgot_password')}
-                    className="text-indigo-600 hover:text-indigo-700 text-xs font-semibold"
+                    className="text-blue-600 hover:text-blue-700 text-xs font-semibold cursor-pointer"
                   >
                     Forgot Password?
                   </button>
@@ -465,27 +512,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center space-x-2 transition-all mt-2"
+                className="w-full py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-colors mt-2 cursor-pointer"
               >
                 {isLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Sending OTP to Email...</span>
+                    <span>Sending Verification OTP...</span>
                   </>
                 ) : tab === 'signin' ? (
                   <>
                     <KeyRound className="w-4 h-4" />
-                    <span>Sign In 🚀</span>
+                    <span>Sign In</span>
                   </>
                 ) : tab === 'forgot_password' ? (
                   <>
                     <KeyRound className="w-4 h-4" />
-                    <span>Send OTP to Reset 🚀</span>
+                    <span>Send OTP to Reset Password</span>
                   </>
                 ) : (
                   <>
                     <KeyRound className="w-4 h-4" />
-                    <span>Send Verification OTP to Email 📩</span>
+                    <span>Verify Email &amp; Create Account</span>
                   </>
                 )}
               </button>
@@ -537,7 +584,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                   </div>
 
                   {otpError && (
-                    <p className="text-center text-xs text-rose-600 font-bold mt-2 animate-bounce">
+                    <p className="text-center text-xs text-rose-600 font-semibold mt-2">
                       {otpError}
                     </p>
                   )}
@@ -588,6 +635,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         )}
 
       </div>
+      <LegalPolicyModal docType={legalDoc} onClose={() => setLegalDoc(null)} />
     </div>
   );
 };

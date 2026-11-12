@@ -25,6 +25,7 @@ import { ScrollToTopButton } from './components/common/ScrollToTopButton';
 import { AnnouncementBanner } from './components/user/AnnouncementBanner';
 import { HeaderAdBanner } from './components/home/HeaderAdBanner';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { LegalPolicyModal } from './components/common/LegalPolicyModal';
 
 // Resilient lazy loader: handles chunk loading retries and legacy port synchronization
 const lazyWithRetry = <T extends React.ComponentType<any>>(componentImport: () => Promise<{ default: T }>) =>
@@ -62,6 +63,7 @@ function MainAppContent() {
   const [showRevisionHubModal, setShowRevisionHubModal] = useState<boolean>(false);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [portalNotice, setPortalNotice] = useState<string | null>(null);
+  const [legalDoc, setLegalDoc] = useState<'terms' | 'privacy' | null>(null);
   
   // Real-Time Visitor & Heartbeat Stats
   const [totalVisitors, setTotalVisitors] = useState<number>(0);
@@ -614,8 +616,24 @@ function MainAppContent() {
               <span>{totalVisitors ? totalVisitors.toLocaleString() : '1'} visits</span>
             </div>
 
-            {/* Platform Version & Authenticated Admin Studio Shortcut */}
-            <div className="flex items-center gap-2.5 text-slate-400 font-mono text-[11px] justify-center md:justify-end">
+            {/* Platform Version, Legal Links & Authenticated Admin Studio Shortcut */}
+            <div className="flex flex-wrap items-center gap-2.5 text-slate-400 font-mono text-[11px] justify-center md:justify-end">
+              <button
+                type="button"
+                onClick={() => setLegalDoc('terms')}
+                className="text-slate-500 hover:text-slate-900 font-medium transition-colors cursor-pointer"
+              >
+                Terms
+              </button>
+              <span>·</span>
+              <button
+                type="button"
+                onClick={() => setLegalDoc('privacy')}
+                className="text-slate-500 hover:text-slate-900 font-medium transition-colors cursor-pointer"
+              >
+                Privacy
+              </button>
+              <span>·</span>
               <span>Evalnium v2.0</span>
               {isAdminAuthenticated && (!currentUser || currentUser.role === 'admin') && (
                 <>
@@ -643,6 +661,10 @@ function MainAppContent() {
       )}
 
       <ScrollToTopButton />
+
+      {legalDoc && (
+        <LegalPolicyModal docType={legalDoc} onClose={() => setLegalDoc(null)} />
+      )}
     </div>
   );
 }

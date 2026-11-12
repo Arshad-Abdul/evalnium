@@ -677,6 +677,7 @@ async function initDatabase() {
     try { await pool.query(`ALTER TABLE users ADD COLUMN university_institute VARCHAR(255) DEFAULT NULL;`); } catch { }
     try { await pool.query(`ALTER TABLE users ADD COLUMN city VARCHAR(100) DEFAULT NULL;`); } catch { }
     try { await pool.query(`ALTER TABLE users ADD COLUMN address TEXT DEFAULT NULL;`); } catch { }
+    try { await pool.query(`ALTER TABLE users ADD COLUMN terms_accepted_at VARCHAR(100) DEFAULT NULL;`); } catch { }
     try { await pool.query(`CREATE INDEX idx_users_occupation ON users(occupation_status);`); } catch { }
     try { await pool.query(`CREATE INDEX idx_users_city ON users(city);`); } catch { }
 
@@ -1135,11 +1136,16 @@ app.post('/api/users/register', candidateRegistrationLimiter, async (req, res) =
       university_institute,
       city,
       address,
-      target_exam
+      target_exam,
+      termsAccepted
     } = req.body;
 
     if (!email || !name || !password) {
       return res.status(400).json({ error: 'Name, email, and password are required fields.' });
+    }
+
+    if (!termsAccepted) {
+      return res.status(400).json({ error: 'Please accept the Terms & Conditions and Privacy Policy to create an account.' });
     }
 
     if (typeof password !== 'string' || password.length < 6) {
@@ -1203,7 +1209,7 @@ app.post('/api/users/register', candidateRegistrationLimiter, async (req, res) =
         `UPDATE users SET
           name = ?, phone = ?, institution = ?, gender = ?, occupation_status = ?,
           designation = ?, university_institute = ?, city = ?, address = ?, target_exam = ?,
-          is_verified = 1, password_hash = ?
+          is_verified = 1, password_hash = ?, terms_accepted_at = COALESCE(terms_accepted_at, ?)
          WHERE email = ?`,
         [
           name.trim(),
@@ -1217,14 +1223,15 @@ app.post('/api/users/register', candidateRegistrationLimiter, async (req, res) =
           safeAddress,
           safeTargetExam,
           passwordHash,
+          createdAt,
           normalizedEmail
         ]
       );
     } else {
       await pool.query(
         `INSERT INTO users (
-          uid, name, email, role, phone, institution, gender, occupation_status, designation, university_institute, city, address, target_exam, is_verified, created_at, password_hash
-        ) VALUES (?, ?, ?, 'candidate', ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+          uid, name, email, role, phone, institution, gender, occupation_status, designation, university_institute, city, address, target_exam, is_verified, created_at, password_hash, terms_accepted_at
+        ) VALUES (?, ?, ?, 'candidate', ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
         [
           serverUid,
           name.trim(),
@@ -1239,7 +1246,8 @@ app.post('/api/users/register', candidateRegistrationLimiter, async (req, res) =
           safeAddress,
           safeTargetExam,
           createdAt,
-          passwordHash
+          passwordHash,
+          createdAt
         ]
       );
     }
