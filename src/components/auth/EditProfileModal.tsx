@@ -5,13 +5,13 @@ import {
   X,
   CheckCircle,
   AlertCircle,
-  Target,
   Building2,
   Phone,
   MapPin,
   Briefcase,
   GraduationCap,
 } from 'lucide-react';
+import { TargetExamSelector, normalizeLegacyExamGoal } from './TargetExamSelector';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -28,7 +28,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
   const [occupationStatus, setOccupationStatus] = useState('Student');
   const [designation, setDesignation] = useState('');
   const [universityInstitute, setUniversityInstitute] = useState('');
-  const [targetExam, setTargetExam] = useState('UGC NET / LIS');
+  const [targetExam, setTargetExam] = useState(() => normalizeLegacyExamGoal());
 
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -44,7 +44,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
     setOccupationStatus(currentUser.occupationStatus || 'Student');
     setDesignation(currentUser.designation || '');
     setUniversityInstitute(currentUser.universityInstitute || currentUser.institution || '');
-    setTargetExam(currentUser.targetExam || 'UGC NET / LIS');
+    setTargetExam(normalizeLegacyExamGoal(currentUser.targetExam));
     setErrorMsg(null);
     setSuccessMsg(null);
   }, [isOpen, currentUser]);
@@ -68,6 +68,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
       setErrorMsg('City of Residence is required.');
       return;
     }
+    if (!targetExam.trim()) {
+      setErrorMsg('Please specify your Target Exam Goal.');
+      return;
+    }
 
     try {
       setIsSaving(true);
@@ -80,7 +84,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
         designation: designation.trim(),
         universityInstitute: universityInstitute.trim(),
         institution: universityInstitute.trim(),
-        targetExam: targetExam.trim() || 'UGC NET / LIS',
+        targetExam: targetExam.trim(),
       });
 
       setSuccessMsg('Profile saved and synced to your account!');
@@ -249,19 +253,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
             </div>
           </div>
 
-          <div>
-            <label className="block font-bold text-slate-700 mb-1 flex items-center space-x-1">
-              <Target className="w-3.5 h-3.5 text-blue-600" />
-              <span>Target Exam Goal</span>
-            </label>
-            <input
-              type="text"
-              value={targetExam}
-              onChange={(e) => setTargetExam(e.target.value)}
-              placeholder="e.g. UGC NET LIS / KVS / State SET"
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-slate-900 font-semibold focus:outline-none focus:border-blue-600"
-            />
-          </div>
+          <TargetExamSelector value={targetExam} onChange={setTargetExam} />
 
           <div>
             <label className="block font-bold text-slate-700 mb-1">Email Address (Read-Only)</label>

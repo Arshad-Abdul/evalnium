@@ -40,7 +40,7 @@ export const LegalPolicyModal: React.FC<LegalPolicyModalProps> = ({ docType, onC
                 {isTerms ? 'Terms & Conditions' : 'Privacy Policy'}
               </h2>
               <p className="text-[11px] text-slate-500 font-mono">
-                Evalnium Assessment Portal · Updated 2026
+                Evalnium LIS Practice Portal · Updated 2026
               </p>
             </div>
           </div>
@@ -59,37 +59,37 @@ export const LegalPolicyModal: React.FC<LegalPolicyModalProps> = ({ docType, onC
           {isTerms ? (
             <>
               <section className="space-y-1.5">
-                <h3 className="text-sm font-bold text-slate-900">1. Platform Purpose & Independence</h3>
+                <h3 className="text-sm font-bold text-slate-900">1. Platform Purpose (LIS Practice Only)</h3>
                 <p>
-                  Evalnium is an independent educational mock test, practice quiz, and study-resource platform operated by Arshad Abdul. It is not affiliated with, endorsed by, or an official examination portal of NTA, UGC, or any government recruitment body.
+                  Evalnium is an independent educational practice, mock-test, and self-assessment platform focused exclusively on Library &amp; Information Science (LIS) and related librarian competitive examinations (such as UGC NET, CUET, SET, KVS, NVS, DSSSB, and state librarian tests). Evalnium is strictly a learning and practice portal—it is not an official examination authority and is not affiliated with or endorsed by NTA, UGC, or any government or university body.
                 </p>
               </section>
 
               <section className="space-y-1.5">
-                <h3 className="text-sm font-bold text-slate-900">2. Account & Registration Accuracy</h3>
+                <h3 className="text-sm font-bold text-slate-900">2. Account &amp; Registration Information</h3>
                 <p>
-                  Candidates must register with accurate personal details and verify ownership of their email address via OTP. Sharing credentials, impersonating another aspirant, or operating duplicate accounts in live contests is prohibited.
+                  Learners should register using accurate profile details and verify their email address via OTP. Your account is intended for personal study and practice only; sharing login credentials, impersonating another learner, or creating multiple duplicate accounts to manipulate practice leaderboards is not permitted.
                 </p>
               </section>
 
               <section className="space-y-1.5">
-                <h3 className="text-sm font-bold text-slate-900">3. Examination Conduct & Fair Play</h3>
+                <h3 className="text-sm font-bold text-slate-900">3. Fair Practice &amp; Academic Accuracy</h3>
                 <p>
-                  Timed mock papers and live competitions may enforce anti-cheating controls such as tab-switch monitoring, strict submission locks, and negative marking. Automated bots, scraping, inspecting API payloads to obtain answers, or bypassing contest schedules will lead to attempt invalidation and account suspension.
+                  Timed mock tests and practice challenges are designed to simulate real exam speed and accuracy. Using automated scripts, bots, content scrapers, or tampering with test timers and platform APIs is prohibited and may lead to attempt removal or account restriction. Practice questions and explanations are curated for educational preparation; while Evalnium strives for accuracy, minor typographical or answer-key variations may occur and are updated as reviewed.
                 </p>
               </section>
 
               <section className="space-y-1.5">
-                <h3 className="text-sm font-bold text-slate-900">4. Free & Paid Content (Present and Future)</h3>
+                <h3 className="text-sm font-bold text-slate-900">4. Content Usage &amp; Intellectual Property</h3>
                 <p>
-                  Core practice tests and selected study materials are currently provided free of charge. When paid test series, paid competitions, or paid study notes are offered, applicable fees, access windows, and refund/cancellation terms will be displayed clearly prior to checkout. Unauthorized redistribution or resale of downloaded study notes or test papers is prohibited.
+                  All mock test papers, MCQs, explanations, and study resources available on Evalnium are provided solely for your personal, non-commercial study and exam preparation. Copying, bulk downloading, republishing, or commercially redistributing platform questions or study materials without prior permission from Evalnium is not permitted.
                 </p>
               </section>
 
               <section className="space-y-1.5">
-                <h3 className="text-sm font-bold text-slate-900">5. Certificates & Rankings</h3>
+                <h3 className="text-sm font-bold text-slate-900">5. Practice Scorecards, Rankings &amp; Certificates</h3>
                 <p>
-                  Digital certificates and leaderboard rankings are generated strictly from verified attempt records stored on Evalnium and reflect performance within platform mock assessments only.
+                  Scorecards, leaderboard rankings, and completion certificates generated on Evalnium reflect your practice performance within this portal for self-evaluation and motivation only, and do not confer any academic degree, official qualification, or recruitment eligibility.
                 </p>
               </section>
             </>
@@ -98,35 +98,35 @@ export const LegalPolicyModal: React.FC<LegalPolicyModalProps> = ({ docType, onC
               <section className="space-y-1.5">
                 <h3 className="text-sm font-bold text-slate-900">1. Information We Collect</h3>
                 <p>
-                  When you register or take assessments on Evalnium, we collect account profile information (full name, verified email address, mobile number, city, category, optional institution/designation), exam performance records (responses, scores, timestamps), and basic session security logs (IP address and browser type for rate limiting and audit protection).
+                  When you create an account or take practice tests on Evalnium, we collect the profile details you provide (name, verified email address, mobile number, city, candidate category, target exam goal, and optional institution/designation), your practice history (responses, scores, and time spent), and standard technical logs (such as browser/device type and IP address) used strictly for OTP/login security, preventing spam or automated abuse, and platform reliability.
                 </p>
               </section>
 
               <section className="space-y-1.5">
                 <h3 className="text-sm font-bold text-slate-900">2. How Your Information Is Used</h3>
                 <p>
-                  Your data is used strictly to authenticate your account via secure cookies, compute scorecards and candidate rankings, issue verifiable certificates, prevent unauthorized access or exam malpractice, and send essential OTPs or platform exam notices.
+                  Your information is used strictly to authenticate your account, personalize your Library &amp; Information Science practice experience, generate scorecards and rankings, issue practice certificates, maintain platform security, and deliver essential OTPs or practice test updates.
                 </p>
               </section>
 
               <section className="space-y-1.5">
-                <h3 className="text-sm font-bold text-slate-900">3. Cookies & Session Storage</h3>
+                <h3 className="text-sm font-bold text-slate-900">3. Cookies &amp; Local Storage</h3>
                 <p>
-                  Evalnium uses cryptographically signed, HTTP-only session cookies to keep you signed in securely and local browser storage to preserve live exam progress and bookmarked questions during network interruptions.
+                  Evalnium uses signed, HTTP-only session cookies to keep you safely signed in and browser local storage to preserve active practice progress and bookmarked questions across accidental refreshes or brief network drops.
                 </p>
               </section>
 
               <section className="space-y-1.5">
                 <h3 className="text-sm font-bold text-slate-900">4. Leaderboard Visibility</h3>
                 <p>
-                  When you participate in ranked assessments, your candidate name, score, accuracy percentage, and completion time may be shown to signed-in participants on the Rankings page. Personal contact fields such as your email address and phone number are never shown publicly on rankings.
+                  When you complete ranked practice tests, your display name, score, accuracy percentage, and time taken may appear to signed-in learners on the Rankings page. Private contact details such as your email address and mobile number are never displayed publicly on leaderboards.
                 </p>
               </section>
 
               <section className="space-y-1.5">
-                <h3 className="text-sm font-bold text-slate-900">5. Data Security & Account Deletion</h3>
+                <h3 className="text-sm font-bold text-slate-900">5. Data Security &amp; Account Requests</h3>
                 <p>
-                  Passwords are stored using salted cryptographic hashing and never stored in plain text. We do not sell candidate personal data to third parties. To request profile updates or account deletion, contact the platform administrator via the support channels listed on the portal.
+                  Passwords are protected using salted cryptographic hashing and are never stored in plain text. Evalnium does not sell learner data to third parties. You may update your profile details anytime from your account settings or contact Evalnium through the portal if you wish to request account deletion.
                 </p>
               </section>
             </>

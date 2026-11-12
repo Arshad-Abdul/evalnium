@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { User, Mail, X, CheckCircle, ShieldCheck, KeyRound, RefreshCw, ArrowLeft, Loader2, Phone, MapPin, Briefcase, Building2, GraduationCap } from 'lucide-react';
 import { LegalPolicyModal, type LegalDocType } from '../common/LegalPolicyModal';
+import { TargetExamSelector, DEFAULT_LIS_EXAM } from './TargetExamSelector';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const [occupationStatus, setOccupationStatus] = useState('Student');
   const [designation, setDesignation] = useState('');
   const [universityInstitute, setUniversityInstitute] = useState('');
+  const [targetExam, setTargetExam] = useState(DEFAULT_LIS_EXAM);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [legalDoc, setLegalDoc] = useState<LegalDocType | null>(null);
 
@@ -63,6 +65,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       }
       if (!city.trim()) {
         setOtpError('City of residence is compulsory for registration.');
+        return;
+      }
+      if (!targetExam.trim()) {
+        setOtpError('Please specify your Target Exam Goal.');
         return;
       }
       if (!termsAccepted) {
@@ -181,6 +187,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             occupation_status: occupationStatus,
             designation: designation.trim() || undefined,
             university_institute: universityInstitute.trim() || undefined,
+            target_exam: targetExam.trim(),
             termsAccepted: true,
           },
           verificationToken
@@ -423,6 +430,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                       </div>
                     </div>
                   </div>
+
+                  {/* Target Exam Goal Dropdown + Other */}
+                  <TargetExamSelector value={targetExam} onChange={setTargetExam} />
                 </>
               )}
 
@@ -491,8 +501,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                       className="font-semibold text-blue-600 hover:underline cursor-pointer"
                     >
                       Privacy Policy
-                    </button>
-                    , including exam conduct rules and academic email updates.
+                    </button>{' '}
+                    for using the Evalnium LIS practice platform and receiving academic updates.
                   </span>
                 </label>
               )}
