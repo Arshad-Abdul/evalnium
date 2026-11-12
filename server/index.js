@@ -1558,6 +1558,110 @@ app.post('/api/users/logout', (req, res) => {
   }
 });
 
+// UPDATE signed-in candidate profile in MySQL
+app.put('/api/users/profile', async (req, res) => {
+  try {
+    const authenticatedCandidate = getAuthenticatedCandidate(req);
+    if (!authenticatedCandidate) {
+      return res.status(401).json({ error: 'Authentication required. Please sign in again.' });
+    }
+
+    const {
+      name,
+      phone,
+      city,
+      gender,
+      occupationStatus,
+      occupation_status,
+      designation,
+      universityInstitute,
+      university_institute,
+      institution,
+      targetExam,
+      target_exam,
+      address
+    } = req.body || {};
+
+    const cleanName = typeof name === 'string' ? name.trim() : '';
+    const cleanPhone = typeof phone === 'string' ? phone.trim() : '';
+    const cleanCity = typeof city === 'string' ? city.trim() : '';
+
+    if (!cleanName) {
+      return res.status(400).json({ error: 'Full Candidate Name is required.' });
+    }
+    if (!cleanPhone) {
+      return res.status(400).json({ error: 'Mobile Number is required.' });
+    }
+    if (!cleanCity) {
+      return res.status(400).json({ error: 'City of Residence is required.' });
+    }
+
+    const cleanGender = typeof gender === 'string' && gender.trim() ? gender.trim() : 'Prefer not to say';
+    const rawOccupation = occupationStatus ?? occupation_status;
+    const cleanOccupation = typeof rawOccupation === 'string' && rawOccupation.trim() ? rawOccupation.trim() : 'Student';
+    const cleanDesignation = typeof designation === 'string' && designation.trim() ? designation.trim() : null;
+    const rawInstitute = universityInstitute ?? university_institute ?? institution;
+    const cleanInstitute = typeof rawInstitute === 'string' && rawInstitute.trim() ? rawInstitute.trim() : null;
+    const rawTargetExam = targetExam ?? target_exam;
+    const cleanTargetExam = typeof rawTargetExam === 'string' && rawTargetExam.trim() ? rawTargetExam.trim() : 'UGC NET / LIS';
+    const cleanAddress = typeof address === 'string' && address.trim() ? address.trim() : null;
+
+    await pool.query(
+      `UPDATE users SET
+        name = ?, phone = ?, city = ?, gender = ?, occupation_status = ?,
+        designation = ?, university_institute = ?, institution = ?, target_exam = ?, address = ?
+       WHERE uid = ?`,
+      [
+        cleanName,
+        cleanPhone,
+        cleanCity,
+        cleanGender,
+        cleanOccupation,
+        cleanDesignation,
+        cleanInstitute,
+        cleanInstitute,
+        cleanTargetExam,
+        cleanAddress,
+        authenticatedCandidate.uid
+      ]
+    );
+
+    const [rows] = await pool.query(
+      `SELECT 
+        uid, name, email, role, 
+        target_exam as targetExam, phone, institution, 
+        gender, occupation_status as occupationStatus, designation, university_institute as universityInstitute, city, address, 
+        created_at as createdAt 
+       FROM users WHERE uid = ?`,
+      [authenticatedCandidate.uid]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'User profile not found.' });
+    }
+
+    const updatedUser = rows[0];
+    if (isAdminAuthenticatedRequest(req)) {
+      updatedUser.role = 'admin';
+    }
+
+    recordAuditLog({
+      eventType: 'profile_update',
+      severity: 'info',
+      actorName: updatedUser.name,
+      actorEmail: updatedUser.email,
+      actorRole: updatedUser.role || 'candidate',
+      actionTitle: `✏️ Profile Updated: ${updatedUser.name}`,
+      detailsText: `Updated details. Category: ${updatedUser.occupationStatus}, City: ${updatedUser.city}, Institute: ${updatedUser.universityInstitute || 'N/A'}`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
+
+    res.json({ success: true, user: updatedUser });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // List all users (for admin only - CWE-200 / CWE-306)
 app.get('/api/users', authenticateAdmin, async (req, res) => {
   try {

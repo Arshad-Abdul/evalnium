@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import type { Quiz } from '../../types/quiz';
 import type { BannerItem } from '../home/HeroBannerCarousel';
+import { ConfirmModal } from '../common/ConfirmModal';
 
 interface BannerManagerProps {
   quizzes: Quiz[];
@@ -16,6 +17,8 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
   const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingBanner, setEditingBanner] = useState<BannerItem | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ id: number; title: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Filter State
   const [filterSlot, setFilterSlot] = useState<'all' | 'hero' | 'header_ad' | 'catalog_ad' | 'footer_ad'>('all');
@@ -258,21 +261,29 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
     }
   };
 
-  const handleDelete = async (id: number, bannerTitle: string) => {
-    if (!confirm(`Are you sure you want to delete banner "${bannerTitle}"?`)) return;
+  const handleDelete = (id: number, bannerTitle: string) => {
+    setPendingDelete({ id, title: bannerTitle });
+  };
+
+  const confirmDeleteBanner = async () => {
+    if (!pendingDelete) return;
     try {
-      const res = await fetch(`${getApiBaseUrl()}/banners/${id}`, {
+      setIsDeleting(true);
+      const res = await fetch(`${getApiBaseUrl()}/banners/${pendingDelete.id}`, {
         method: 'DELETE',
         credentials: 'include'
       });
       if (res.ok) {
-        setBanners((prev) => prev.filter((b) => b.id !== id));
+        setBanners((prev) => prev.filter((b) => b.id !== pendingDelete.id));
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('evalnium_banners_updated'));
         }
+        setPendingDelete(null);
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -886,6 +897,17 @@ export const BannerManager: React.FC<BannerManagerProps> = ({ quizzes }) => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(pendingDelete)}
+        title="Delete Banner / Showcase"
+        itemName={pendingDelete?.title}
+        message="Are you sure you want to delete this banner? It will be removed from the site carousel/placement immediately and cannot be undone."
+        confirmLabel="Delete Banner"
+        isLoading={isDeleting}
+        onConfirm={confirmDeleteBanner}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 };

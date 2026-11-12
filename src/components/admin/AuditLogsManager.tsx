@@ -25,6 +25,7 @@ import {
   SlidersHorizontal,
   ArrowUpDown
 } from 'lucide-react';
+import { ConfirmModal } from '../common/ConfirmModal';
 
 interface AuditLogItem {
   id: number;
@@ -85,6 +86,7 @@ export const AuditLogsManager: React.FC = () => {
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
   const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null);
   const [purging, setPurging] = useState<boolean>(false);
+  const [pendingPurge, setPendingPurge] = useState<{ daysVal: string; message: string } | null>(null);
 
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
@@ -159,7 +161,7 @@ export const AuditLogsManager: React.FC = () => {
     }
   }, [logs, viewMode]);
 
-  const handlePurge = async () => {
+  const handlePurge = () => {
     const option = prompt(
       "⚠️ Purge Audit History: Enter number of days (e.g. '30' for older than 30 days, '7' for older than 7 days, or 'all' to clear all logs):",
       "30"
@@ -170,10 +172,15 @@ export const AuditLogsManager: React.FC = () => {
     if (!daysVal) return;
 
     const confirmMsg = daysVal === 'all'
-      ? '🚨 ARE YOU ABSOLUTELY SURE? This will permanently delete ALL audit activity logs forever.'
+      ? 'This will permanently delete ALL audit activity logs forever. This action cannot be undone.'
       : `Are you sure you want to permanently delete audit logs older than ${daysVal} days?`;
 
-    if (!window.confirm(confirmMsg)) return;
+    setPendingPurge({ daysVal, message: confirmMsg });
+  };
+
+  const executePurgeLogs = async () => {
+    if (!pendingPurge) return;
+    const daysVal = pendingPurge.daysVal;
 
     try {
       setPurging(true);
@@ -910,6 +917,20 @@ export const AuditLogsManager: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(pendingPurge)}
+        title="Purge Audit Activity Logs"
+        itemName={pendingPurge?.daysVal === 'all' ? 'ALL Audit Logs' : `Audit logs older than ${pendingPurge?.daysVal} days`}
+        message={pendingPurge?.message || ''}
+        confirmLabel="Yes, Purge Logs"
+        isLoading={purging}
+        onConfirm={async () => {
+          await executePurgeLogs();
+          setPendingPurge(null);
+        }}
+        onCancel={() => setPendingPurge(null)}
+      />
     </div>
   );
 };

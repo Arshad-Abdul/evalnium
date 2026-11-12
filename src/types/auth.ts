@@ -42,7 +42,7 @@ export interface AuthContextType {
   loginAdmin: (passcode: string) => Promise<boolean>;
   logoutAdmin: () => void;
   logoutCandidate: () => void;
-  updateUserProfile: (updates: Partial<UserProfile>) => void;
+  updateUserProfile: (updates: Partial<UserProfile>) => Promise<UserProfile>;
 }
 
 export interface LeaderboardEntry {

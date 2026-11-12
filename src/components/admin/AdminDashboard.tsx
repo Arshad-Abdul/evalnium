@@ -8,6 +8,7 @@ import { BannerManager } from './BannerManager';
 import { AuditLogsManager } from './AuditLogsManager';
 import { CandidateResponseModal } from './CandidateResponseModal';
 import { EmailManager } from './EmailManager';
+import { ConfirmModal } from '../common/ConfirmModal';
 import { Plus, Trash2, FileDown, Layers, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, Trophy, LogOut, Globe, Radio, Laptop, Smartphone, Monitor, ShieldCheck, UserCheck, Search, Filter, RefreshCw, Compass, MapPin, Download, Image as ImageIcon, BarChart2, Calendar, TrendingUp, History, Terminal, Mail, Phone, Briefcase, Building2, GraduationCap } from 'lucide-react';
 import { getStoredResults } from '../../utils/storage';
 
@@ -79,6 +80,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [visitorPage, setVisitorPage] = useState(1);
   const [visitorLimit, setVisitorLimit] = useState(10);
   const [purgingLogs, setPurgingLogs] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{
+    title: string;
+    itemName: string;
+    message: string;
+    confirmLabel?: string;
+    onConfirm: () => Promise<void> | void;
+  } | null>(null);
+  const [isDeletingItem, setIsDeletingItem] = useState(false);
 
   // Executive Dashboard Stats State
   const [stats, setStats] = useState<any | null>(null);
@@ -127,29 +136,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  const handlePurgeLogs = async (days: string) => {
+  const handlePurgeLogs = (days: string) => {
     const confirmMsg = days === 'all'
-      ? '⚠️ Are you sure you want to permanently clear ALL visitor history telemetry logs?'
-      : `⚠️ Are you sure you want to purge visitor history logs older than ${days} days?`;
-    if (!window.confirm(confirmMsg)) return;
+      ? 'Are you sure you want to permanently clear ALL visitor history telemetry logs? This cannot be undone.'
+      : `Are you sure you want to permanently purge visitor history logs older than ${days} days?`;
 
-    try {
-      setPurgingLogs(true);
-      const res = await fetch(`${getApiBaseUrl()}/admin/visitors/purge?days=${days}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
-      if (res.ok) {
-        const data = await res.json();
-        alert(data.message || 'Visitor logs purged successfully.');
-        fetchVisitors();
-      }
-    } catch (err) {
-      console.error('Error purging visitor logs:', err);
-      alert('Failed to purge visitor logs.');
-    } finally {
-      setPurgingLogs(false);
-    }
+    setPendingDelete({
+      title: 'Purge Visitor Telemetry Logs',
+      itemName: days === 'all' ? 'ALL Visitor History Logs' : `Visitor logs older than ${days} days`,
+      message: confirmMsg,
+      confirmLabel: 'Yes, Purge Logs',
+      onConfirm: async () => {
+        try {
+          setPurgingLogs(true);
+          const res = await fetch(`${getApiBaseUrl()}/admin/visitors/purge?days=${days}`, {
+            method: 'DELETE',
+            credentials: 'include'
+          });
+          if (res.ok) {
+            fetchVisitors();
+          }
+        } catch (err) {
+          console.error('Error purging visitor logs:', err);
+          alert('Failed to purge visitor logs.');
+        } finally {
+          setPurgingLogs(false);
+        }
+      },
+    });
   };
 
   useEffect(() => {
@@ -222,24 +236,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  const handleDeleteUser = async (uid: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete user "${name}"? This will also remove their test history.`)) {
-      return;
-    }
-    try {
-      const res = await fetch(`${getApiBaseUrl()}/users/${uid}`, { 
-        method: 'DELETE',
-        credentials: 'include'
-      });
-      if (res.ok) {
-        setRegisteredUsers(prev => prev.filter(u => u.uid !== uid));
-      } else {
-        alert('Failed to delete user.');
-      }
-    } catch (e) {
-      console.error('Error deleting user:', e);
-      alert('Error deleting user.');
-    }
+  const handleDeleteUser = (uid: string, name: string) => {
+    setPendingDelete({
+      title: 'Delete Candidate Account',
+      itemName: name,
+      message: `Are you sure you want to permanently delete candidate "${name}"? This will also delete all of their exam attempt history and cannot be undone.`,
+      confirmLabel: 'Delete Candidate',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${getApiBaseUrl()}/users/${uid}`, {
+            method: 'DELETE',
+            credentials: 'include'
+          });
+          if (res.ok) {
+            setRegisteredUsers(prev => prev.filter(u => u.uid !== uid));
+          } else {
+            alert('Failed to delete user.');
+          }
+        } catch (e) {
+          console.error('Error deleting user:', e);
+          alert('Error deleting user.');
+        }
+      },
+    });
   };
 
   // Candidate / User Accounts Management State
@@ -310,23 +329,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const allAttemptResults = getStoredResults().filter(r => !deletedResultIds.has(r.id));
 
-  const handleDeleteResult = async (resultId: string, candidateName: string) => {
-    if (!confirm(`Delete this attempt by "${candidateName}"? This cannot be undone.`)) return;
-    try {
-      await fetch(`${getApiBaseUrl()}/results/${resultId}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
-      setDeletedResultIds(prev => new Set([...prev, resultId]));
-      // Also remove from localStorage cache
-      const RESULTS_KEY = 'evalnium_results_v3';
-      try {
-        const cached = JSON.parse(localStorage.getItem(RESULTS_KEY) || '[]');
-        localStorage.setItem(RESULTS_KEY, JSON.stringify(cached.filter((r: { id: string }) => r.id !== resultId)));
-      } catch { }
-    } catch {
-      alert('Failed to delete result. Check server connection.');
-    }
+  const handleDeleteResult = (resultId: string, candidateName: string) => {
+    setPendingDelete({
+      title: 'Delete Exam Attempt',
+      itemName: candidateName,
+      message: `Are you sure you want to permanently delete this exam attempt by "${candidateName}"? Leaderboard and candidate statistics will be updated. This cannot be undone.`,
+      confirmLabel: 'Delete Attempt',
+      onConfirm: async () => {
+        try {
+          await fetch(`${getApiBaseUrl()}/results/${resultId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+          });
+          setDeletedResultIds(prev => new Set([...prev, resultId]));
+          // Also remove from localStorage cache
+          const RESULTS_KEY = 'evalnium_results_v3';
+          try {
+            const cached = JSON.parse(localStorage.getItem(RESULTS_KEY) || '[]');
+            localStorage.setItem(RESULTS_KEY, JSON.stringify(cached.filter((r: { id: string }) => r.id !== resultId)));
+          } catch { }
+        } catch {
+          alert('Failed to delete result. Check server connection.');
+        }
+      },
+    });
+  };
+
+  const handleRequestDeleteQuiz = (quiz: Quiz) => {
+    setPendingDelete({
+      title: 'Delete Exam',
+      itemName: `${quiz.title} (${quiz.questions?.length || 0} Questions)`,
+      message: `Are you sure you want to permanently delete "${quiz.title}"? All questions and exam configuration for this test will be removed from the catalog and database.`,
+      confirmLabel: 'Delete Exam',
+      onConfirm: () => {
+        onDeleteQuiz(quiz.id);
+      },
+    });
   };
 
   // Aggregate candidate statistics
@@ -2305,8 +2343,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </button>
 
                     <button
-                      onClick={() => onDeleteQuiz(quiz.id)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                      onClick={() => handleRequestDeleteQuiz(quiz)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
                       title="Delete Quiz"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -2372,6 +2410,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           onClose={() => setViewingResult(null)}
         />
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(pendingDelete)}
+        title={pendingDelete?.title || 'Confirm Delete'}
+        itemName={pendingDelete?.itemName}
+        message={pendingDelete?.message || ''}
+        confirmLabel={pendingDelete?.confirmLabel || 'Yes, Delete'}
+        isLoading={isDeletingItem}
+        onConfirm={async () => {
+          if (!pendingDelete) return;
+          try {
+            setIsDeletingItem(true);
+            await pendingDelete.onConfirm();
+            setPendingDelete(null);
+          } finally {
+            setIsDeletingItem(false);
+          }
+        }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 };

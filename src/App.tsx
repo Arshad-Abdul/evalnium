@@ -254,11 +254,9 @@ function MainAppContent() {
   };
 
   const handleDeleteQuiz = (id: string) => {
-    if (confirm('Are you sure you want to delete this quiz?')) {
-      const updated = deleteQuiz(id);
-      setQuizzes(updated);
-      refreshDataFromMySQL();
-    }
+    const updated = deleteQuiz(id);
+    setQuizzes(updated);
+    refreshDataFromMySQL();
   };
 
   const handleTogglePublish = (quiz: Quiz) => {

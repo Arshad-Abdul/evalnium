@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { Announcement } from '../../types/announcement';
 import type { Quiz } from '../../types/quiz';
 import { Megaphone, Plus, Trash2, Calendar, Clock, CheckCircle } from 'lucide-react';
+import { ConfirmModal } from '../common/ConfirmModal';
 
 interface AnnouncementManagerProps {
   announcements: Announcement[];
@@ -21,6 +22,7 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
   const [scheduledDateTime, setScheduledDateTime] = useState('');
   const [targetQuizId, setTargetQuizId] = useState('');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Announcement | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +50,7 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
 
   return (
     <div className="space-y-6">
-      
+
       {/* Header */}
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
         <div>
@@ -166,8 +168,8 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
                 </div>
 
                 <button
-                  onClick={() => onDeleteAnnouncement(ann.id)}
-                  className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg border border-rose-200"
+                  onClick={() => setPendingDelete(ann)}
+                  className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg border border-rose-200 cursor-pointer"
                   title="Delete Announcement"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -177,6 +179,21 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={Boolean(pendingDelete)}
+        title="Delete Notice / Announcement"
+        itemName={pendingDelete?.title}
+        message="Are you sure you want to delete this announcement? It will immediately disappear from the live notice bar for all visitors and cannot be undone."
+        confirmLabel="Delete Notice"
+        onConfirm={() => {
+          if (pendingDelete) {
+            onDeleteAnnouncement(pendingDelete.id);
+            setPendingDelete(null);
+          }
+        }}
+        onCancel={() => setPendingDelete(null)}
+      />
 
     </div>
   );

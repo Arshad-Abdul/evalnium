@@ -1,6 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { User, X, CheckCircle, Target, Building, Phone } from 'lucide-react';
+import {
+  User,
+  X,
+  CheckCircle,
+  AlertCircle,
+  Target,
+  Building2,
+  Phone,
+  MapPin,
+  Briefcase,
+  GraduationCap,
+} from 'lucide-react';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -10,78 +21,232 @@ interface EditProfileModalProps {
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) => {
   const { currentUser, updateUserProfile } = useAuth();
 
-  const [name, setName] = useState(currentUser?.name || '');
-  const [targetExam, setTargetExam] = useState(currentUser?.targetExam || 'UGC NET / LIS');
-  const [phone, setPhone] = useState(currentUser?.phone || '');
-  const [institution, setInstitution] = useState(currentUser?.institution || '');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [city, setCity] = useState('');
+  const [gender, setGender] = useState('Prefer not to say');
+  const [occupationStatus, setOccupationStatus] = useState('Student');
+  const [designation, setDesignation] = useState('');
+  const [universityInstitute, setUniversityInstitute] = useState('');
+  const [targetExam, setTargetExam] = useState('UGC NET / LIS');
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Sync form fields from currentUser whenever the modal opens or currentUser loads/updates
+  useEffect(() => {
+    if (!isOpen || !currentUser) return;
+    setName(currentUser.name || '');
+    setPhone(currentUser.phone || '');
+    setCity(currentUser.city || '');
+    setGender(currentUser.gender || 'Prefer not to say');
+    setOccupationStatus(currentUser.occupationStatus || 'Student');
+    setDesignation(currentUser.designation || '');
+    setUniversityInstitute(currentUser.universityInstitute || currentUser.institution || '');
+    setTargetExam(currentUser.targetExam || 'UGC NET / LIS');
+    setErrorMsg(null);
+    setSuccessMsg(null);
+  }, [isOpen, currentUser]);
 
   if (!isOpen || !currentUser) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateUserProfile({
-      name: name.trim() || currentUser.name,
-      targetExam: targetExam.trim(),
-      phone: phone.trim(),
-      institution: institution.trim(),
-    });
+    setErrorMsg(null);
+    setSuccessMsg(null);
 
-    setSuccessMsg('Profile updated successfully!');
-    setTimeout(() => {
-      setSuccessMsg(null);
-      onClose();
-    }, 1500);
+    if (!name.trim()) {
+      setErrorMsg('Full Candidate Name is required.');
+      return;
+    }
+    if (!phone.trim()) {
+      setErrorMsg('Mobile Number is required.');
+      return;
+    }
+    if (!city.trim()) {
+      setErrorMsg('City of Residence is required.');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      await updateUserProfile({
+        name: name.trim(),
+        phone: phone.trim(),
+        city: city.trim(),
+        gender,
+        occupationStatus,
+        designation: designation.trim(),
+        universityInstitute: universityInstitute.trim(),
+        institution: universityInstitute.trim(),
+        targetExam: targetExam.trim() || 'UGC NET / LIS',
+      });
+
+      setSuccessMsg('Profile saved and synced to your account!');
+      setTimeout(() => {
+        setSuccessMsg(null);
+        onClose();
+      }, 1200);
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to save profile.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white max-w-md w-full p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-2xl space-y-6">
+      <div className="bg-white max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-2xl space-y-5">
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2.5">
             <div className="p-2 rounded-lg bg-blue-50 text-blue-600 border border-blue-200">
               <User className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-900">Edit Student Profile</h3>
-              <p className="text-xs text-slate-500 font-medium">Update your candidate credentials & exam goal</p>
+              <p className="text-xs text-slate-500 font-medium">Update your candidate details &amp; exam goal</p>
             </div>
           </div>
           <button
+            type="button"
+            disabled={isSaving}
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
+        {errorMsg && (
+          <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
         {successMsg && (
           <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center space-x-2">
-            <CheckCircle className="w-4 h-4 text-emerald-600" />
+            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{successMsg}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
           <div>
-            <label className="block font-bold text-slate-700 mb-1">Full Candidate Name</label>
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full p-2.5 rounded-lg border border-slate-200 text-slate-900 font-semibold focus:outline-none focus:border-blue-600"
-            />
+            <label className="block font-bold text-slate-700 mb-1">
+              Full Candidate Name <span className="text-rose-500">*</span>
+            </label>
+            <div className="relative">
+              <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Arshad Abdul"
+                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-slate-900 font-semibold focus:outline-none focus:border-blue-600"
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block font-bold text-slate-700 mb-1">Email Address (Read-Only)</label>
-            <input
-              type="email"
-              disabled
-              value={currentUser.email}
-              className="w-full p-2.5 rounded-lg border border-slate-200 bg-slate-100 font-mono text-slate-500 font-semibold cursor-not-allowed"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">
+                Mobile Number <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+                <input
+                  type="tel"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+91 98765 43210"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-slate-900 font-mono font-semibold focus:outline-none focus:border-blue-600"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">
+                City of Residence <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+                <input
+                  type="text"
+                  required
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="e.g. Hyderabad, Delhi"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-slate-900 font-semibold focus:outline-none focus:border-blue-600"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Gender</label>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-slate-900 font-semibold bg-white focus:outline-none focus:border-blue-600"
+              >
+                <option value="Prefer not to say">Prefer not to say</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Candidate Category</label>
+              <div className="relative">
+                <Briefcase className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+                <select
+                  value={occupationStatus}
+                  onChange={(e) => setOccupationStatus(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-slate-900 font-semibold bg-white focus:outline-none focus:border-blue-600"
+                >
+                  <option value="Student">Student</option>
+                  <option value="Trainee">Trainee</option>
+                  <option value="Intern">Intern</option>
+                  <option value="Working Professional">Working Professional</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Current Designation</label>
+              <div className="relative">
+                <GraduationCap className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+                <input
+                  type="text"
+                  value={designation}
+                  onChange={(e) => setDesignation(e.target.value)}
+                  placeholder="e.g. Scholar, Student"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-slate-900 font-semibold focus:outline-none focus:border-blue-600"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">University / College</label>
+              <div className="relative">
+                <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+                <input
+                  type="text"
+                  value={universityInstitute}
+                  onChange={(e) => setUniversityInstitute(e.target.value)}
+                  placeholder="e.g. IITH, DU, JNU"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-slate-900 font-semibold focus:outline-none focus:border-blue-600"
+                />
+              </div>
+            </div>
           </div>
 
           <div>
@@ -94,55 +259,38 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
               value={targetExam}
               onChange={(e) => setTargetExam(e.target.value)}
               placeholder="e.g. UGC NET LIS / KVS / State SET"
-              className="w-full p-2.5 rounded-lg border border-slate-200 text-slate-900 font-semibold focus:outline-none focus:border-blue-600"
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-slate-900 font-semibold focus:outline-none focus:border-blue-600"
             />
           </div>
 
           <div>
-            <label className="block font-bold text-slate-700 mb-1 flex items-center space-x-1">
-              <Building className="w-3.5 h-3.5 text-amber-600" />
-              <span>College / University / Institution</span>
-            </label>
+            <label className="block font-bold text-slate-700 mb-1">Email Address (Read-Only)</label>
             <input
-              type="text"
-              value={institution}
-              onChange={(e) => setInstitution(e.target.value)}
-              placeholder="e.g. Delhi University / BHU"
-              className="w-full p-2.5 rounded-lg border border-slate-200 text-slate-900 font-semibold focus:outline-none focus:border-blue-600"
+              type="email"
+              disabled
+              value={currentUser.email}
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-100 font-mono text-slate-500 font-semibold cursor-not-allowed"
             />
           </div>
 
-          <div>
-            <label className="block font-bold text-slate-700 mb-1 flex items-center space-x-1">
-              <Phone className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Mobile Phone Number (Optional)</span>
-            </label>
-            <input
-              type="text"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="e.g. +91 9876543210"
-              className="w-full p-2.5 rounded-lg border border-slate-200 text-slate-900 font-mono font-semibold focus:outline-none focus:border-blue-600"
-            />
-          </div>
-
-          <div className="flex items-center space-x-3 pt-2 border-t border-slate-100">
+          <div className="flex items-center space-x-3 pt-3 border-t border-slate-100">
             <button
               type="button"
+              disabled={isSaving}
               onClick={onClose}
-              className="w-1/2 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-bold"
+              className="w-1/2 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold disabled:opacity-50 cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="w-1/2 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-xs"
+              disabled={isSaving}
+              className="w-1/2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-xs disabled:opacity-60 cursor-pointer"
             >
-              Save Profile
+              {isSaving ? 'Saving...' : 'Save Profile'}
             </button>
           </div>
         </form>
-
       </div>
     </div>
   );

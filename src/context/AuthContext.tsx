@@ -11,7 +11,7 @@ interface AuthContextType {
   loginAdmin: (passcode: string) => Promise<boolean>;
   logoutAdmin: () => void;
   logoutCandidate: () => void;
-  updateUserProfile: (updates: Partial<UserProfile>) => void;
+  updateUserProfile: (updates: Partial<UserProfile>) => Promise<UserProfile>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -172,10 +172,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateUserProfile = (updates: Partial<UserProfile>) => {
-    if (!currentUser) return;
-    const updated = { ...currentUser, ...updates };
-    setCurrentUser(updated);
+  const updateUserProfile = async (updates: Partial<UserProfile>): Promise<UserProfile> => {
+    if (!currentUser) {
+      throw new Error('You must be signed in to update your profile.');
+    }
+
+    const res = await fetch(`${getApiUrl()}/profile`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+      credentials: 'include',
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to update profile.');
+    }
+
+    const updatedUser: UserProfile = {
+      ...currentUser,
+      ...data.user,
+    };
+    setCurrentUser(updatedUser);
+    return updatedUser;
   };
 
   const loginAdmin = async (passcode: string): Promise<boolean> => {
