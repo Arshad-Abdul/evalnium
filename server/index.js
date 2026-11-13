@@ -3628,7 +3628,7 @@ app.get('/api/certificates/verify/:certId', certificateVerificationLimiter, asyn
       percentage: r.percentage,
       passed: Boolean(r.passed),
       attemptedAt: r.attempted_at,
-      issuedBy: 'Evalnium National Testing & Assessment Authority',
+      issuedBy: 'Evalnium Online Practice Portal',
       verificationUrl: `https://evalnium.app/verify/${r.id}`,
     });
   } catch (err) {
@@ -3870,7 +3870,7 @@ app.post('/api/admin/email/test', authenticateAdmin, async (req, res) => {
 
   try {
     const defaultSample = {
-      candidate_name: 'Arshad (Preview Mode)',
+      candidate_name: 'Candidate (Preview Mode)',
       quiz_title: 'NTA UGC NET Paper 1 - All-India Mock 2026',
       question_count: 50,
       duration_minutes: 60,

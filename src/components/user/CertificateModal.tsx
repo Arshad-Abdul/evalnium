@@ -154,30 +154,29 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ result, onCl
                   EVALNIUM ONLINE PRACTICE PORTAL
                 </span>
               </div>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                Computer-Based Practice & Evaluation Portal
+              <p className="text-[11px] font-bold text-amber-700 uppercase tracking-widest">
+                Library &amp; Information Science (LIS) Practice Assessment
               </p>
-              <div className="pt-2">
-                <h1 className="text-2xl sm:text-3xl font-serif font-black text-indigo-950 tracking-wide">
-                  CERTIFICATE OF COMPLETION & EXCELLENCE
+              <div className="pt-1.5">
+                <h1 className="text-2xl sm:text-3xl font-serif font-black text-indigo-950 tracking-wide uppercase">
+                  {result.percentage >= 60 ? 'Certificate of Merit' : 'Certificate of Completion'}
                 </h1>
                 <div className="w-24 h-0.5 bg-amber-600 mx-auto mt-1" />
               </div>
             </div>
 
-            {/* Recipient Details */}
-            <div className="text-center space-y-3 relative z-10 my-auto">
-              <p className="text-xs text-slate-600 font-medium italic">
+            {/* Recipient Details & Core Statement */}
+            <div className="text-center space-y-3 relative z-10 my-auto px-4">
+              <p className="text-xs text-slate-500 font-medium italic">
                 This is to certify that
               </p>
-              <h2 className="text-2xl sm:text-3xl font-serif font-black text-slate-900 tracking-tight border-b border-dashed border-slate-300 pb-1 max-w-md mx-auto">
+              <h2 className="text-2xl sm:text-3xl font-serif font-black text-slate-900 tracking-tight border-b-2 border-dashed border-indigo-950 pb-1 max-w-md mx-auto">
                 {result.candidateName}
               </h2>
-              <p className="text-xs text-slate-700 max-w-xl mx-auto leading-relaxed">
-                has successfully appeared and demonstrated proficiency in the Computer-Based Assessment practice exam:
-              </p>
-              <p className="text-base sm:text-lg font-bold text-indigo-900">
-                "{result.quizTitle || result.topic}"
+              <p className="text-xs sm:text-[13px] text-slate-700 max-w-xl mx-auto leading-relaxed">
+                has successfully appeared for and completed the online Computer-Based Practice Test{' '}
+                <strong className="text-indigo-950 font-bold">"{result.quizTitle || result.topic}"</strong> on the Evalnium Assessment Portal, achieving a score of{' '}
+                <strong className="text-emerald-700 font-black">{result.score} / {result.maxScore} ({result.percentage.toFixed(1)}%)</strong> on {formattedDate}.
               </p>
             </div>
 
@@ -231,22 +230,27 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ result, onCl
               {/* Gold Holographic Seal */}
               <div className="hidden sm:flex flex-col items-center">
                 <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-600 via-yellow-400 to-amber-500 flex items-center justify-center text-indigo-950 font-black text-[9px] uppercase tracking-tighter text-center p-1 shadow-md border-2 border-yellow-200 rotate-[-10deg]">
-                  Verified & Completed
+                  Verified &amp; Completed
                 </div>
               </div>
 
               {/* Authorized Signatory */}
               <div className="text-right">
-                <div className="font-serif italic font-bold text-base text-indigo-950">
-                  Arshad Abdul
+                <div className="font-serif italic font-bold text-xl text-indigo-950 tracking-wider">
+                  Evalnium
                 </div>
+                <div className="w-24 h-0.5 bg-indigo-950 ml-auto my-1" />
                 <div className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">
-                  Lead Assessment Coordinator
-                </div>
-                <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">
                   Evalnium Online Practice Portal
                 </div>
               </div>
+            </div>
+
+            {/* Mandatory Regulatory / Educational Disclaimer */}
+            <div className="pt-2 text-center relative z-10">
+              <p className="text-[8px] sm:text-[9px] text-slate-400 font-medium leading-tight">
+                This certificate is issued by Evalnium for self-assessment, practice motivation, and academic progress tracking only. It does not constitute an official government appointment or academic degree.
+              </p>
             </div>
           </div>
         </div>

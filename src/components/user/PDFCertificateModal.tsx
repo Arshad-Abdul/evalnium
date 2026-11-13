@@ -143,17 +143,17 @@ export const PDFCertificateModal: React.FC<PDFCertificateModalProps> = ({
               <span>Evalnium Online Practice Portal</span>
             </div>
 
-            {/* Title */}
+            {/* Title & Sub-heading */}
             <div>
-              <h1 className="text-3xl sm:text-4xl font-serif font-black text-slate-900 tracking-tight">
-                Certificate of Academic Excellence
+              <h1 className="text-3xl sm:text-4xl font-serif font-black text-slate-900 tracking-tight uppercase">
+                {percentage >= 60 ? 'Certificate of Merit' : 'Certificate of Completion'}
               </h1>
-              <p className="text-xs text-amber-600 font-bold uppercase tracking-widest mt-1">
-                Issued for Distinction & Mastery
+              <p className="text-xs text-amber-700 font-bold uppercase tracking-widest mt-1">
+                Library &amp; Information Science (LIS) Practice Assessment
               </p>
             </div>
 
-            <p className="text-xs text-slate-500 font-medium italic">This certificate of completion is presented to</p>
+            <p className="text-xs text-slate-500 font-medium italic">This is to certify that</p>
 
             {/* Candidate Name */}
             <div className="py-2 border-b-2 border-slate-900 max-w-lg mx-auto">
@@ -162,15 +162,15 @@ export const PDFCertificateModal: React.FC<PDFCertificateModalProps> = ({
               </h2>
             </div>
 
-            {/* Achievement Description */}
-            <p className="text-xs text-slate-600 max-w-xl mx-auto leading-relaxed font-medium">
-              for successfully completing and passing the Computer-Based Assessment on{' '}
-              <strong className="text-slate-900 font-bold">"{quizTitle}"</strong> ({topic}) with an outstanding score of{' '}
-              <strong className="text-emerald-700 font-extrabold">{score} / {maxScore} ({percentage.toFixed(1)}%)</strong>.
+            {/* Core Achievement Statement */}
+            <p className="text-xs sm:text-[13px] text-slate-700 max-w-xl mx-auto leading-relaxed font-medium">
+              has successfully appeared for and completed the online Computer-Based Practice Test{' '}
+              <strong className="text-slate-900 font-bold">"{quizTitle}"</strong> on the Evalnium Assessment Portal, achieving a score of{' '}
+              <strong className="text-emerald-700 font-extrabold">{score} / {maxScore} ({percentage.toFixed(1)}%)</strong> on {new Date(date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.
             </p>
 
             {/* Gold Seal & Verification Details Grid */}
-            <div className="grid grid-cols-3 items-end pt-6 border-t border-slate-200/80 mt-6">
+            <div className="grid grid-cols-3 items-end pt-5 border-t border-slate-200/80 mt-5">
               
               {/* Left: Issue Date & Verification Code */}
               <div className="text-left space-y-1">
@@ -189,23 +189,30 @@ export const PDFCertificateModal: React.FC<PDFCertificateModalProps> = ({
                 </div>
               </div>
 
-              {/* Right: Signature & Stamp */}
+              {/* Right: Signature & Issuing Body */}
               <div className="text-right space-y-1">
-                <div className="font-serif italic text-base font-bold text-slate-900">Arshad Abdul</div>
-                <div className="w-32 h-0.5 bg-slate-900 ml-auto" />
-                <p className="text-[10px] text-slate-700 uppercase font-bold tracking-wider">Lead Assessment Coordinator</p>
-                <p className="text-[9px] text-slate-500 font-medium">Evalnium Online Practice Portal</p>
+                <div className="font-serif italic text-xl font-bold text-slate-900 tracking-wider">Evalnium</div>
+                <div className="w-28 h-0.5 bg-slate-900 ml-auto" />
+                <p className="text-[10px] text-slate-700 uppercase font-bold tracking-wider">Evalnium Online Practice Portal</p>
+                <p className="text-[9px] text-slate-500 font-medium">Academic Assessment &amp; Practice Cell</p>
               </div>
 
             </div>
 
+            {/* Mandatory Regulatory / Educational Disclaimer */}
+            <div className="pt-2 text-center border-t border-slate-100">
+              <p className="text-[8px] sm:text-[9px] text-slate-400 font-medium leading-tight max-w-2xl mx-auto">
+                This certificate is issued by Evalnium for self-assessment, practice motivation, and academic progress tracking only. It does not constitute an official government appointment or academic degree.
+              </p>
+            </div>
+
             {/* Bottom Verification Footer */}
-            <div className="flex items-center justify-between text-[9px] text-slate-400 pt-2 font-medium">
+            <div className="flex items-center justify-between text-[9px] text-slate-400 pt-1 font-medium">
               <span className="flex items-center space-x-1">
                 <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                 <span>Authenticity Secured by Evalnium Server</span>
               </span>
-              <span>evalnium.org/verify</span>
+              <span>evalnium.app/verify</span>
             </div>
 
           </div>
