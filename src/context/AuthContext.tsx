@@ -204,14 +204,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ passcode }),
         credentials: 'include',
-      }).catch(() => {
-        const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-        return fetch(`http://${host}:5050/api/admin/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ passcode }),
-          credentials: 'include',
-        });
       });
       if (res && res.ok) {
         setIsAdminAuthenticated(true);
@@ -233,14 +225,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ clientId }),
       credentials: 'include',
-    }).catch(() => {
-      const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-      return fetch(`http://${host}:5050/api/users/logout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId }),
-        credentials: 'include',
-      });
     }).catch(e => console.error('Logout request failed:', e));
 
     setIsAdminAuthenticated(false);
@@ -256,14 +240,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ clientId }),
       credentials: 'include',
-    }).catch(() => {
-      const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-      return fetch(`http://${host}:5050/api/users/logout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId }),
-        credentials: 'include',
-      });
     }).catch(e => console.error('Logout request failed:', e));
 
     if (typeof window !== 'undefined') {

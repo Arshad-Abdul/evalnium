@@ -6,22 +6,8 @@ const QUIZZES_KEY = 'evalnium_quizzes_v3';
 const RESULTS_KEY = 'evalnium_results_v3';
 export const ANNOUNCEMENTS_KEY = 'evalnium_announcements_v1';
 
-const getApiBaseUrl = () => {
-  if (typeof window !== 'undefined') {
-    // Primary: use relative /api which seamlessly routes via Vite proxy on both localhost and LAN
-    return '/api';
-  }
-  return 'http://localhost:5050/api';
-};
+const getApiBaseUrl = () => '/api';
 
-const getDirectApiBaseUrl = () => {
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname || 'localhost';
-    const isLocalhost = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0';
-    return isLocalhost ? 'http://localhost:5050/api' : `http://${host}:5050/api`;
-  }
-  return 'http://localhost:5050/api';
-};
 
 const shouldSkipApiCall = () => {
   if (typeof window === 'undefined') return false;
@@ -33,41 +19,34 @@ const shouldSkipApiCall = () => {
 export async function syncQuizzesFromMySQL(): Promise<Quiz[] | null> {
   if (shouldSkipApiCall()) return null;
 
-  const endpoints = [
-    `${getApiBaseUrl()}/quizzes`,
-    `${getDirectApiBaseUrl()}/quizzes`,
-    'http://localhost:5050/api/quizzes'
-  ];
-
-  for (const url of Array.from(new Set(endpoints))) {
-    try {
-      const res = await fetch(url, { credentials: 'include', signal: AbortSignal.timeout(6000) });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          // Normalize missing difficulty
-          const normalizedData = data.map(q => ({
-            ...q,
-            difficulty: q.difficulty || 'Medium',
-          }));
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/quizzes`, { credentials: 'include', signal: AbortSignal.timeout(6000) });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        const normalizedData = data.map(q => ({
+          ...q,
+          difficulty: q.difficulty || 'Medium',
+        }));
+        try {
+          localStorage.setItem(QUIZZES_KEY, JSON.stringify(normalizedData));
+        } catch (storageErr) {
+          console.warn('LocalStorage limit reached when caching quizzes, attempting metadata-only fallback:', storageErr);
           try {
-            localStorage.setItem(QUIZZES_KEY, JSON.stringify(normalizedData));
-          } catch (storageErr) {
-            console.warn('LocalStorage limit reached when caching quizzes, attempting metadata-only fallback:', storageErr);
-            try {
-              const lightQuizzes = normalizedData.map(q => ({
-                ...q,
-                questions: []
-              }));
-              localStorage.setItem(QUIZZES_KEY, JSON.stringify(lightQuizzes));
-            } catch {}
+            const lightQuizzes = normalizedData.map(q => ({
+              ...q,
+              questions: []
+            }));
+            localStorage.setItem(QUIZZES_KEY, JSON.stringify(lightQuizzes));
+          } catch {
+            // Ignore
           }
-          return normalizedData;
         }
+        return normalizedData;
       }
-    } catch {
-      // Try next endpoint fallback
     }
+  } catch (err) {
+    console.warn('Could not fetch quizzes from cloud:', err);
   }
   return null;
 }
@@ -150,29 +129,21 @@ export function deleteQuiz(id: string): Quiz[] {
 export async function syncResultsFromMySQL(): Promise<QuizAttemptResult[] | null> {
   if (shouldSkipApiCall()) return null;
 
-  const endpoints = [
-    `${getApiBaseUrl()}/results`,
-    `${getDirectApiBaseUrl()}/results`,
-    'http://localhost:5050/api/results'
-  ];
-
-  for (const url of Array.from(new Set(endpoints))) {
-    try {
-      const res = await fetch(url, { credentials: 'include', signal: AbortSignal.timeout(6000) });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          try {
-            localStorage.setItem(RESULTS_KEY, JSON.stringify(data));
-          } catch (storageErr) {
-            console.warn('LocalStorage limit reached when caching results:', storageErr);
-          }
-          return data;
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/results`, { credentials: 'include', signal: AbortSignal.timeout(6000) });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        try {
+          localStorage.setItem(RESULTS_KEY, JSON.stringify(data));
+        } catch (storageErr) {
+          console.warn('LocalStorage limit reached when caching results:', storageErr);
         }
+        return data;
       }
-    } catch {
-      // Try next endpoint fallback
     }
+  } catch (err) {
+    console.warn('Could not fetch results from cloud:', err);
   }
   return null;
 }
@@ -252,29 +223,21 @@ export function getStoredAnnouncements(): Announcement[] {
 export async function syncAnnouncementsFromMySQL(): Promise<Announcement[] | null> {
   if (shouldSkipApiCall()) return null;
 
-  const endpoints = [
-    `${getApiBaseUrl()}/announcements`,
-    `${getDirectApiBaseUrl()}/announcements`,
-    'http://localhost:5050/api/announcements'
-  ];
-
-  for (const url of Array.from(new Set(endpoints))) {
-    try {
-      const res = await fetch(url, { credentials: 'include', signal: AbortSignal.timeout(6000) });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          try {
-            localStorage.setItem(ANNOUNCEMENTS_KEY, JSON.stringify(data));
-          } catch (storageErr) {
-            console.warn('LocalStorage limit reached when caching announcements:', storageErr);
-          }
-          return data;
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/announcements`, { credentials: 'include', signal: AbortSignal.timeout(6000) });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        try {
+          localStorage.setItem(ANNOUNCEMENTS_KEY, JSON.stringify(data));
+        } catch (storageErr) {
+          console.warn('LocalStorage limit reached when caching announcements:', storageErr);
         }
+        return data;
       }
-    } catch {
-      // Try next endpoint fallback
     }
+  } catch (err) {
+    console.warn('Could not fetch announcements from cloud:', err);
   }
   return null;
 }
