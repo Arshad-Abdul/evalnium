@@ -1205,11 +1205,18 @@ app.post('/api/users/register', candidateRegistrationLimiter, async (req, res) =
       return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
     }
 
-    if (!phone || !phone.trim()) {
-      return res.status(400).json({ error: 'Mobile / Phone number is compulsory for registration.' });
+    const cleanName = String(name || '').trim();
+    if (cleanName.length < 3 || !/^[a-zA-Z\s.']{3,60}$/.test(cleanName)) {
+      return res.status(400).json({ error: 'Please enter a valid candidate full name (at least 3 alphabetic characters).' });
     }
 
-    if (!city || !city.trim()) {
+    const cleanPhone = String(phone || '').replace(/\D/g, '');
+    if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      return res.status(400).json({ error: 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.' });
+    }
+
+    const cleanCity = String(city || '').trim();
+    if (cleanCity.length < 2) {
       return res.status(400).json({ error: 'City is compulsory for exam center & regional test allocation.' });
     }
 
@@ -1265,8 +1272,8 @@ app.post('/api/users/register', candidateRegistrationLimiter, async (req, res) =
           is_verified = 1, password_hash = ?, terms_accepted_at = COALESCE(terms_accepted_at, ?)
          WHERE email = ?`,
         [
-          name.trim(),
-          phone.trim(),
+          cleanName,
+          cleanPhone,
           safeInstitute,
           safeGender,
           safeOccupation,
@@ -1287,9 +1294,9 @@ app.post('/api/users/register', candidateRegistrationLimiter, async (req, res) =
         ) VALUES (?, ?, ?, 'candidate', ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
         [
           serverUid,
-          name.trim(),
+          cleanName,
           normalizedEmail,
-          phone.trim(),
+          cleanPhone,
           safeInstitute,
           safeGender,
           safeOccupation,
@@ -1636,17 +1643,17 @@ app.put('/api/users/profile', async (req, res) => {
     } = req.body || {};
 
     const cleanName = typeof name === 'string' ? name.trim() : '';
-    const cleanPhone = typeof phone === 'string' ? phone.trim() : '';
+    const cleanPhone = typeof phone === 'string' ? phone.replace(/\D/g, '') : '';
     const cleanCity = typeof city === 'string' ? city.trim() : '';
 
-    if (!cleanName) {
-      return res.status(400).json({ error: 'Full Candidate Name is required.' });
+    if (!cleanName || cleanName.length < 3) {
+      return res.status(400).json({ error: 'Full Candidate Name must be at least 3 characters.' });
     }
-    if (!cleanPhone) {
-      return res.status(400).json({ error: 'Mobile Number is required.' });
+    if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      return res.status(400).json({ error: 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.' });
     }
-    if (!cleanCity) {
-      return res.status(400).json({ error: 'City of Residence is required.' });
+    if (!cleanCity || cleanCity.length < 2) {
+      return res.status(400).json({ error: 'Valid City of Residence is required.' });
     }
 
     const cleanGender = typeof gender === 'string' && gender.trim() ? gender.trim() : 'Prefer not to say';

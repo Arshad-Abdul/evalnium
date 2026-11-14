@@ -56,16 +56,22 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    if (!name.trim()) {
-      setErrorMsg('Full Candidate Name is required.');
+    const cleanName = name.trim();
+    if (!cleanName || cleanName.length < 3) {
+      setErrorMsg('Full legal candidate name must be at least 3 characters.');
       return;
     }
-    if (!phone.trim()) {
-      setErrorMsg('Mobile Number is required.');
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length !== 10) {
+      setErrorMsg('Mobile number must be strictly 10 digits.');
       return;
     }
-    if (!city.trim()) {
-      setErrorMsg('City of Residence is required.');
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setErrorMsg('Mobile number must be a valid 10-digit Indian phone number starting with 6, 7, 8, or 9.');
+      return;
+    }
+    if (!city.trim() || city.trim().length < 2) {
+      setErrorMsg('Valid City of Residence is required.');
       return;
     }
     if (!targetExam.trim()) {
@@ -76,8 +82,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
     try {
       setIsSaving(true);
       await updateUserProfile({
-        name: name.trim(),
-        phone: phone.trim(),
+        name: cleanName,
+        phone: cleanPhone,
         city: city.trim(),
         gender,
         occupationStatus,
@@ -159,15 +165,24 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
               <label className="block font-bold text-slate-700 mb-1">
                 Mobile Number <span className="text-rose-500">*</span>
               </label>
-              <div className="relative">
-                <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+              <div className="relative flex">
+                <span className="inline-flex items-center px-2.5 py-2 rounded-l-xl border border-r-0 border-slate-200 bg-slate-50 text-slate-600 font-mono text-xs font-bold select-none">
+                  +91
+                </span>
                 <input
                   type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={10}
                   required
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="10-digit mobile number"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-slate-900 font-mono font-semibold focus:outline-none focus:border-blue-600"
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setPhone(digits);
+                    setErrorMsg(null);
+                  }}
+                  placeholder="9876543210"
+                  className="w-full px-3 py-2.5 rounded-r-xl border border-slate-200 text-slate-900 font-mono font-semibold focus:outline-none focus:border-blue-600"
                 />
               </div>
             </div>

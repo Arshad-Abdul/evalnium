@@ -64,12 +64,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
     if (!email) return;
 
     if (tab === 'register') {
-      if (!phone.trim()) {
-        setOtpError('Mobile / Phone number is compulsory for registration.');
+      const cleanName = name.trim();
+      if (!cleanName || cleanName.length < 3) {
+        setOtpError('Please enter your full legal candidate name (at least 3 characters).');
         return;
       }
-      if (!city.trim()) {
-        setOtpError('City of residence is compulsory for registration.');
+      if (!/^[a-zA-Z\s.']{3,60}$/.test(cleanName)) {
+        setOtpError('Candidate name should only contain alphabetic letters and spaces.');
+        return;
+      }
+      const cleanPhone = phone.replace(/\D/g, '');
+      if (cleanPhone.length !== 10) {
+        setOtpError('Mobile number must be strictly 10 digits.');
+        return;
+      }
+      if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+        setOtpError('Please enter a valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9).');
+        return;
+      }
+      const cleanCity = city.trim();
+      if (!cleanCity || cleanCity.length < 2) {
+        setOtpError('City of residence is compulsory (at least 2 letters).');
         return;
       }
       if (!targetExam.trim()) {
@@ -393,7 +408,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                         type="text"
                         required
                         value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^a-zA-Z\s.']/g, '');
+                          setName(val);
+                          setOtpError(null);
+                        }}
                         placeholder="Enter your full name"
                         className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                       />
@@ -406,15 +425,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                       <label className="block text-xs font-bold text-slate-700">
                         Mobile Number <span className="text-rose-500">*</span>
                       </label>
-                      <div className="relative">
-                        <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                      <div className="relative flex">
+                        <span className="inline-flex items-center px-2.5 py-2 rounded-l-xl border border-r-0 border-slate-200 bg-slate-50 text-slate-600 font-mono text-xs font-bold select-none">
+                          +91
+                        </span>
                         <input
                           type="tel"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={10}
                           required
                           value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          placeholder="10-digit mobile number"
-                          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                          onChange={(e) => {
+                            const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                            setPhone(digits);
+                            setOtpError(null);
+                          }}
+                          placeholder="9876543210"
+                          className="w-full px-3 py-2.5 rounded-r-xl border border-slate-200 text-xs font-mono font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                         />
                       </div>
                     </div>
@@ -429,7 +457,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                           type="text"
                           required
                           value={city}
-                          onChange={(e) => setCity(e.target.value)}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[^a-zA-Z\s.-]/g, '');
+                            setCity(val);
+                            setOtpError(null);
+                          }}
                           placeholder="e.g. Hyderabad, Delhi"
                           className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                         />
