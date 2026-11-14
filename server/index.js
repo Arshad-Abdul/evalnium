@@ -526,6 +526,7 @@ async function initDatabase() {
       `ALTER TABLE quizzes ADD COLUMN allow_manual_early_move TINYINT(1) DEFAULT 0;`,
       `ALTER TABLE quizzes ADD COLUMN result_announcement_datetime VARCHAR(100) DEFAULT NULL;`,
       `ALTER TABLE quizzes ADD COLUMN result_emails_sent TINYINT(1) DEFAULT 0;`,
+      `ALTER TABLE quizzes ADD COLUMN auto_email_results TINYINT(1) DEFAULT 1;`,
       `ALTER TABLE quizzes ADD COLUMN max_tab_switches INT DEFAULT 3;`,
       `ALTER TABLE visitor_logs ADD COLUMN visit_count INT DEFAULT 1;`,
       `ALTER TABLE visitor_logs ADD COLUMN duration_seconds INT DEFAULT 0;`,
@@ -888,6 +889,15 @@ async function initDatabase() {
         'Dear Candidate,\n\nYour one-time security code to verify your Evalnium account is:\n\n{{otp}}\n\nThis code will expire in 10 minutes. If you did not initiate this request, please ignore this email.',
         'Verify Now',
         '/login'
+      ),
+      (
+        'exam_result',
+        'Exam Result & Scorecard Release',
+        '🎯 Result Announced: {{quiz_title}} - Your Scorecard',
+        'Official Examination Scorecard Released',
+        'Dear {{candidate_name}},\n\nYour scorecard for "{{quiz_title}}" has been officially published.\n\nScore: {{score}} / {{max_score}} ({{percentage}}%)\nStatus: {{result_status}}\n\nYou can now log in to review your detailed question-by-question answer key, explanations, and download your Certificate.',
+        'View My Scorecard & Answers',
+        '/dashboard'
       );
     `);
 
@@ -947,7 +957,7 @@ async function initDatabase() {
       if (!pool) return;
       try {
         const [dueQuizzes] = await pool.query(
-          'SELECT id, title, result_announcement_datetime FROM quizzes WHERE result_announcement_datetime IS NOT NULL AND result_announcement_datetime != "" AND (result_emails_sent IS NULL OR result_emails_sent = 0)'
+          'SELECT id, title, result_announcement_datetime, auto_email_results FROM quizzes WHERE result_announcement_datetime IS NOT NULL AND result_announcement_datetime != "" AND (result_emails_sent IS NULL OR result_emails_sent = 0)'
         );
 
         const now = Date.now();
@@ -955,6 +965,11 @@ async function initDatabase() {
           const scheduledTime = new Date(q.result_announcement_datetime).getTime();
           if (!isNaN(scheduledTime) && now >= scheduledTime) {
             await pool.query('UPDATE quizzes SET result_emails_sent = 1 WHERE id = ?', [q.id]);
+
+            if (q.auto_email_results === 0 || q.auto_email_results === false) {
+              console.log(`[Auto-Result-Announce] Quiz ${q.id} ("${q.title}") announced on portal. Auto-email toggle is disabled; skipped mass scorecard email.`);
+              continue;
+            }
 
             const [results] = await pool.query(
               'SELECT DISTINCT candidate_email, candidate_name, score, max_score, percentage, passed, attempted_at FROM results WHERE quiz_id = ? AND candidate_email IS NOT NULL AND candidate_email != "" ORDER BY attempted_at DESC',
@@ -973,12 +988,22 @@ async function initDatabase() {
 
               for (const cand of candidates) {
                 try {
-                  await sendTemplatedEmail(cand.candidate_email, 'candidate_notice', {
-                    candidate_name: cand.candidate_name || 'Candidate',
-                    notice_title: `🎯 Result Announced: ${q.title}`,
-                    notice_content: `Your scorecard for "${q.title}" has been officially published.\n\nScore: ${cand.score} / ${cand.max_score} (${cand.percentage}%)\nResult: ${cand.passed ? 'PASSED ✓' : 'FAILED ✗'}\n\nYou can now log in to review your detailed question-by-question answer key, explanations, and download your Certificate at:\n${appUrl}`,
-                    action_url: `${appUrl}/#/dashboard`,
-                    action_button_text: 'View My Scorecard & Answers'
+                  await sendTemplatedEmail({
+                    to: cand.candidate_email,
+                    templateId: 'exam_result',
+                    templateData: {
+                      candidate_name: cand.candidate_name || 'Candidate',
+                      quiz_title: q.title,
+                      score: cand.score,
+                      max_score: cand.max_score,
+                      percentage: cand.percentage,
+                      result_status: cand.passed ? 'PASSED ✓' : 'FAILED ✗'
+                    },
+                    fallbackSubject: `🎯 Result Announced: ${q.title} - Your Scorecard`,
+                    fallbackHeading: 'Official Examination Scorecard Released',
+                    fallbackBody: `Dear ${cand.candidate_name || 'Candidate'},\n\nYour scorecard for "${q.title}" has been officially published.\n\nScore: ${cand.score} / ${cand.max_score} (${cand.percentage}%)\nResult: ${cand.passed ? 'PASSED ✓' : 'FAILED ✗'}\n\nYou can now log in to review your detailed question-by-question answer key, explanations, and download your Certificate at:\n${appUrl}`,
+                    fallbackCtaText: 'View My Scorecard & Answers',
+                    fallbackCtaUrl: `${appUrl}/#/dashboard`
                   });
                   await new Promise(resolve => setTimeout(resolve, 80));
                 } catch (mailErr) {
@@ -1167,6 +1192,36 @@ app.get('/api/users/check', userCheckLimiter, async (req, res) => {
   }
 });
 
+function validateAndFormatPhone(phone) {
+  const raw = String(phone || '').trim();
+  if (!raw) return { valid: false, error: 'Mobile number is required.' };
+
+  const digits = raw.replace(/\D/g, '');
+  const startsWithIndia = raw.startsWith('+91');
+  const isGenericTenDigits = !raw.startsWith('+') && digits.length === 10;
+
+  if (startsWithIndia || isGenericTenDigits) {
+    const last10 = digits.slice(-10);
+    if (last10.length !== 10 || !/^[6-9]\d{9}$/.test(last10)) {
+      return { valid: false, error: 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.' };
+    }
+    return { valid: true, formatted: `+91 ${last10}` };
+  }
+
+  if (digits.length < 7 || digits.length > 15) {
+    return { valid: false, error: 'Please enter a valid mobile number with country code (7 to 15 digits).' };
+  }
+
+  const match = raw.match(/^(\+\d{1,4})/);
+  if (match) {
+    const code = match[1];
+    const rest = digits.slice(code.replace(/\D/g, '').length);
+    return { valid: true, formatted: `${code} ${rest}` };
+  }
+
+  return { valid: true, formatted: `+${digits}` };
+}
+
 // Rate Limiter: Maximum 5 account registrations per 15 minutes per IP (CWE-307)
 const candidateRegistrationLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
@@ -1210,10 +1265,11 @@ app.post('/api/users/register', candidateRegistrationLimiter, async (req, res) =
       return res.status(400).json({ error: 'Please enter a valid candidate full name (at least 3 alphabetic characters).' });
     }
 
-    const cleanPhone = String(phone || '').replace(/\D/g, '');
-    if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
-      return res.status(400).json({ error: 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.' });
+    const phoneCheck = validateAndFormatPhone(phone);
+    if (!phoneCheck.valid) {
+      return res.status(400).json({ error: phoneCheck.error });
     }
+    const cleanPhone = phoneCheck.formatted;
 
     const cleanCity = String(city || '').trim();
     if (cleanCity.length < 2) {
@@ -1643,15 +1699,16 @@ app.put('/api/users/profile', async (req, res) => {
     } = req.body || {};
 
     const cleanName = typeof name === 'string' ? name.trim() : '';
-    const cleanPhone = typeof phone === 'string' ? phone.replace(/\D/g, '') : '';
     const cleanCity = typeof city === 'string' ? city.trim() : '';
 
     if (!cleanName || cleanName.length < 3) {
       return res.status(400).json({ error: 'Full Candidate Name must be at least 3 characters.' });
     }
-    if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
-      return res.status(400).json({ error: 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.' });
+    const phoneCheck = validateAndFormatPhone(phone);
+    if (!phoneCheck.valid) {
+      return res.status(400).json({ error: phoneCheck.error });
     }
+    const cleanPhone = phoneCheck.formatted;
     if (!cleanCity || cleanCity.length < 2) {
       return res.status(400).json({ error: 'Valid City of Residence is required.' });
     }
@@ -1934,6 +1991,7 @@ app.get('/api/quizzes', async (req, res) => {
         allowManualEarlyMove: Boolean(q.allow_manual_early_move),
         maxTabSwitches: q.max_tab_switches || 3,
         resultAnnouncementDateTime: q.result_announcement_datetime || undefined,
+        autoEmailResults: q.auto_email_results !== 0 && q.auto_email_results !== false,
         questionCount,
         questions,
       });
@@ -2020,20 +2078,20 @@ app.post('/api/quizzes', authenticateAdmin, async (req, res) => {
       `INSERT INTO quizzes (
         id, title, description, topic, category, difficulty, time_limit_minutes, passing_percentage, negative_marks, quiz_type, is_published, created_at, updated_at, author,
         enable_certificate, enable_anti_cheating, timing_mode, sectional_config_json, question_time_limit_seconds, prevent_prev_section, prevent_early_next_section, prevent_prev_question, prevent_early_next_question,
-        shuffle_questions, shuffle_options, enable_practice_mode, default_language_mode, access_code, allowed_emails, question_view_mode, max_attempts, allow_manual_early_move, result_announcement_datetime, max_tab_switches
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        shuffle_questions, shuffle_options, enable_practice_mode, default_language_mode, access_code, allowed_emails, question_view_mode, max_attempts, allow_manual_early_move, result_announcement_datetime, auto_email_results, max_tab_switches
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE 
         title=?, description=?, topic=?, category=?, difficulty=?, time_limit_minutes=?, passing_percentage=?, negative_marks=?, quiz_type=?, is_published=?, updated_at=?,
         enable_certificate=?, enable_anti_cheating=?, timing_mode=?, sectional_config_json=?, question_time_limit_seconds=?, prevent_prev_section=?, prevent_early_next_section=?, prevent_prev_question=?, prevent_early_next_question=?,
-        shuffle_questions=?, shuffle_options=?, enable_practice_mode=?, default_language_mode=?, access_code=?, allowed_emails=?, question_view_mode=?, max_attempts=?, allow_manual_early_move=?, result_announcement_datetime=?, max_tab_switches=?`,
+        shuffle_questions=?, shuffle_options=?, enable_practice_mode=?, default_language_mode=?, access_code=?, allowed_emails=?, question_view_mode=?, max_attempts=?, allow_manual_early_move=?, result_announcement_datetime=?, auto_email_results=?, max_tab_switches=?`,
       [
         q.id, q.title, q.description, normalizedTopic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.isPublished ? 1 : 0, q.createdAt, q.updatedAt, q.author || 'Admin',
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
-        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.maxTabSwitches || 3,
+        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3,
 
         q.title, q.description, normalizedTopic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.isPublished ? 1 : 0, q.updatedAt,
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
-        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.maxTabSwitches || 3
+        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3
       ]
     );
 
@@ -2164,12 +2222,22 @@ app.post('/api/quizzes/:id/dispatch-results-email', authenticateAdmin, async (re
       let dispatchedCount = 0;
       for (const cand of candidates) {
         try {
-          await sendTemplatedEmail(cand.candidate_email, 'candidate_notice', {
-            candidate_name: cand.candidate_name || 'Candidate',
-            notice_title: `🎯 Result Announced: ${quiz.title}`,
-            notice_content: `Your scorecard for "${quiz.title}" has been officially published.\n\nScore: ${cand.score} / ${cand.max_score} (${cand.percentage}%)\nResult: ${cand.passed ? 'PASSED ✓' : 'FAILED ✗'}\n\nYou can now log in to review your detailed question-by-question answer key, explanations, and download your Certificate at:\n${appUrl}`,
-            action_url: `${appUrl}/#/dashboard`,
-            action_button_text: 'View My Scorecard & Answers'
+          await sendTemplatedEmail({
+            to: cand.candidate_email,
+            templateId: 'exam_result',
+            templateData: {
+              candidate_name: cand.candidate_name || 'Candidate',
+              quiz_title: quiz.title,
+              score: cand.score,
+              max_score: cand.max_score,
+              percentage: cand.percentage,
+              result_status: cand.passed ? 'PASSED ✓' : 'FAILED ✗'
+            },
+            fallbackSubject: `🎯 Result Announced: ${quiz.title} - Your Scorecard`,
+            fallbackHeading: 'Official Examination Scorecard Released',
+            fallbackBody: `Dear ${cand.candidate_name || 'Candidate'},\n\nYour scorecard for "${quiz.title}" has been officially published.\n\nScore: ${cand.score} / ${cand.max_score} (${cand.percentage}%)\nResult: ${cand.passed ? 'PASSED ✓' : 'FAILED ✗'}\n\nYou can now log in to review your detailed question-by-question answer key, explanations, and download your Certificate at:\n${appUrl}`,
+            fallbackCtaText: 'View My Scorecard & Answers',
+            fallbackCtaUrl: `${appUrl}/#/dashboard`
           });
           dispatchedCount++;
           await new Promise(resolve => setTimeout(resolve, 80));

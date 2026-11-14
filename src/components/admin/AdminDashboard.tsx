@@ -540,6 +540,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       maxAttempts: quiz.maxAttempts,
       maxTabSwitches: quiz.maxTabSwitches,
       resultAnnouncementDateTime: quiz.resultAnnouncementDateTime,
+      autoEmailResults: quiz.autoEmailResults,
       timingMode: quiz.timingMode,
       questionTimeLimitSeconds: quiz.questionTimeLimitSeconds,
       preventPreviousSectionReturn: quiz.preventPreviousSectionReturn,

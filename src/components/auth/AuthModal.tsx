@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { User, Mail, X, CheckCircle, ShieldCheck, KeyRound, RefreshCw, ArrowLeft, Loader2, Phone, MapPin, Briefcase, Building2, GraduationCap } from 'lucide-react';
 import { LegalPolicyModal, type LegalDocType } from '../common/LegalPolicyModal';
 import { TargetExamSelector, DEFAULT_LIS_EXAM } from './TargetExamSelector';
+import { COUNTRY_CODES } from '../../utils/countryCodes';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [verifiedToken, setVerifiedToken] = useState('');
+  const [countryCode, setCountryCode] = useState('+91');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
   const [gender, setGender] = useState('Prefer not to say');
@@ -74,13 +76,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         return;
       }
       const cleanPhone = phone.replace(/\D/g, '');
-      if (cleanPhone.length !== 10) {
-        setOtpError('Mobile number must be strictly 10 digits.');
-        return;
-      }
-      if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-        setOtpError('Please enter a valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9).');
-        return;
+      const selectedCountry = COUNTRY_CODES.find((c) => c.code === countryCode) || COUNTRY_CODES[0];
+      if (countryCode === '+91') {
+        if (cleanPhone.length !== 10) {
+          setOtpError('Mobile number must be strictly 10 digits.');
+          return;
+        }
+        if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+          setOtpError('Please enter a valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9).');
+          return;
+        }
+      } else {
+        if (cleanPhone.length < 7 || cleanPhone.length > selectedCountry.maxDigits) {
+          setOtpError(`Mobile number for ${selectedCountry.name} must be between 7 and ${selectedCountry.maxDigits} digits.`);
+          return;
+        }
       }
       const cleanCity = city.trim();
       if (!cleanCity || cleanCity.length < 2) {
@@ -222,7 +232,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         email,
         password,
         {
-          phone: phone.trim(),
+          phone: `${countryCode} ${phone.replace(/\D/g, '')}`,
           city: city.trim(),
           gender,
           occupation_status: occupationStatus,
@@ -426,22 +436,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                         Mobile Number <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative flex">
-                        <span className="inline-flex items-center px-2.5 py-2 rounded-l-xl border border-r-0 border-slate-200 bg-slate-50 text-slate-600 font-mono text-xs font-bold select-none">
-                          +91
-                        </span>
+                        <select
+                          value={countryCode}
+                          onChange={(e) => {
+                            setCountryCode(e.target.value);
+                            setOtpError(null);
+                          }}
+                          className="px-2 py-2 rounded-l-xl border border-r-0 border-slate-200 bg-slate-50 text-slate-700 font-mono text-xs font-bold focus:outline-none focus:bg-white cursor-pointer select-none shrink-0"
+                          title="Select Country Calling Code"
+                        >
+                          {COUNTRY_CODES.map((c) => (
+                            <option key={c.code} value={c.code}>
+                              {c.flag} {c.code}
+                            </option>
+                          ))}
+                        </select>
                         <input
                           type="tel"
                           inputMode="numeric"
                           pattern="[0-9]*"
-                          maxLength={10}
+                          maxLength={COUNTRY_CODES.find((c) => c.code === countryCode)?.maxDigits || 15}
                           required
                           value={phone}
                           onChange={(e) => {
-                            const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                            const max = COUNTRY_CODES.find((c) => c.code === countryCode)?.maxDigits || 15;
+                            const digits = e.target.value.replace(/\D/g, '').slice(0, max);
                             setPhone(digits);
                             setOtpError(null);
                           }}
-                          placeholder="9876543210"
+                          placeholder={COUNTRY_CODES.find((c) => c.code === countryCode)?.samplePlaceholder || 'Phone number'}
                           className="w-full px-3 py-2.5 rounded-r-xl border border-slate-200 text-xs font-mono font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                         />
                       </div>

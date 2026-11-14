@@ -63,6 +63,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [maxAttempts, setMaxAttempts] = useState<number>(parseResult.maxAttempts ?? 0);
   const [maxTabSwitches, setMaxTabSwitches] = useState<number>(parseResult.maxTabSwitches ?? 3);
   const [resultAnnouncementDateTime, setResultAnnouncementDateTime] = useState<string>(parseResult.resultAnnouncementDateTime || '');
+  const [autoEmailResults, setAutoEmailResults] = useState<boolean>(parseResult.autoEmailResults ?? true);
   const [timingMode, setTimingMode] = useState<'quiz' | 'sectional' | 'question'>(parseResult.timingMode || 'quiz');
   const [questionTimeLimitSeconds, setQuestionTimeLimitSeconds] = useState(parseResult.questionTimeLimitSeconds ?? 60);
   const [preventPreviousSectionReturn, setPreventPreviousSectionReturn] = useState(parseResult.preventPreviousSectionReturn ?? false);
@@ -295,6 +296,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       maxAttempts,
       maxTabSwitches,
       resultAnnouncementDateTime: resultAnnouncementDateTime || undefined,
+      autoEmailResults,
       timingMode,
       questionTimeLimitSeconds,
       preventPreviousSectionReturn,
@@ -793,10 +795,23 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               className="w-full sm:w-72 px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono focus:outline-none focus:border-indigo-500"
             />
             {resultAnnouncementDateTime && (
-              <button type="button" onClick={() => setResultAnnouncementDateTime('')}
-                className="text-[11px] text-rose-600 hover:underline font-semibold">
-                Clear (revert to instant results)
-              </button>
+              <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={autoEmailResults}
+                    onChange={(e) => setAutoEmailResults(e.target.checked)}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                  />
+                  <span>Auto-email official scorecard &amp; marks to candidates when announcement time arrives</span>
+                </label>
+                <div>
+                  <button type="button" onClick={() => setResultAnnouncementDateTime('')}
+                    className="text-[11px] text-rose-600 hover:underline font-semibold">
+                    Clear (revert to instant results)
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 

@@ -59,6 +59,7 @@ export interface Quiz {
   maxAttempts?: number; // 0 or undefined = unlimited
   maxTabSwitches?: number; // violations before auto-submit, default 3
   resultAnnouncementDateTime?: string; // ISO string; if set and in future, results are hidden
+  autoEmailResults?: boolean; // Send automated scorecard emails to candidates on result announcement
   timingMode?: 'quiz' | 'sectional' | 'question';
   sectionalConfig?: {
     id: string;
@@ -152,6 +153,7 @@ export interface ParseResult {
   allowManualEarlyMove?: boolean;
   maxTabSwitches?: number;
   resultAnnouncementDateTime?: string;
+  autoEmailResults?: boolean;
 
   questions: ParsedQuestion[];
   errors: string[];

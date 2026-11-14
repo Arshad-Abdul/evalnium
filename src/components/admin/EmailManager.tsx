@@ -373,6 +373,10 @@ export const EmailManager: React.FC = () => {
             .replace(/\{\{\s*quiz_title\s*\}\}/g, sampleQuiz)
             .replace(/\{\{\s*question_count\s*\}\}/g, sampleQuestions)
             .replace(/\{\{\s*duration_minutes\s*\}\}/g, sampleDuration)
+            .replace(/\{\{\s*score\s*\}\}/g, '84.5')
+            .replace(/\{\{\s*max_score\s*\}\}/g, '100')
+            .replace(/\{\{\s*percentage\s*\}\}/g, '84.5')
+            .replace(/\{\{\s*result_status\s*\}\}/g, 'PASSED (Qualified)')
             .replace(/\{\{\s*custom_message\s*\}\}/g, 'The official admit cards and sectional test schedules for Phase 1 have been released.')
             .replace(/\{\{\s*otp\s*\}\}/g, sampleOtp);
 
@@ -382,52 +386,51 @@ export const EmailManager: React.FC = () => {
     return (
         <div className="space-y-6">
             {/* Top Header & Navigation Banner */}
-            <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-6 rounded-2xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <div className="flex items-center gap-2 text-blue-300 text-xs font-bold uppercase tracking-widest mb-1">
-                        <Mail className="w-4 h-4 text-blue-400" />
+                    <div className="flex items-center gap-1.5 text-indigo-600 text-xs font-bold uppercase tracking-wider mb-1">
+                        <Mail className="w-3.5 h-3.5" />
                         <span>Evalnium Outgoing Communication Engine</span>
                     </div>
-                    <h2 className="text-2xl font-black tracking-tight flex items-center gap-2">
-                        Email & Notification Hub
-                        <Sparkles className="w-5 h-5 text-amber-400" />
+                    <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                        Email &amp; Notification Hub
                     </h2>
-                    <p className="text-slate-300 text-sm mt-1">
+                    <p className="text-slate-500 text-xs mt-0.5">
                         Manage dynamic outgoing notification templates, preview SMTP layouts, and broadcast notices to registered candidates.
                     </p>
                 </div>
 
                 {/* Studio Sub-Tabs */}
-                <div className="flex items-center bg-slate-800/80 p-1.5 rounded-xl border border-slate-700/60 shadow-inner">
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
                     <button
                         onClick={() => setActiveTab('templates')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'templates'
-                                ? 'bg-blue-600 text-white shadow-md'
-                                : 'text-slate-400 hover:text-white'
+                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeTab === 'templates'
+                                ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
+                                : 'text-slate-600 hover:text-slate-900'
                             }`}
                     >
-                        <Edit3 className="w-4 h-4" />
+                        <Edit3 className="w-3.5 h-3.5" />
                         Email Templates
                     </button>
                     <button
                         onClick={() => setActiveTab('broadcast')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'broadcast'
-                                ? 'bg-blue-600 text-white shadow-md'
-                                : 'text-slate-400 hover:text-white'
+                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeTab === 'broadcast'
+                                ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
+                                : 'text-slate-600 hover:text-slate-900'
                             }`}
                     >
-                        <Send className="w-4 h-4" />
+                        <Send className="w-3.5 h-3.5" />
                         Send Broadcast
                     </button>
                     <button
                         onClick={() => setActiveTab('telemetry')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'telemetry'
-                                ? 'bg-blue-600 text-white shadow-md'
-                                : 'text-slate-400 hover:text-white'
+                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeTab === 'telemetry'
+                                ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
+                                : 'text-slate-600 hover:text-slate-900'
                             }`}
                     >
-                        <Activity className="w-4 h-4" />
-                        Audit Logs & Telemetry
+                        <Activity className="w-3.5 h-3.5" />
+                        Audit Logs &amp; Telemetry
                     </button>
                 </div>
             </div>
@@ -483,6 +486,10 @@ export const EmailManager: React.FC = () => {
                             <div className="space-y-1 font-mono text-[11px] text-slate-700">
                                 <div><code className="bg-blue-100/70 text-blue-800 px-1 rounded">{"{{candidate_name}}"}</code> — Student Full Name</div>
                                 <div><code className="bg-blue-100/70 text-blue-800 px-1 rounded">{"{{quiz_title}}"}</code> — Assessment Name</div>
+                                <div><code className="bg-blue-100/70 text-blue-800 px-1 rounded">{"{{score}}"}</code> — Candidate Marks</div>
+                                <div><code className="bg-blue-100/70 text-blue-800 px-1 rounded">{"{{max_score}}"}</code> — Total Maximum Marks</div>
+                                <div><code className="bg-blue-100/70 text-blue-800 px-1 rounded">{"{{percentage}}"}</code> — Percentage Scored</div>
+                                <div><code className="bg-blue-100/70 text-blue-800 px-1 rounded">{"{{result_status}}"}</code> — Pass / Fail Status</div>
                                 <div><code className="bg-blue-100/70 text-blue-800 px-1 rounded">{"{{question_count}}"}</code> — Total Questions</div>
                                 <div><code className="bg-blue-100/70 text-blue-800 px-1 rounded">{"{{duration_minutes}}"}</code> — Exam Time (Mins)</div>
                                 <div><code className="bg-blue-100/70 text-blue-800 px-1 rounded">{"{{otp}}"}</code> — 6-Digit Auth Code</div>
@@ -631,7 +638,7 @@ export const EmailManager: React.FC = () => {
                                     <div className="flex-1 w-full">
                                         <input
                                             type="email"
-                                            placeholder="Enter your personal email (e.g. arsnaz1234@gmail.com)"
+                                            placeholder="Enter email to send test (e.g. admin@evalnium.com)"
                                             value={testEmailAddress}
                                             onChange={(e) => setTestEmailAddress(e.target.value)}
                                             className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
