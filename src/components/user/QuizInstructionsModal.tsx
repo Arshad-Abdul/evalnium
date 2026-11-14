@@ -11,6 +11,7 @@ interface QuizInstructionsModalProps {
   defaultCandidateName?: string;
   onCancel: () => void;
   onStartExam: (candidateName: string) => void;
+  onRequireAuth?: () => void;
 }
 
 export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
@@ -18,9 +19,10 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
   defaultCandidateName,
   onCancel,
   onStartExam,
+  onRequireAuth,
 }) => {
   const { currentUser } = useAuth();
-  const [candidateName, setCandidateName] = useState(defaultCandidateName || currentUser?.name || 'Candidate');
+  const candidateName = currentUser?.name || defaultCandidateName || 'Candidate';
   
   const isUntimed = !quiz.timeLimitMinutes || quiz.timeLimitMinutes <= 0;
   const hasPassingCutoff = Boolean(quiz.passingPercentage && quiz.passingPercentage > 0);
@@ -277,7 +279,7 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
             </div>
           </div>
 
-          {/* Candidate Profile / Identification Banner */}
+          {/* Authenticated Candidate Profile Identity */}
           {currentUser ? (
             <div className="p-3.5 rounded-xl bg-gradient-to-r from-indigo-50/90 via-slate-50 to-indigo-50/50 border border-indigo-100 flex items-center justify-between gap-3 shadow-2xs">
               <div className="flex items-center gap-3 min-w-0">
@@ -309,21 +311,21 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
               </div>
             </div>
           ) : (
-            <div>
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 mb-1.5">
-                <User className="w-3.5 h-3.5 text-slate-500" />
-                <span>Candidate Name (Appears on Scorecard & Certificate)</span>
-              </label>
-              <input
-                type="text"
-                value={candidateName}
-                onChange={(e) => setCandidateName(e.target.value)}
-                placeholder="Enter your name..."
-                className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 font-medium text-sm focus:border-indigo-500 focus:outline-none"
-              />
-              <p className="text-[11px] text-slate-400 mt-1">
-                Taking assessment as Guest. Sign in to permanently track attempts, percentiles & analytics on your personal dashboard.
-              </p>
+            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 text-amber-800 text-xs font-semibold">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>You must be signed in with your candidate profile to start this CBT examination.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onCancel();
+                  onRequireAuth?.();
+                }}
+                className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shrink-0 transition-colors cursor-pointer"
+              >
+                Sign In Now
+              </button>
             </div>
           )}
         </div>
@@ -339,8 +341,9 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
           </button>
           <button
             type="button"
+            disabled={!currentUser}
             onClick={() => onStartExam(currentUser?.name || candidateName || 'Candidate')}
-            className="flex-[2] py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+            className="flex-[2] py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
           >
             {isResuming ? (
               <>

@@ -30,6 +30,10 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
   const [selectedCertAttempt, setSelectedCertAttempt] = useState<QuizAttemptResult | null>(null);
 
   const handleStartExamAttempt = (quiz: Quiz) => {
+    if (!currentUser) {
+      onRequireAuth?.();
+      return;
+    }
     onSelectQuiz(quiz);
   };
 

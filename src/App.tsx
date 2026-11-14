@@ -527,6 +527,7 @@ function MainAppContent() {
                   defaultCandidateName={currentUser?.name || candidateName}
                   onStartExam={handleStartExam}
                   onCancel={() => setExamPhase('catalog')}
+                  onRequireAuth={() => setShowAuthModal(true)}
                 />
               )}
 
