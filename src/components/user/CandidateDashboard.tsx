@@ -11,7 +11,9 @@ import {
   X,
   Activity,
   Search,
+  User,
 } from 'lucide-react';
+import { EditProfileModal } from '../auth/EditProfileModal';
 
 const PDFCertificateModal = lazy(() => import('./PDFCertificateModal').then(m => ({ default: m.PDFCertificateModal })));
 const ExamResultView = lazy(() => import('./ExamResultView').then(m => ({ default: m.ExamResultView })));
@@ -35,6 +37,7 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
   const [historyLimit, setHistoryLimit] = useState<10 | 25 | 'all'>(10);
   const [attemptSearch, setAttemptSearch] = useState<string>('');
   const [attemptTopicFilter, setAttemptTopicFilter] = useState<string>('All');
+  const [showEditProfileModal, setShowEditProfileModal] = useState<boolean>(false);
 
   const myAttempts = attemptsHistory.filter(attempt => {
     if (!currentUser) return false;
@@ -122,9 +125,17 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
       {/* Clean Workspace Greeting */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-slate-900 text-white font-bold text-lg flex items-center justify-center shrink-0">
-            {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
-          </div>
+          {currentUser?.avatarUrl ? (
+            <img
+              src={currentUser.avatarUrl}
+              alt=""
+              className="w-11 h-11 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0"
+            />
+          ) : (
+            <div className="w-11 h-11 rounded-xl bg-slate-900 text-white font-bold text-lg flex items-center justify-center shrink-0">
+              {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+            </div>
+          )}
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
               Welcome back, {currentUser?.name || 'Candidate'}
@@ -145,14 +156,25 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onNavigateToCatalog}
-          className="px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer self-start sm:self-auto shrink-0"
-        >
-          <Play className="w-3.5 h-3.5 fill-white" />
-          <span>Browse Exams</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowEditProfileModal(true)}
+            className="px-3.5 py-2.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            title="Edit Profile, Photo & Target Exam"
+          >
+            <User className="w-3.5 h-3.5 text-slate-500" />
+            <span>Edit Profile</span>
+          </button>
+          <button
+            type="button"
+            onClick={onNavigateToCatalog}
+            className="px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs"
+          >
+            <Play className="w-3.5 h-3.5 fill-white" />
+            <span>Browse Exams</span>
+          </button>
+        </div>
       </div>
 
       {/* Unified 4-Cell Ledger Metric Strip */}
@@ -628,6 +650,11 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
           </div>
         );
       })()}
+
+      <EditProfileModal
+        isOpen={showEditProfileModal}
+        onClose={() => setShowEditProfileModal(false)}
+      />
     </div>
   );
 };

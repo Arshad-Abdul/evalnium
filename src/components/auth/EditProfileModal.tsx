@@ -10,9 +10,19 @@ import {
   MapPin,
   Briefcase,
   GraduationCap,
+  Camera,
 } from 'lucide-react';
 import { TargetExamSelector, normalizeLegacyExamGoal } from './TargetExamSelector';
 import { COUNTRY_CODES, parseStoredPhone } from '../../utils/countryCodes';
+
+export const PRESET_AVATARS = [
+  { id: 'avatar-1', label: 'Male Scholar', emoji: '👨‍🎓', svg: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="%232563eb"/><stop offset="100%" stop-color="%231d4ed8"/></linearGradient></defs><rect width="100" height="100" rx="50" fill="url(%23g1)"/><text x="50" y="65" font-size="52" text-anchor="middle" font-family="sans-serif">👨‍🎓</text></svg>' },
+  { id: 'avatar-2', label: 'Female Scholar', emoji: '👩‍🎓', svg: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="%237c3aed"/><stop offset="100%" stop-color="%236d28d9"/></linearGradient></defs><rect width="100" height="100" rx="50" fill="url(%23g2)"/><text x="50" y="65" font-size="52" text-anchor="middle" font-family="sans-serif">👩‍🎓</text></svg>' },
+  { id: 'avatar-3', label: 'Librarian Professional', emoji: '🧑‍🏫', svg: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="%23059669"/><stop offset="100%" stop-color="%23047857"/></linearGradient></defs><rect width="100" height="100" rx="50" fill="url(%23g3)"/><text x="50" y="65" font-size="52" text-anchor="middle" font-family="sans-serif">🧑‍🏫</text></svg>' },
+  { id: 'avatar-4', label: 'Research Scholar', emoji: '🔬', svg: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="%230891b2"/><stop offset="100%" stop-color="%230e7490"/></linearGradient></defs><rect width="100" height="100" rx="50" fill="url(%23g4)"/><text x="50" y="65" font-size="52" text-anchor="middle" font-family="sans-serif">🔬</text></svg>' },
+  { id: 'avatar-5', label: 'Exam Aspirant', emoji: '🎯', svg: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g5" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="%23d97706"/><stop offset="100%" stop-color="%23b45309"/></linearGradient></defs><rect width="100" height="100" rx="50" fill="url(%23g5)"/><text x="50" y="65" font-size="52" text-anchor="middle" font-family="sans-serif">🎯</text></svg>' },
+  { id: 'avatar-6', label: 'Book Specialist', emoji: '📚', svg: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g6" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="%23e11d48"/><stop offset="100%" stop-color="%23be123c"/></linearGradient></defs><rect width="100" height="100" rx="50" fill="url(%23g6)"/><text x="50" y="65" font-size="52" text-anchor="middle" font-family="sans-serif">📚</text></svg>' },
+];
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -23,6 +33,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
   const { currentUser, updateUserProfile } = useAuth();
 
   const [name, setName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [countryCode, setCountryCode] = useState('+91');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
@@ -40,6 +51,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
   useEffect(() => {
     if (!isOpen || !currentUser) return;
     setName(currentUser.name || '');
+    setAvatarUrl(currentUser.avatarUrl || null);
     const parsed = parseStoredPhone(currentUser.phone);
     setCountryCode(parsed.countryCode);
     setPhone(parsed.digits);
@@ -54,6 +66,56 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
   }, [isOpen, currentUser]);
 
   if (!isOpen || !currentUser) return null;
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg('Please select a valid image file (JPG, PNG, or WEBP).');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg('Image file size must be under 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 256;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height = Math.round((height * MAX_SIZE) / width);
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width = Math.round((width * MAX_SIZE) / height);
+            height = MAX_SIZE;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.85);
+          setAvatarUrl(compressed);
+          setErrorMsg(null);
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,6 +165,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
         universityInstitute: universityInstitute.trim(),
         institution: universityInstitute.trim(),
         targetExam: targetExam.trim(),
+        avatarUrl: avatarUrl || undefined,
       });
 
       setSuccessMsg('Profile saved and synced to your account!');
@@ -155,6 +218,81 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
+          {/* Candidate Avatar & Photo Selector */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5">
+            <div className="flex items-center gap-3.5">
+              <div className="relative shrink-0">
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt="Candidate Avatar"
+                    className="w-14 h-14 rounded-2xl object-cover border-2 border-white shadow-sm"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-2xl bg-slate-900 text-white font-bold text-lg flex items-center justify-center border-2 border-white shadow-sm">
+                    {name ? name.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0 space-y-0.5">
+                <span className="text-xs font-bold text-slate-900 block">
+                  Candidate Photograph / Avatar (Optional)
+                </span>
+                <p className="text-[11px] text-slate-500 leading-tight">
+                  Upload a passport-sized photo or pick a student avatar for your CBT test screen.
+                </p>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 text-xs font-bold transition-all shadow-2xs cursor-pointer">
+                    <Camera className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Upload Photo</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+                  </label>
+
+                  {avatarUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setAvatarUrl(null)}
+                      className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer ml-1"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Preset Avatars Row */}
+            <div className="pt-1 border-t border-slate-200/60">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                Or choose an avatar:
+              </span>
+              <div className="flex items-center gap-2 overflow-x-auto pb-0.5 no-scrollbar">
+                {PRESET_AVATARS.map((av) => (
+                  <button
+                    key={av.id}
+                    type="button"
+                    onClick={() => setAvatarUrl(av.svg)}
+                    className={`relative p-0.5 rounded-xl transition-all cursor-pointer shrink-0 ${
+                      avatarUrl === av.svg
+                        ? 'ring-2 ring-blue-600 bg-white shadow-xs scale-105'
+                        : 'hover:bg-white hover:shadow-2xs opacity-80 hover:opacity-100'
+                    }`}
+                    title={av.label}
+                  >
+                    <img src={av.svg} alt={av.label} className="w-8 h-8 rounded-lg" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
           <div>
             <label className="block font-bold text-slate-700 mb-1">
               Full Candidate Name <span className="text-rose-500">*</span>

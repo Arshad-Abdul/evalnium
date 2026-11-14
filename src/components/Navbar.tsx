@@ -264,9 +264,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                   aria-expanded={showUserDropdown}
                   aria-haspopup="menu"
                 >
-                  <div className="w-7 h-7 rounded-md bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                    {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
-                  </div>
+                  {currentUser.avatarUrl ? (
+                    <img
+                      src={currentUser.avatarUrl}
+                      alt={currentUser.name}
+                      className="w-7 h-7 rounded-md object-cover border border-slate-200 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-md bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                      {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                  )}
                   <div className="hidden sm:block text-left max-w-[120px]">
                     <p className="text-xs font-semibold text-slate-900 truncate leading-tight">
                       {currentUser.name}
@@ -280,9 +288,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                     role="menu"
                     className="absolute right-0 mt-2 w-60 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-50"
                   >
-                    <div className="px-3.5 py-2.5 border-b border-slate-100">
-                      <p className="text-xs font-bold text-slate-900 truncate">{currentUser.name}</p>
-                      <p className="text-[11px] text-slate-500 truncate mt-0.5">{currentUser.email}</p>
+                    <div className="px-3.5 py-2.5 border-b border-slate-100 flex items-center gap-2.5">
+                      {currentUser.avatarUrl ? (
+                        <img
+                          src={currentUser.avatarUrl}
+                          alt=""
+                          className="w-9 h-9 rounded-lg object-cover border border-slate-200 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-lg bg-slate-900 text-white font-bold text-sm flex items-center justify-center shrink-0">
+                          {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-900 truncate">{currentUser.name}</p>
+                        <p className="text-[11px] text-slate-500 truncate">{currentUser.email}</p>
+                      </div>
                     </div>
 
                     <div className="p-1">
@@ -494,9 +515,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               {currentUser ? (
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-lg bg-slate-900 text-white font-bold text-sm flex items-center justify-center shrink-0">
-                      {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
-                    </div>
+                    {currentUser.avatarUrl ? (
+                      <img
+                        src={currentUser.avatarUrl}
+                        alt=""
+                        className="w-9 h-9 rounded-lg object-cover border border-slate-200 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-lg bg-slate-900 text-white font-bold text-sm flex items-center justify-center shrink-0">
+                        {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+                      </div>
+                    )}
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-bold text-slate-900 truncate">{currentUser.name}</p>
                       <p className="text-[11px] text-slate-500 truncate">{currentUser.email}</p>

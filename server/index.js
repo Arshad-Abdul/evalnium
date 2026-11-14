@@ -680,6 +680,7 @@ async function initDatabase() {
     try { await pool.query(`ALTER TABLE users ADD COLUMN city VARCHAR(100) DEFAULT NULL;`); } catch { }
     try { await pool.query(`ALTER TABLE users ADD COLUMN address TEXT DEFAULT NULL;`); } catch { }
     try { await pool.query(`ALTER TABLE users ADD COLUMN terms_accepted_at VARCHAR(100) DEFAULT NULL;`); } catch { }
+    try { await pool.query(`ALTER TABLE users ADD COLUMN avatar LONGTEXT DEFAULT NULL;`); } catch { }
     try { await pool.query(`CREATE INDEX idx_users_occupation ON users(occupation_status);`); } catch { }
     try { await pool.query(`CREATE INDEX idx_users_city ON users(city);`); } catch { }
 
@@ -1407,7 +1408,8 @@ app.post('/api/users/register', candidateRegistrationLimiter, async (req, res) =
         universityInstitute: user.university_institute,
         city: user.city,
         address: user.address,
-        targetExam: user.target_exam
+        targetExam: user.target_exam,
+        avatarUrl: user.avatar || undefined
       }
     });
   } catch (err) {
@@ -1482,6 +1484,7 @@ app.post('/api/users/login', candidateLoginLimiter, async (req, res) => {
       universityInstitute: user.university_institute,
       city: user.city,
       address: user.address,
+      avatarUrl: user.avatar || undefined,
       createdAt: user.created_at
     });
   } catch (err) {
@@ -1634,6 +1637,7 @@ app.get('/api/users/me', async (req, res) => {
             uid, name, email, role, 
             target_exam as targetExam, phone, institution, 
             gender, occupation_status as occupationStatus, designation, university_institute as universityInstitute, city, address, 
+            avatar as avatarUrl,
             created_at as createdAt 
            FROM users WHERE uid = ?`,
           [session.uid]
@@ -1695,7 +1699,9 @@ app.put('/api/users/profile', async (req, res) => {
       institution,
       targetExam,
       target_exam,
-      address
+      address,
+      avatarUrl,
+      avatar
     } = req.body || {};
 
     const cleanName = typeof name === 'string' ? name.trim() : '';
@@ -1722,32 +1728,61 @@ app.put('/api/users/profile', async (req, res) => {
     const rawTargetExam = targetExam ?? target_exam;
     const cleanTargetExam = typeof rawTargetExam === 'string' && rawTargetExam.trim() ? rawTargetExam.trim() : 'UGC NET / LIS';
     const cleanAddress = typeof address === 'string' && address.trim() ? address.trim() : null;
+    const hasAvatar = avatarUrl !== undefined || avatar !== undefined;
+    const cleanAvatar = avatarUrl !== undefined
+      ? (typeof avatarUrl === 'string' && avatarUrl.trim() ? avatarUrl.trim() : null)
+      : (typeof avatar === 'string' && avatar.trim() ? avatar.trim() : null);
 
-    await pool.query(
-      `UPDATE users SET
-        name = ?, phone = ?, city = ?, gender = ?, occupation_status = ?,
-        designation = ?, university_institute = ?, institution = ?, target_exam = ?, address = ?
-       WHERE uid = ?`,
-      [
-        cleanName,
-        cleanPhone,
-        cleanCity,
-        cleanGender,
-        cleanOccupation,
-        cleanDesignation,
-        cleanInstitute,
-        cleanInstitute,
-        cleanTargetExam,
-        cleanAddress,
-        authenticatedCandidate.uid
-      ]
-    );
+    if (hasAvatar) {
+      await pool.query(
+        `UPDATE users SET
+          name = ?, phone = ?, city = ?, gender = ?, occupation_status = ?,
+          designation = ?, university_institute = ?, institution = ?, target_exam = ?, address = ?,
+          avatar = ?
+         WHERE uid = ?`,
+        [
+          cleanName,
+          cleanPhone,
+          cleanCity,
+          cleanGender,
+          cleanOccupation,
+          cleanDesignation,
+          cleanInstitute,
+          cleanInstitute,
+          cleanTargetExam,
+          cleanAddress,
+          cleanAvatar,
+          authenticatedCandidate.uid
+        ]
+      );
+    } else {
+      await pool.query(
+        `UPDATE users SET
+          name = ?, phone = ?, city = ?, gender = ?, occupation_status = ?,
+          designation = ?, university_institute = ?, institution = ?, target_exam = ?, address = ?
+         WHERE uid = ?`,
+        [
+          cleanName,
+          cleanPhone,
+          cleanCity,
+          cleanGender,
+          cleanOccupation,
+          cleanDesignation,
+          cleanInstitute,
+          cleanInstitute,
+          cleanTargetExam,
+          cleanAddress,
+          authenticatedCandidate.uid
+        ]
+      );
+    }
 
     const [rows] = await pool.query(
       `SELECT 
         uid, name, email, role, 
         target_exam as targetExam, phone, institution, 
         gender, occupation_status as occupationStatus, designation, university_institute as universityInstitute, city, address, 
+        avatar as avatarUrl,
         created_at as createdAt 
        FROM users WHERE uid = ?`,
       [authenticatedCandidate.uid]
@@ -1785,7 +1820,7 @@ app.get('/api/users', authenticateAdmin, async (req, res) => {
     const [rows] = await pool.query(`
       SELECT 
         uid, name, email, role, target_exam, phone, institution,
-        gender, occupation_status, designation, university_institute, city, address, created_at, terms_accepted_at 
+        gender, occupation_status, designation, university_institute, city, address, avatar as avatarUrl, created_at, terms_accepted_at 
       FROM users ORDER BY created_at DESC
     `);
     res.json(rows.map(u => ({
@@ -1802,6 +1837,7 @@ app.get('/api/users', authenticateAdmin, async (req, res) => {
       universityInstitute: u.university_institute,
       city: u.city,
       address: u.address,
+      avatarUrl: u.avatarUrl || null,
       createdAt: u.created_at,
       termsAcceptedAt: u.terms_accepted_at || null
     })));
