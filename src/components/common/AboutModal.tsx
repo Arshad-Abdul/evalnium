@@ -98,15 +98,15 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <div className="p-3 rounded-xl border border-slate-200 bg-white space-y-1">
                 <Clock className="w-4 h-4 text-indigo-600" />
-                <span className="font-bold text-slate-900 block text-xs">Authentic NTA CBT Interface</span>
+                <span className="font-bold text-slate-900 block text-xs">Realistic CBT Exam Environment</span>
                 <p className="text-slate-500 text-[11px] leading-snug">
-                  Interactive Question Palette, Mark for Review, and strict Sectional Countdown timers.
+                  Computer-based test simulation with interactive question palette, sectional countdown timers, and mark-for-review navigation.
                 </p>
               </div>
 
               <div className="p-3 rounded-xl border border-slate-200 bg-white space-y-1">
                 <Languages className="w-4 h-4 text-indigo-600" />
-                <span className="font-bold text-slate-900 block text-xs">Bilingual Support (English & Hindi)</span>
+                <span className="font-bold text-slate-900 block text-xs">Bilingual Support (English &amp; Hindi)</span>
                 <p className="text-slate-500 text-[11px] leading-snug">
                   Switch instantly between English and Hindi or view both side-by-side in Dual Mode.
                 </p>
@@ -114,17 +114,25 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
 
               <div className="p-3 rounded-xl border border-slate-200 bg-white space-y-1">
                 <Shield className="w-4 h-4 text-indigo-600" />
-                <span className="font-bold text-slate-900 block text-xs">Negative Marking & Rules</span>
+                <span className="font-bold text-slate-900 block text-xs">Anti-Cheating &amp; Proctoring Shield</span>
                 <p className="text-slate-500 text-[11px] leading-snug">
-                  Exact negative mark deductions (-0.25) and decimal grading matching official boards.
+                  Automated integrity safeguards with tab-switch limit monitoring, full-screen lock alerts, and focus tracking.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl border border-slate-200 bg-white space-y-1">
+                <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+                <span className="font-bold text-slate-900 block text-xs">Custom Marking &amp; Timing Rules</span>
+                <p className="text-slate-500 text-[11px] leading-snug">
+                  Configurable scoring per exam — supporting zero negative marks (UGC NET) or custom deductions (-0.25, -0.33) matching official boards.
                 </p>
               </div>
 
               <div className="p-3 rounded-xl border border-slate-200 bg-white space-y-1">
                 <HelpCircle className="w-4 h-4 text-indigo-600" />
-                <span className="font-bold text-slate-900 block text-xs">Detailed Answer Rationales</span>
+                <span className="font-bold text-slate-900 block text-xs">Detailed Answer Rationales &amp; Keys</span>
                 <p className="text-slate-500 text-[11px] leading-snug">
-                  Comprehensive standard answer keys and explanations provided for every single MCQ.
+                  Comprehensive standard answer keys and bilingual explanations provided for every single question upon result release.
                 </p>
               </div>
 
@@ -132,15 +140,15 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
                 <Award className="w-4 h-4 text-indigo-600" />
                 <span className="font-bold text-slate-900 block text-xs">Verifiable Practice Certificates</span>
                 <p className="text-slate-500 text-[11px] leading-snug">
-                  Earn digital educational achievement certificates with secure verification IDs.
+                  Earn digital educational achievement certificates with secure verification IDs upon qualifying.
                 </p>
               </div>
 
-              <div className="p-3 rounded-xl border border-slate-200 bg-white space-y-1">
+              <div className="p-3 rounded-xl border border-slate-200 bg-white space-y-1 sm:col-span-3">
                 <BarChart2 className="w-4 h-4 text-indigo-600" />
-                <span className="font-bold text-slate-900 block text-xs">Leaderboard & Analytics</span>
+                <span className="font-bold text-slate-900 block text-xs">Leaderboard &amp; Real-Time Analytics</span>
                 <p className="text-slate-500 text-[11px] leading-snug">
-                  Compare your percentile, track topic-wise accuracy, and identify weak focus areas.
+                  Compare your percentile rank, track topic-wise accuracy, and identify weak focus areas against peers.
                 </p>
               </div>
             </div>

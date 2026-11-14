@@ -11,12 +11,15 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  const { registerCandidate, loginCandidate, resetPassword } = useAuth();
+  const { registerCandidate, loginCandidate, resetPassword, checkCandidateExists } = useAuth();
   const [tab, setTab] = useState<'signin' | 'register' | 'forgot_password'>('register');
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [verifiedToken, setVerifiedToken] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
   const [gender, setGender] = useState('Prefer not to say');
@@ -28,7 +31,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const [legalDoc, setLegalDoc] = useState<LegalDocType | null>(null);
 
   // OTP Verification State
-  const [step, setStep] = useState<'details' | 'otp_verify'>('details');
+  const [step, setStep] = useState<'details' | 'otp_verify' | 'new_password'>('details');
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [resendTimer, setResendTimer] = useState<number>(30);
@@ -81,6 +84,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
     setIsLoading(true);
     setOtpError(null);
+
+    // Verify account existence before sending OTP
+    try {
+      const exists = await checkCandidateExists(email);
+      if (tab === 'forgot_password' && !exists) {
+        setIsLoading(false);
+        setOtpError('No candidate account found with this email. Please verify your email or create an account.');
+        return;
+      }
+      if (tab === 'register' && exists) {
+        setIsLoading(false);
+        setOtpError('An account with this email already exists. Please sign in or reset your password.');
+        return;
+      }
+    } catch {
+      // Continue if network check fails
+    }
 
     try {
       const res = await fetch(`${getApiUrl()}/send-otp`, {
@@ -172,30 +192,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       return;
     }
 
-    // OTP Verified! Complete registration or reset password
+    // If resetting password, advance to the dedicated Set New Password screen
+    if (tab === 'forgot_password') {
+      setVerifiedToken(verificationToken || enteredOtp);
+      setStep('new_password');
+      setOtpError(null);
+      return;
+    }
+
+    // Complete registration
     try {
-      if (tab === 'forgot_password') {
-        await resetPassword(email, verificationToken || enteredOtp, password);
-        setSuccessMsg('✅ Password Reset Successfully! You can now log in.');
-      } else {
-        await registerCandidate(
-          name || 'Candidate',
-          email,
-          password,
-          {
-            phone: phone.trim(),
-            city: city.trim(),
-            gender,
-            occupation_status: occupationStatus,
-            designation: designation.trim() || undefined,
-            university_institute: universityInstitute.trim() || undefined,
-            target_exam: targetExam.trim(),
-            termsAccepted: true,
-          },
-          verificationToken
-        );
-        setSuccessMsg('Email verified and candidate account created successfully.');
-      }
+      await registerCandidate(
+        name || 'Candidate',
+        email,
+        password,
+        {
+          phone: phone.trim(),
+          city: city.trim(),
+          gender,
+          occupation_status: occupationStatus,
+          designation: designation.trim() || undefined,
+          university_institute: universityInstitute.trim() || undefined,
+          target_exam: targetExam.trim(),
+          termsAccepted: true,
+        },
+        verificationToken
+      );
+      setSuccessMsg('Email verified and candidate account created successfully.');
     } catch (err: any) {
       setOtpError(err.message || 'Authentication failed');
       return;
@@ -207,6 +230,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       onClose();
       if (onSuccess) onSuccess();
     }, 1500);
+  };
+
+  const handleSetNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 6) {
+      setOtpError('New password must be at least 6 characters long.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setOtpError('Passwords do not match. Please re-enter.');
+      return;
+    }
+
+    setIsLoading(true);
+    setOtpError(null);
+    try {
+      await resetPassword(email, verifiedToken, newPassword);
+      setSuccessMsg('✅ Password Reset Successfully! You can now sign in.');
+      setTimeout(() => {
+        setSuccessMsg(null);
+        setStep('details');
+        setTab('signin');
+        setPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setVerifiedToken('');
+      }, 1500);
+    } catch (err: any) {
+      setOtpError(err.message || 'Failed to update password');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -221,10 +276,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                {step === 'otp_verify' ? 'Email OTP Verification' : tab === 'forgot_password' ? 'Reset Password' : 'Candidate Sign In'}
+                {step === 'otp_verify'
+                  ? 'Email OTP Verification'
+                  : step === 'new_password'
+                    ? 'Set New Password'
+                    : tab === 'forgot_password'
+                      ? 'Reset Password'
+                      : tab === 'register'
+                        ? 'Create Candidate Account'
+                        : 'Candidate Sign In'}
               </h3>
               <p className="text-xs text-slate-500">
-                {step === 'otp_verify' ? `Enter the verification code sent to ${email}` : tab === 'forgot_password' ? 'Enter email and new password' : 'Track scores, revisions, and exam standings'}
+                {step === 'otp_verify'
+                  ? `Enter the 6-digit verification code sent to ${email}`
+                  : step === 'new_password'
+                    ? `Enter your new account password for ${email}`
+                    : tab === 'forgot_password'
+                      ? 'Enter your registered email address to receive a reset OTP'
+                      : 'Track scores, revisions, and exam standings'}
               </p>
             </div>
           </div>
@@ -325,7 +394,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                         required
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="e.g. Arshad Abdul"
+                        placeholder="Enter your full name"
                         className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
@@ -344,7 +413,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                           required
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
-                          placeholder="+91 98765 43210"
+                          placeholder="10-digit mobile number"
                           className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                         />
                       </div>
@@ -453,22 +522,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700">
-                  {tab === 'forgot_password' ? 'New Password' : 'Password'}
-                </label>
-                <div className="relative">
-                  <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder={tab === 'forgot_password' ? 'Enter a new password' : 'Enter your password'}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                  />
+              {tab !== 'forgot_password' && (
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700">Password</label>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               {tab === 'register' && (
                 <label className="flex items-start gap-2.5 pt-1 text-xs text-slate-600 cursor-pointer select-none">
@@ -627,7 +696,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center space-x-2 transition-all"
+                  className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center space-x-2 transition-all cursor-pointer"
                 >
                   {isLoading ? (
                     <>
@@ -637,13 +706,83 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                   ) : (
                     <>
                       <CheckCircle className="w-4 h-4" />
-                      <span>Verify Email & Complete Sign In</span>
+                      <span>{tab === 'forgot_password' ? 'Verify Code & Set Password' : 'Verify Email & Complete Sign In'}</span>
                     </>
                   )}
                 </button>
               </form>
             )}
           </div>
+        )}
+
+        {/* Step 3: Set New Password Screen (Forgot Password Flow) */}
+        {step === 'new_password' && (
+          <form onSubmit={handleSetNewPassword} className="space-y-4">
+            <div className="p-3.5 rounded-xl bg-indigo-50/80 border border-indigo-200 text-indigo-900 text-xs flex items-center space-x-2">
+              <CheckCircle className="w-4 h-4 text-indigo-600 shrink-0" />
+              <span>Identity verified for <strong>{email}</strong>. Enter your new password below:</span>
+            </div>
+
+            {otpError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold text-center">
+                {otpError}
+              </div>
+            )}
+
+            {successMsg && (
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold text-center">
+                {successMsg}
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700">New Password</label>
+              <div className="relative">
+                <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <input
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="At least 6 characters"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700">Confirm New Password</label>
+              <div className="relative">
+                <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <input
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter new password"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-colors mt-2 cursor-pointer"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Updating Password...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Save New Password &amp; Sign In</span>
+                </>
+              )}
+            </button>
+          </form>
         )}
 
       </div>

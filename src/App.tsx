@@ -610,7 +610,7 @@ function MainAppContent() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-3">
             {/* Copyright */}
             <div className="text-xs text-center md:text-left text-slate-500">
-              <span>© 2026 <strong className="font-semibold text-slate-700">Arshad Abdul</strong>. All Rights Reserved.</span>
+              <span>© 2026 <strong className="font-semibold text-slate-700">Evalnium Portal</strong>. All Rights Reserved.</span>
             </div>
 
             {/* Live Activity Summary */}
