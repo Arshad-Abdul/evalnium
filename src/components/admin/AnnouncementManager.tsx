@@ -3,7 +3,8 @@ import type { Announcement, AnnouncementCategory } from '../../types/announcemen
 import type { Quiz } from '../../types/quiz';
 import { 
   Megaphone, Plus, Trash2, Calendar, Clock, CheckCircle, 
-  Eye, EyeOff, AlertTriangle, Info, Bell, Timer, ExternalLink 
+  Eye, EyeOff, AlertTriangle, Info, Bell, Timer, ExternalLink,
+  Edit, X, Check
 } from 'lucide-react';
 import { ConfirmModal } from '../common/ConfirmModal';
 
@@ -30,6 +31,69 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
   const [pendingDelete, setPendingDelete] = useState<Announcement | null>(null);
   const [filterTab, setFilterTab] = useState<'all' | 'active' | 'unpublished'>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
+
+  // Edit State & Modal Handlers
+  const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editMessage, setEditMessage] = useState('');
+  const [editCategory, setEditCategory] = useState<AnnouncementCategory>('bulletin');
+  const [editShowTimer, setEditShowTimer] = useState(true);
+  const [editScheduledDateTime, setEditScheduledDateTime] = useState('');
+  const [editTargetQuizId, setEditTargetQuizId] = useState('');
+  const [editIsActive, setEditIsActive] = useState(true);
+
+  const toDatetimeLocal = (isoString?: string) => {
+    if (!isoString) return '';
+    try {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return '';
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const yyyy = d.getFullYear();
+      const mm = pad(d.getMonth() + 1);
+      const dd = pad(d.getDate());
+      const hh = pad(d.getHours());
+      const min = pad(d.getMinutes());
+      return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+    } catch {
+      return '';
+    }
+  };
+
+  const handleOpenEdit = (ann: Announcement) => {
+    setEditingAnnouncement(ann);
+    setEditTitle(ann.title);
+    setEditMessage(ann.message);
+    setEditCategory(ann.category || 'bulletin');
+    setEditShowTimer(ann.showTimer ?? true);
+    setEditScheduledDateTime(toDatetimeLocal(ann.scheduledDateTime));
+    setEditTargetQuizId(ann.targetQuizId || '');
+    setEditIsActive(ann.isActive);
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAnnouncement || !editTitle.trim() || !editMessage.trim()) return;
+
+    const effectiveScheduleTime = editScheduledDateTime 
+      ? new Date(editScheduledDateTime).toISOString() 
+      : editingAnnouncement.scheduledDateTime;
+
+    const updatedAnnouncement: Announcement = {
+      ...editingAnnouncement,
+      title: editTitle.trim(),
+      message: editMessage.trim(),
+      category: editCategory,
+      showTimer: editCategory === 'exam' ? editShowTimer : (editScheduledDateTime ? editShowTimer : false),
+      scheduledDateTime: effectiveScheduleTime,
+      targetQuizId: editTargetQuizId || undefined,
+      isActive: editIsActive,
+    };
+
+    onSaveAnnouncement(updatedAnnouncement);
+    setEditingAnnouncement(null);
+    setSuccessMsg(`✅ "${editTitle.trim()}" updated successfully!`);
+    setTimeout(() => setSuccessMsg(null), 3500);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -452,9 +516,20 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
                     </div>
                   </div>
 
-                  {/* Actions: Publish / Unpublish Toggle & Delete */}
+                  {/* Actions: Edit, Publish / Unpublish Toggle & Delete */}
                   <div className="flex items-center space-x-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
                     
+                    {/* Edit Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(ann)}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center space-x-1.5 transition-all shadow-2xs cursor-pointer"
+                      title="Edit Notice / Bulletin Details"
+                    >
+                      <Edit className="w-3.5 h-3.5 text-slate-600" />
+                      <span>Edit</span>
+                    </button>
+
                     {/* Unpublish / Publish Toggle Button */}
                     <button
                       type="button"
@@ -495,6 +570,160 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
           </div>
         )}
       </div>
+
+      {/* Edit Announcement Modal */}
+      {editingAnnouncement && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-xl w-full p-6 space-y-5 my-8 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-2">
+                <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+                  <Edit className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Edit Announcement / Notice</h3>
+                  <p className="text-[11px] text-slate-500 font-mono">ID: {editingAnnouncement.id}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingAnnouncement(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                aria-label="Close edit modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              {/* Category Selector */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700">Announcement Type & Category</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { id: 'bulletin' as AnnouncementCategory, label: 'Bulletin', icon: Megaphone },
+                    { id: 'exam' as AnnouncementCategory, label: 'Exam Notice', icon: Timer },
+                    { id: 'notice' as AnnouncementCategory, label: 'Official', icon: Info },
+                    { id: 'alert' as AnnouncementCategory, label: 'Urgent', icon: AlertTriangle },
+                  ].map(cat => {
+                    const Icon = cat.icon;
+                    const isSel = editCategory === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setEditCategory(cat.id)}
+                        className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                          isSel
+                            ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-2xs'
+                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span>{cat.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Title */}
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-700">Headline / Title</label>
+                <input
+                  type="text"
+                  required
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="e.g., Welcome to Evalnium Portal"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              {/* Message */}
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-700">Message / Summary</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={editMessage}
+                  onChange={(e) => setEditMessage(e.target.value)}
+                  placeholder="Detailed announcement or instructions..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              {/* Date & Quiz Link */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700">Scheduled Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={editScheduledDateTime}
+                    onChange={(e) => setEditScheduledDateTime(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-semibold text-slate-800 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700">Direct Link to Quiz / Exam</label>
+                  <select
+                    value={editTargetQuizId}
+                    onChange={(e) => setEditTargetQuizId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="">-- No Direct Link --</option>
+                    {quizzes.map(q => (
+                      <option key={q.id} value={q.id}>{q.title}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Timer Checkbox & Status */}
+              <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={editShowTimer}
+                    onChange={(e) => setEditShowTimer(e.target.checked)}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span>Show Live Countdown Timer</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={editIsActive}
+                    onChange={(e) => setEditIsActive(e.target.checked)}
+                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span>Published Live (Visible on Portal)</span>
+                </label>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingAnnouncement(null)}
+                  className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-[2] py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Save Changes</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <ConfirmModal
         isOpen={Boolean(pendingDelete)}
