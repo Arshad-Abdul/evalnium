@@ -1,0 +1,13 @@
+# Evalnium Robots Exclusion Protocol
+# https://evalnium.com
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin
+
+# Crawl Delay
+Crawl-delay: 1
+
+# Sitemap Location
+Sitemap: https://evalnium.com/sitemap.xml

@@ -27,6 +27,8 @@ import { AnnouncementBanner } from './components/user/AnnouncementBanner';
 import { HeaderAdBanner } from './components/home/HeaderAdBanner';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { LegalPolicyModal } from './components/common/LegalPolicyModal';
+import { CookieConsentBanner } from './components/common/CookieConsentBanner';
+import { NotFoundView } from './components/common/NotFoundView';
 
 // Resilient lazy loader: handles chunk loading retries and legacy port synchronization
 const lazyWithRetry = <T extends React.ComponentType<any>>(componentImport: () => Promise<{ default: T }>) =>
@@ -221,6 +223,25 @@ function MainAppContent() {
     };
   }, [isAdminAuthenticated, currentUser]);
 
+  // Dynamic Document Title based on current active view/exam
+  useEffect(() => {
+    if (examPhase === 'running' && selectedQuiz) {
+      document.title = `[Live CBT] ${selectedQuiz.title} | Evalnium`;
+    } else if (examPhase === 'instructions' && selectedQuiz) {
+      document.title = `Instructions: ${selectedQuiz.title} | Evalnium`;
+    } else if (examPhase === 'results' && selectedQuiz) {
+      document.title = `Scorecard: ${selectedQuiz.title} | Evalnium`;
+    } else if (activeTab === 'admin') {
+      document.title = 'Admin Assessment Studio | Evalnium';
+    } else if (activeTab === 'dashboard') {
+      document.title = 'Candidate Dashboard & Performance | Evalnium';
+    } else if (activeTab === 'leaderboard') {
+      document.title = 'National & State Rankings | Evalnium Leaderboard';
+    } else {
+      document.title = 'Evalnium | Global CBT Examination & Assessment Platform';
+    }
+  }, [examPhase, selectedQuiz, activeTab]);
+
   const handleTabChange = (tab: 'user' | 'dashboard' | 'leaderboard' | 'admin') => {
     if (tab === 'admin') {
       if (!isAdminAuthenticated) {
@@ -370,6 +391,8 @@ function MainAppContent() {
     const target = quizzes.find(q => q.id === quizId);
     if (target) {
       handleSelectQuiz(target);
+    } else {
+      setPortalNotice('The requested mock assessment is currently unavailable, unpublished, or does not exist.');
     }
   };
 
@@ -682,6 +705,11 @@ function MainAppContent() {
       )}
 
       <ScrollToTopButton />
+
+      <CookieConsentBanner
+        onOpenPrivacy={() => setLegalDoc('privacy')}
+        onOpenTerms={() => setLegalDoc('terms')}
+      />
 
       {legalDoc && (
         <LegalPolicyModal docType={legalDoc} onClose={() => setLegalDoc(null)} />
