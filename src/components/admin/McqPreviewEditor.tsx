@@ -272,8 +272,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       topic: topic.trim() || 'General Knowledge',
       category: category.trim() || 'General',
       difficulty,
-      timeLimitMinutes: Math.max(1, timeLimitMinutes),
-      passingPercentage: Math.min(100, Math.max(10, passingPercentage)),
+      timeLimitMinutes: Math.max(0, timeLimitMinutes),
+      passingPercentage: Math.min(100, Math.max(0, passingPercentage)),
       negativeMarks,
       shuffleQuestions,
       shuffleOptions,
@@ -617,39 +617,62 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2 border-t border-slate-100">
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center space-x-1">
-              <Clock className="w-3.5 h-3.5 text-amber-600" />
-              <span>Time Limit (Mins)</span>
+            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+              <span className="flex items-center space-x-1">
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                <span>Time Limit (Mins)</span>
+              </span>
+              {timeLimitMinutes === 0 && (
+                <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200">
+                  Untimed Practice
+                </span>
+              )}
             </label>
             <input
               type="number"
-              min={1}
-              max={180}
+              min={0}
+              max={360}
               value={timeLimitMinutes}
               onChange={(e) => {
-                const newMins = parseInt(e.target.value) || 10;
-                setTimeLimitMinutes(newMins);
-                if (timingMode === 'question' && questions.length > 0) {
-                  setQuestionTimeLimitSeconds(Math.round((newMins * 60) / questions.length));
+                const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
+                setTimeLimitMinutes(val);
+                if (timingMode === 'question' && questions.length > 0 && val > 0) {
+                  setQuestionTimeLimitSeconds(Math.round((val * 60) / questions.length));
                 }
               }}
               className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-sm font-mono font-bold focus:border-indigo-500 focus:bg-white focus:outline-none"
             />
+            <p className="text-[10px] text-slate-500 font-medium mt-1">
+              {timeLimitMinutes === 0 ? "⚡ 0 = Untimed Practice (No countdown)" : "Exam countdown timer in minutes"}
+            </p>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center space-x-1">
-              <Award className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Passing %</span>
+            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+              <span className="flex items-center space-x-1">
+                <Award className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Passing %</span>
+              </span>
+              {passingPercentage === 0 && (
+                <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                  No Cutoff
+                </span>
+              )}
             </label>
             <input
               type="number"
-              min={10}
+              min={0}
               max={100}
               value={passingPercentage}
-              onChange={(e) => setPassingPercentage(parseInt(e.target.value) || 60)}
+              onChange={(e) => {
+                const val = e.target.value === '' ? 0 : Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+                setPassingPercentage(val);
+              }}
               className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-sm font-mono font-bold focus:border-indigo-500 focus:bg-white focus:outline-none"
             />
+            <p className="text-[10px] text-slate-500 font-medium mt-1">
+              {passingPercentage === 0 ? "⚡ 0 = No Pass/Fail cutoff (Self-Assessment)" : "Minimum score % required to qualify"}
+            </p>
           </div>
 
           <div>

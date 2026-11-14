@@ -38,8 +38,9 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     return now;
   });
 
+  const isUntimed = !quiz.timeLimitMinutes || quiz.timeLimitMinutes <= 0;
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [timeRemainingSeconds, setTimeRemainingSeconds] = useState(quiz.timeLimitMinutes * 60);
+  const [timeRemainingSeconds, setTimeRemainingSeconds] = useState(isUntimed ? 0 : quiz.timeLimitMinutes * 60);
   const [questionTimeRemainingSeconds, setQuestionTimeRemainingSeconds] = useState(
     quiz.timingMode === 'question' ? (quiz.questionTimeLimitSeconds || 60) : 0
   );
@@ -227,8 +228,18 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     } catch {}
   }, [userAnswers, examStartTime, sessionKey]);
 
-  // Real-world countdown timer (calculates accurate remaining time across logouts/reloads)
+  // Real-world timer (supports countdown and untimed practice mode)
   useEffect(() => {
+    if (isUntimed) {
+      const updateElapsed = () => {
+        const elapsedSeconds = Math.floor((Date.now() - examStartTime) / 1000);
+        setTimeRemainingSeconds(elapsedSeconds);
+      };
+      updateElapsed();
+      const timer = setInterval(updateElapsed, 1000);
+      return () => clearInterval(timer);
+    }
+
     const updateTimer = () => {
       const elapsedSeconds = Math.floor((Date.now() - examStartTime) / 1000);
       const totalLimitSeconds = quiz.timeLimitMinutes * 60;
@@ -436,8 +447,11 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     const finalScore = Math.max(0, Math.round(score * 100) / 100);
     const maxScore = activeQuestions.reduce((acc, q) => acc + (q.marks || 1), 0);
     const percentage = Math.round((finalScore / maxScore) * 100);
-    const passed = percentage >= quiz.passingPercentage;
-    const timeSpentSeconds = quiz.timeLimitMinutes * 60 - timeRemainingSeconds;
+    const hasPassingCutoff = Boolean(quiz.passingPercentage && quiz.passingPercentage > 0);
+    const passed = hasPassingCutoff ? percentage >= quiz.passingPercentage : true;
+    const timeSpentSeconds = isUntimed
+      ? Math.floor((Date.now() - examStartTime) / 1000)
+      : Math.max(0, quiz.timeLimitMinutes * 60 - timeRemainingSeconds);
 
     return {
       id: `res_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
@@ -490,6 +504,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         setExamViewMode={setExamViewMode}
         questionViewMode={quiz.questionViewMode}
         timingMode={quiz.timingMode}
+        isUntimed={isUntimed}
         timeRemainingSeconds={timeRemainingSeconds}
         questionTimeRemainingSeconds={quiz.timingMode === 'question' ? questionTimeRemainingSeconds : undefined}
         sectionTimeRemainingSeconds={quiz.timingMode === 'sectional' ? sectionTimeRemainingSeconds : undefined}

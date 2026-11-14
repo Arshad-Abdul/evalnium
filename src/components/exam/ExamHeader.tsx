@@ -10,6 +10,7 @@ interface ExamHeaderProps {
   setExamViewMode: (mode: 'single' | 'all') => void;
   questionViewMode?: 'both' | 'single_only' | 'all_only';
   timingMode?: 'quiz' | 'sectional' | 'question';
+  isUntimed?: boolean;
   timeRemainingSeconds: number;
   questionTimeRemainingSeconds?: number;
   sectionTimeRemainingSeconds?: number;
@@ -29,6 +30,7 @@ export const ExamHeader: React.FC<ExamHeaderProps> = ({
   setExamViewMode,
   questionViewMode = 'both',
   timingMode,
+  isUntimed = false,
   timeRemainingSeconds,
   questionTimeRemainingSeconds,
   sectionTimeRemainingSeconds,
@@ -267,7 +269,16 @@ export const ExamHeader: React.FC<ExamHeaderProps> = ({
           )}
 
           {/* Countdown Timer Pill */}
-          {timingMode === 'question' && questionTimeRemainingSeconds !== undefined ? (
+          {isUntimed ? (
+            <div
+              className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1 rounded-lg font-mono text-xs font-bold border bg-indigo-50 border-indigo-200 text-indigo-700 tabular-nums shadow-2xs"
+              title="Untimed Practice Exam (Elapsed Time)"
+            >
+              <Clock className="w-3.5 h-3.5 text-indigo-600 animate-spin" style={{ animationDuration: '8s' }} />
+              <span className="hidden sm:inline text-[10px] uppercase font-semibold text-indigo-500">Elapsed:</span>
+              <span>{formatTime(timeRemainingSeconds)}</span>
+            </div>
+          ) : timingMode === 'question' && questionTimeRemainingSeconds !== undefined ? (
             <div
               className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg font-mono text-xs font-semibold border tabular-nums ${
                 isLowQTime

@@ -273,11 +273,18 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
           </div>
 
           <div className="flex items-center space-x-2">
-            <span className={`px-2.5 py-1 rounded font-mono font-semibold text-xs uppercase border ${result.passed
+            <span className={`px-2.5 py-1 rounded font-mono font-semibold text-xs uppercase border ${
+              !quiz.passingPercentage || quiz.passingPercentage <= 0
+                ? 'bg-blue-50 text-blue-800 border-blue-300'
+                : result.passed
                 ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                 : 'bg-rose-50 text-rose-800 border-rose-300'
-              }`}>
-              {result.passed ? 'Status: QUALIFIED' : 'Status: NOT QUALIFIED'}
+            }`}>
+              {!quiz.passingPercentage || quiz.passingPercentage <= 0
+                ? 'Status: COMPLETED (Self-Assessment)'
+                : result.passed
+                ? 'Status: QUALIFIED'
+                : 'Status: NOT QUALIFIED'}
             </span>
 
             <span className="px-2.5 py-1 rounded font-mono font-semibold text-xs bg-slate-100 text-slate-800 border border-slate-200">
