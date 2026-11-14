@@ -2568,7 +2568,27 @@ app.get('/api/admin/visitors', async (req, res) => {
       FROM visitor_logs
     `, [todayStart, yesterdayStart, yesterdayEnd, sevenDaysAgo, thirtyDaysAgo]);
 
-    // 14-day daily traffic trend
+    // Daily traffic trend with customizable historical range (default: all time)
+    const trendRange = req.query.trend || req.query.trendDays || 'all';
+    let trendWhere = '';
+    let trendParams = [];
+
+    if (trendRange === '7') {
+      trendWhere = 'WHERE last_seen >= ?';
+      trendParams = [sevenDaysAgo];
+    } else if (trendRange === '14') {
+      trendWhere = 'WHERE last_seen >= ?';
+      trendParams = [fourteenDaysAgo];
+    } else if (trendRange === '30') {
+      trendWhere = 'WHERE last_seen >= ?';
+      trendParams = [thirtyDaysAgo];
+    } else if (trendRange === '90') {
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+      trendWhere = 'WHERE last_seen >= ?';
+      trendParams = [ninetyDaysAgo];
+    }
+    // If 'all', trendWhere is empty, returning all historical days from day 1
+
     const [dailyTrend] = await pool.query(`
       SELECT 
         SUBSTRING(last_seen, 1, 10) as date,
@@ -2576,10 +2596,10 @@ app.get('/api/admin/visitors', async (req, res) => {
         SUM(IF(is_registered = 1, 1, 0)) as registered,
         SUM(IF(is_registered = 0, 1, 0)) as guests
       FROM visitor_logs
-      WHERE last_seen >= ?
+      ${trendWhere}
       GROUP BY SUBSTRING(last_seen, 1, 10)
       ORDER BY date ASC
-    `, [fourteenDaysAgo]);
+    `, trendParams);
 
     // Top Pages visited
     const [topPages] = await pool.query(`

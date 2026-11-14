@@ -77,6 +77,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [loadingVisitors, setLoadingVisitors] = useState(false);
   const [visitorFilter, setVisitorFilter] = useState<'all' | 'registered' | 'guest' | 'active'>('all');
   const [visitorTimeRange, setVisitorTimeRange] = useState<'all' | 'today' | 'yesterday' | '7days' | '30days'>('all');
+  const [trendTimeRange, setTrendTimeRange] = useState<'all' | '90' | '30' | '14' | '7'>('all');
   const [visitorSearch, setVisitorSearch] = useState('');
   const [visitorPage, setVisitorPage] = useState(1);
   const [visitorLimit, setVisitorLimit] = useState(10);
@@ -126,10 +127,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }).catch(() => {});
   }, []);
 
-  const fetchVisitors = async (rangeOverride?: string) => {
+  const fetchVisitors = async (rangeOverride?: string, trendOverride?: string) => {
     try {
       const activeRange = rangeOverride !== undefined ? rangeOverride : visitorTimeRange;
-      const res = await fetch(`${getApiBaseUrl()}/admin/visitors?range=${activeRange}`, {
+      const activeTrend = trendOverride !== undefined ? trendOverride : trendTimeRange;
+      const res = await fetch(`${getApiBaseUrl()}/admin/visitors?range=${activeRange}&trend=${activeTrend}`, {
         credentials: 'include'
       });
       if (res.ok) {
@@ -200,7 +202,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     } else if (activeSubTab === 'users') {
       fetchUsers();
     }
-  }, [activeSubTab, visitorTimeRange]);
+  }, [activeSubTab, visitorTimeRange, trendTimeRange]);
 
   const fetchUsers = async () => {
     try {
@@ -1926,50 +1928,84 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               );
             })()}
 
-            {/* 14-Day Daily Activity Trend Visualizer */}
-            {visitorsData?.dailyTrend && visitorsData.dailyTrend.length > 0 && (
+            {/* Dynamic Activity Trend Visualizer (All-Time & Multi-Range Velocity) */}
+            {visitorsData?.dailyTrend && visitorsData.dailyTrend.length > 0 ? (
               <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <div className="flex items-center space-x-2">
                     <TrendingUp className="w-4 h-4 text-indigo-600" />
                     <span className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono">
-                      14-Day Traffic Velocity & Daily Volume
+                      {trendTimeRange === 'all' ? 'All-Time' : `${trendTimeRange}-Day`} Traffic Velocity & Daily Volume
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-500 bg-slate-200/80 px-2 py-0.5 rounded-full font-mono">
+                      {visitorsData.dailyTrend.length} {visitorsData.dailyTrend.length === 1 ? 'Day' : 'Days'}
                     </span>
                   </div>
-                  <div className="flex items-center space-x-3 text-[10px] font-bold">
-                    <span className="flex items-center space-x-1 text-indigo-700">
-                      <span className="w-2.5 h-2.5 rounded-xs bg-indigo-600 inline-block" />
-                      <span>Registered Members</span>
-                    </span>
-                    <span className="flex items-center space-x-1 text-slate-500">
-                      <span className="w-2.5 h-2.5 rounded-xs bg-slate-300 inline-block" />
-                      <span>Guests</span>
-                    </span>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Range Filter Pills */}
+                    <div className="flex items-center bg-slate-200/70 p-0.5 rounded-lg border border-slate-300/60">
+                      {[
+                        { id: 'all', label: 'All Time' },
+                        { id: '90', label: '90D' },
+                        { id: '30', label: '30D' },
+                        { id: '14', label: '14D' },
+                        { id: '7', label: '7D' },
+                      ].map((btn) => (
+                        <button
+                          key={btn.id}
+                          onClick={() => {
+                            setTrendTimeRange(btn.id as any);
+                            fetchVisitors(undefined, btn.id);
+                          }}
+                          className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold transition-all ${
+                            trendTimeRange === btn.id
+                              ? 'bg-white text-indigo-700 shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          {btn.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Legend */}
+                    <div className="flex items-center space-x-3 text-[10px] font-bold">
+                      <span className="flex items-center space-x-1 text-indigo-700">
+                        <span className="w-2.5 h-2.5 rounded-xs bg-indigo-600 inline-block" />
+                        <span>Registered</span>
+                      </span>
+                      <span className="flex items-center space-x-1 text-slate-500">
+                        <span className="w-2.5 h-2.5 rounded-xs bg-slate-300 inline-block" />
+                        <span>Guests</span>
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-7 sm:grid-cols-14 gap-2 pt-2 items-end min-h-[90px]">
+                {/* Bars Container with smooth horizontal scroll for larger date ranges */}
+                <div className="flex items-end gap-2 pt-3 min-h-[115px] overflow-x-auto pb-2 scrollbar-thin">
                   {(() => {
                     const maxVal = Math.max(...visitorsData.dailyTrend.map(d => d.total || 1), 1);
                     return visitorsData.dailyTrend.map((d, i) => {
-                      const heightPct = Math.max(Math.round((d.total / maxVal) * 100), 12);
+                      const heightPct = Math.max(Math.round((d.total / maxVal) * 85), 10);
                       const regPct = d.total ? Math.round((d.registered / d.total) * 100) : 0;
                       const dateShort = d.date ? d.date.substring(5) : '';
 
                       return (
-                        <div key={i} className="flex flex-col items-center group">
+                        <div key={i} className="flex flex-col items-center flex-1 min-w-[32px] max-w-[50px] group">
                           <span className="text-[9px] font-mono font-bold text-slate-600 mb-1 group-hover:text-indigo-600 transition-colors">
                             {d.total}
                           </span>
                           <div
-                            className="w-full max-w-[28px] rounded-t-lg bg-slate-200 overflow-hidden flex flex-col justify-end transition-all hover:brightness-95"
+                            className="w-full rounded-t-lg bg-slate-200 overflow-hidden flex flex-col justify-end transition-all group-hover:brightness-95 group-hover:scale-105"
                             style={{ height: `${heightPct}px` }}
-                            title={`${d.date}: ${d.total} visits (${d.registered} registered, ${d.guests} guests)`}
+                            title={`${d.date}: ${d.total} total visits (${d.registered} registered, ${d.guests} guests)`}
                           >
                             <div className="w-full bg-slate-300" style={{ height: `${100 - regPct}%` }} />
                             <div className="w-full bg-indigo-600" style={{ height: `${regPct}%` }} />
                           </div>
-                          <span className="text-[9px] font-mono text-slate-400 mt-1 truncate max-w-[40px]">
+                          <span className="text-[9px] font-mono text-slate-400 mt-1 truncate" title={d.date}>
                             {dateShort}
                           </span>
                         </div>
@@ -1978,7 +2014,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   })()}
                 </div>
               </div>
-            )}
+            ) : visitorsData?.dailyTrend && visitorsData.dailyTrend.length === 0 ? (
+              <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 text-center text-xs text-slate-400 font-medium font-mono">
+                No traffic activity recorded for the selected range.
+              </div>
+            ) : null}
 
             {/* Quick Analytics Breakdown: Top Pages & Geographies */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
