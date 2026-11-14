@@ -51,3 +51,4 @@ export function parseStoredPhone(rawPhone?: string | null): { countryCode: strin
   const onlyDigits = trimmed.replace(/\D/g, '');
   return { countryCode: '+91', digits: onlyDigits.slice(0, 10) };
 }
+

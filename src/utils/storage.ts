@@ -163,6 +163,8 @@ export async function syncResultsFromMySQL(): Promise<QuizAttemptResult[] | null
   return null;
 }
 
+export const fetchResultsFromServer = syncResultsFromMySQL;
+
 export function getStoredResults(): QuizAttemptResult[] {
   try {
     const data = localStorage.getItem(RESULTS_KEY);

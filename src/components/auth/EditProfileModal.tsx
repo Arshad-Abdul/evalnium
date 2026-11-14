@@ -254,7 +254,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                   onChange={(e) => setOccupationStatus(e.target.value)}
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-slate-900 font-semibold bg-white focus:outline-none focus:border-blue-600"
                 >
-                  <option value="Student">Student</option>
+                  <option value="Student">Student (General)</option>
+                  <option value="BLIS Student">BLIS Student</option>
+                  <option value="MLIS Student">MLIS Student</option>
+                  <option value="Research Scholar">Research Scholar</option>
                   <option value="Trainee">Trainee</option>
                   <option value="Intern">Intern</option>
                   <option value="Working Professional">Working Professional</option>

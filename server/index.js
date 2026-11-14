@@ -3233,6 +3233,59 @@ app.delete('/api/results/:id', authenticateAdmin, async (req, res) => {
   }
 });
 
+// Bulk delete: All attempts by a specific candidate
+app.delete('/api/results/candidate/:email', authenticateAdmin, async (req, res) => {
+  try {
+    const rawEmail = decodeURIComponent(req.params.email || '').trim();
+    if (!rawEmail) {
+      return res.status(400).json({ error: 'Valid candidate email or identifier required' });
+    }
+    const [result] = await pool.query(
+      'DELETE FROM results WHERE LOWER(TRIM(candidate_email)) = ? OR (candidate_email IS NULL AND candidate_name = ?)',
+      [rawEmail.toLowerCase(), rawEmail]
+    );
+
+    recordAuditLog({
+      eventType: 'exam_admin',
+      severity: 'warning',
+      actorName: req.adminUser?.name || 'Administrator',
+      actorRole: 'admin',
+      actionTitle: `🗑️ Bulk Delete: Candidate Attempts (${rawEmail})`,
+      detailsText: `Admin permanently deleted ${result.affectedRows || 0} exam attempts for candidate "${rawEmail}".`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
+
+    res.json({ success: true, count: result.affectedRows || 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Bulk delete: All candidate attempts under a specific exam
+app.delete('/api/results/quiz/:quizId', authenticateAdmin, async (req, res) => {
+  try {
+    const quizId = String(req.params.quizId || '').trim();
+    if (!quizId) {
+      return res.status(400).json({ error: 'Quiz ID required' });
+    }
+    const [result] = await pool.query('DELETE FROM results WHERE quiz_id = ?', [quizId]);
+
+    recordAuditLog({
+      eventType: 'exam_admin',
+      severity: 'warning',
+      actorName: req.adminUser?.name || 'Administrator',
+      actorRole: 'admin',
+      actionTitle: `🗑️ Bulk Delete: Exam Submissions (${quizId})`,
+      detailsText: `Admin permanently deleted all ${result.affectedRows || 0} candidate attempts for exam ID "${quizId}".`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
+
+    res.json({ success: true, count: result.affectedRows || 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Rate Limiter: Maximum 60 bookmark operations per minute per IP (CWE-770)
 const bookmarksLimiter = createRateLimiter({
   windowMs: 60 * 1000,

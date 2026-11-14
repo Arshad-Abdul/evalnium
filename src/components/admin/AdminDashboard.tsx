@@ -10,7 +10,7 @@ import { CandidateResponseModal } from './CandidateResponseModal';
 import { EmailManager } from './EmailManager';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { Plus, Trash2, FileDown, Layers, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, EyeOff, Trophy, LogOut, Globe, Radio, Laptop, Smartphone, Monitor, ShieldCheck, UserCheck, Search, Filter, RefreshCw, Compass, MapPin, Download, Image as ImageIcon, BarChart2, Calendar, TrendingUp, History, Terminal, Mail, Phone, Briefcase, Building2, GraduationCap } from 'lucide-react';
-import { getStoredResults } from '../../utils/storage';
+import { getStoredResults, fetchResultsFromServer } from '../../utils/storage';
 
 interface AdminDashboardProps {
   quizzes: Quiz[];
@@ -33,7 +33,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onDeleteAnnouncement = () => { },
   onLogout,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'import' | 'manage' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users' | 'visitors' | 'banners' | 'audit' | 'emails'>('overview');
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'import' | 'manage' | 'exam_responses' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users' | 'visitors' | 'banners' | 'audit' | 'emails'>('overview');
   const [liveSessions, setLiveSessions] = useState<any[]>([]);
   const [registeredUsers, setRegisteredUsers] = useState<Array<{
     uid: string;
@@ -116,9 +116,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Load registered users immediately on mount so their emails are ready for Whitelist autocomplete
+  // Load registered users & latest server results on mount
   useEffect(() => {
     fetchUsers();
+    fetchResultsFromServer().then((fresh: QuizAttemptResult[] | null) => {
+      if (Array.isArray(fresh) && fresh.length > 0) {
+        setStoredResults(fresh);
+      }
+    }).catch(() => {});
   }, []);
 
   const fetchVisitors = async (rangeOverride?: string) => {
@@ -328,8 +333,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const [parsedResult, setParsedResult] = useState<{ res: ParseResult; sourceName: string } | null>(null);
   const [viewingResult, setViewingResult] = useState<QuizAttemptResult | null>(null);
+  const [storedResults, setStoredResults] = useState<QuizAttemptResult[]>(() => getStoredResults());
+  const [expandedExamResponses, setExpandedExamResponses] = useState<string | null>(null);
+  const [examResponsesSearch, setExamResponsesSearch] = useState('');
 
-  const allAttemptResults = getStoredResults().filter(r => !deletedResultIds.has(r.id));
+  const allAttemptResults = storedResults.filter(r => !deletedResultIds.has(r.id));
 
   const handleDeleteResult = (resultId: string, candidateName: string) => {
     setPendingDelete({
@@ -344,6 +352,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             credentials: 'include'
           });
           setDeletedResultIds(prev => new Set([...prev, resultId]));
+          setStoredResults(prev => prev.filter(r => r.id !== resultId));
           // Also remove from localStorage cache
           const RESULTS_KEY = 'evalnium_results_v3';
           try {
@@ -352,6 +361,75 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           } catch { }
         } catch {
           alert('Failed to delete result. Check server connection.');
+        }
+      },
+    });
+  };
+
+  const handleDeleteAllCandidateAttempts = (candidateEmail: string, candidateName: string, count: number) => {
+    setPendingDelete({
+      title: 'Delete All Exam Attempts',
+      itemName: `${candidateName} (${count} Attempts)`,
+      message: `DANGER: Are you sure you want to permanently delete ALL ${count} exam attempts for "${candidateName}" (${candidateEmail || 'No Email'})? All past scores, percentages, and response records for this candidate will be wiped. This action CANNOT be undone.`,
+      confirmLabel: `Permanently Delete All (${count}) Attempts`,
+      onConfirm: async () => {
+        try {
+          const target = candidateEmail || candidateName;
+          const res = await fetch(`${getApiBaseUrl()}/results/candidate/${encodeURIComponent(target)}`, {
+            method: 'DELETE',
+            credentials: 'include'
+          });
+          if (!res.ok) throw new Error('Failed to delete candidate attempts');
+
+          setStoredResults(prev => prev.filter(r => {
+            const matches = candidateEmail
+              ? (r.candidateEmail && r.candidateEmail.toLowerCase().trim() === candidateEmail.toLowerCase().trim())
+              : (r.candidateName === candidateName);
+            return !matches;
+          }));
+
+          const RESULTS_KEY = 'evalnium_results_v3';
+          try {
+            const cached = JSON.parse(localStorage.getItem(RESULTS_KEY) || '[]');
+            const filtered = cached.filter((r: QuizAttemptResult) => {
+              const matches = candidateEmail
+                ? (r.candidateEmail && r.candidateEmail.toLowerCase().trim() === candidateEmail.toLowerCase().trim())
+                : (r.candidateName === candidateName);
+              return !matches;
+            });
+            localStorage.setItem(RESULTS_KEY, JSON.stringify(filtered));
+          } catch { }
+        } catch {
+          alert('Failed to delete candidate attempts. Please verify server connection.');
+        }
+      },
+    });
+  };
+
+  const handleDeleteAllQuizAttempts = (quizId: string, quizTitle: string, count: number) => {
+    setPendingDelete({
+      title: 'Reset & Delete All Exam Submissions',
+      itemName: `${quizTitle} (${count} Submissions)`,
+      message: `DANGER: Are you sure you want to permanently delete ALL ${count} candidate submissions for "${quizTitle}"? All leaderboard rankings, candidate percentiles, and answer records for this exam will be permanently erased. This action CANNOT be undone.`,
+      confirmLabel: `Permanently Delete All (${count}) Submissions`,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${getApiBaseUrl()}/results/quiz/${quizId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+          });
+          if (!res.ok) throw new Error('Failed to delete exam submissions');
+
+          setStoredResults(prev => prev.filter(r => r.quizId !== quizId));
+
+          const RESULTS_KEY = 'evalnium_results_v3';
+          try {
+            const cached = JSON.parse(localStorage.getItem(RESULTS_KEY) || '[]');
+            const filtered = cached.filter((r: QuizAttemptResult) => r.quizId !== quizId);
+            localStorage.setItem(RESULTS_KEY, JSON.stringify(filtered));
+          } catch { }
+        } catch {
+          alert('Failed to delete exam submissions. Please verify server connection.');
         }
       },
     });
@@ -602,7 +680,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     );
   }
 
-  type AdminSubTab = 'overview' | 'import' | 'manage' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users' | 'visitors' | 'banners' | 'audit' | 'emails';
+  type AdminSubTab = 'overview' | 'import' | 'manage' | 'exam_responses' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users' | 'visitors' | 'banners' | 'audit' | 'emails';
 
   const navGroups: Array<{
     id: 'overview' | 'exams' | 'candidates_group' | 'comms' | 'monitoring';
@@ -627,6 +705,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       badge: quizzes.length,
       items: [
         { id: 'manage', label: 'Exam Papers', count: quizzes.length },
+        { id: 'exam_responses', label: 'Candidate Responses', count: allAttemptResults.length },
         { id: 'import', label: 'Import / Create' },
       ],
     },
@@ -1361,7 +1440,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <tr>
                             <td colSpan={5} className="bg-slate-50 px-4 py-3 border-b border-slate-200">
                               <div className="space-y-2">
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Individual Attempts</p>
+                                <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
+                                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                    Individual Attempts ({candAttempts.length})
+                                  </p>
+                                  {candAttempts.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteAllCandidateAttempts(cand.candidateEmail, cand.candidateName, candAttempts.length);
+                                      }}
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 border border-rose-200 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                                      title="Permanently wipe all attempts for this candidate"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                      <span>Delete All ({candAttempts.length}) Attempts</span>
+                                    </button>
+                                  )}
+                                </div>
                                 {candAttempts.length === 0 ? (
                                   <p className="text-xs text-slate-400">No individual attempts visible.</p>
                                 ) : (
@@ -2482,6 +2579,213 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <ChevronDown className="w-3.5 h-3.5 -rotate-90" />
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* SubTab: Exam Candidate Responses & Submissions */}
+      {activeSubTab === 'exam_responses' && (
+        <div className="bg-white rounded-xl border border-slate-200 space-y-5 p-5 sm:p-6 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Exam Submissions &amp; Candidate Responses</h2>
+              <p className="text-xs text-slate-500">
+                Inspect individual candidate answer keys, scores, and manage attempt histories grouped by assessment
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold font-mono">
+                {allAttemptResults.length} Total Submissions
+              </span>
+            </div>
+          </div>
+
+          {/* Quick Metrics Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Total Exams</span>
+              <span className="text-lg font-extrabold text-slate-900">{quizzes.length}</span>
+            </div>
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Attempted Exams</span>
+              <span className="text-lg font-extrabold text-indigo-600">
+                {quizzes.filter(q => allAttemptResults.some(r => r.quizId === q.id)).length}
+              </span>
+            </div>
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Total Attempts</span>
+              <span className="text-lg font-extrabold text-blue-600">{allAttemptResults.length}</span>
+            </div>
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Overall Pass Rate</span>
+              <span className="text-lg font-extrabold text-emerald-600">
+                {allAttemptResults.length > 0
+                  ? `${Math.round((allAttemptResults.filter(r => r.passed).length / allAttemptResults.length) * 100)}%`
+                  : '0%'}
+              </span>
+            </div>
+          </div>
+
+          {/* Search bar */}
+          <div className="relative max-w-md">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search exams by title or topic..."
+              value={examResponsesSearch}
+              onChange={(e) => setExamResponsesSearch(e.target.value)}
+              className="w-full pl-8 pr-3 py-2 text-xs font-medium rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-slate-400"
+            />
+          </div>
+
+          {/* Exams List Accordion */}
+          <div className="space-y-3">
+            {quizzes
+              .filter(q => {
+                const s = examResponsesSearch.toLowerCase().trim();
+                if (!s) return true;
+                return q.title.toLowerCase().includes(s) || (q.topic && q.topic.toLowerCase().includes(s));
+              })
+              .map(q => {
+                const quizAttempts = allAttemptResults.filter(r => r.quizId === q.id);
+                const isExpanded = expandedExamResponses === q.id;
+                const passedCount = quizAttempts.filter(r => r.passed).length;
+                const avgPct = quizAttempts.length > 0
+                  ? Math.round(quizAttempts.reduce((sum, r) => sum + r.percentage, 0) / quizAttempts.length)
+                  : 0;
+
+                return (
+                  <div
+                    key={q.id}
+                    className="border border-slate-200 rounded-2xl overflow-hidden transition-all bg-white"
+                  >
+                    {/* Header Row */}
+                    <div
+                      onClick={() => setExpandedExamResponses(isExpanded ? null : q.id)}
+                      className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-slate-50/70 transition-colors select-none"
+                    >
+                      <div className="flex items-start sm:items-center gap-3 min-w-0">
+                        <div className={`p-2 rounded-xl shrink-0 ${quizAttempts.length > 0 ? 'bg-indigo-50 text-indigo-600 border border-indigo-200' : 'bg-slate-100 text-slate-400'}`}>
+                          <Layers className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-xs sm:text-sm font-bold text-slate-900 truncate">{q.title}</h4>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
+                              {q.topic || 'General'}
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                              {q.questions?.length || 0} Qs
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                            Pass Mark: {q.passingPercentage}% | Time: {q.timeLimitMinutes}m
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                        <div className="text-right">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold ${quizAttempts.length > 0 ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-500'}`}>
+                            {quizAttempts.length} Submissions
+                          </span>
+                          {quizAttempts.length > 0 && (
+                            <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                              Avg: {avgPct}% • Pass: {Math.round((passedCount / quizAttempts.length) * 100)}%
+                            </p>
+                          )}
+                        </div>
+                        <div className="p-1 rounded-lg text-slate-400 hover:text-slate-700">
+                          {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Expanded Content: Submissions under this exam */}
+                    {isExpanded && (
+                      <div className="bg-slate-50/70 border-t border-slate-200 p-4 space-y-3">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                          <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                            Candidate Submissions for "{q.title}" ({quizAttempts.length})
+                          </p>
+                          {quizAttempts.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteAllQuizAttempts(q.id, q.title, quizAttempts.length);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 border border-rose-200 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                              title="Permanently wipe all submissions for this exam"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Clear All ({quizAttempts.length}) Submissions</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {quizAttempts.length === 0 ? (
+                          <div className="p-6 text-center text-slate-400 text-xs font-medium bg-white rounded-xl border border-slate-200/80">
+                            No candidates have attempted this exam yet.
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {quizAttempts.map(r => (
+                              <div
+                                key={r.id}
+                                className="flex flex-col sm:flex-row sm:items-center justify-between bg-white rounded-xl border border-slate-200 px-4 py-3 shadow-2xs gap-3 hover:border-slate-300 transition-colors"
+                              >
+                                <div className="flex items-start sm:items-center gap-3 min-w-0">
+                                  <span className={`px-2.5 py-1 rounded-lg text-xs font-extrabold shrink-0 ${r.passed ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                                    {r.percentage}% {r.passed ? '✓ PASSED' : '✗ FAILED'}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-bold text-slate-900 text-xs">{r.candidateName}</span>
+                                      {r.candidateEmail && (
+                                        <span className="text-[11px] text-slate-400 font-mono">({r.candidateEmail})</span>
+                                      )}
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 font-medium">
+                                      Score: <strong>{r.score}</strong>/{r.maxScore} marks • Time Spent: {Math.floor((r.timeSpentSeconds || 0) / 60)}m {(r.timeSpentSeconds || 0) % 60}s • Attempted: {new Date(r.attemptedAt).toLocaleDateString()} at {new Date(r.attemptedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setViewingResult(r as QuizAttemptResult);
+                                    }}
+                                    className="px-2.5 py-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 border border-indigo-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                    title="View candidate's full question-by-question responses"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span>RESPONSES</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteResult(r.id, `${r.candidateName} (${q.title})`);
+                                    }}
+                                    className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 border border-rose-200 transition-all cursor-pointer"
+                                    title="Permanently delete this single attempt"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}
