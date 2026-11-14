@@ -602,7 +602,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                 {(() => {
                   const orderedOptions = [...q.options].sort((a, b) => String(a.id).localeCompare(String(b.id)));
                   return (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
+                    <div className="grid grid-cols-1 gap-2.5 pt-1">
                       {orderedOptions.map((opt) => {
                         const isMSQq = q.questionType === 'multiple_select';
                         const isCandidateChoice = isMSQq
