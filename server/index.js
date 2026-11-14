@@ -530,6 +530,8 @@ async function initDatabase() {
       `ALTER TABLE quizzes ADD COLUMN max_tab_switches INT DEFAULT 3;`,
       `ALTER TABLE visitor_logs ADD COLUMN visit_count INT DEFAULT 1;`,
       `ALTER TABLE visitor_logs ADD COLUMN duration_seconds INT DEFAULT 0;`,
+      `ALTER TABLE announcements ADD COLUMN category VARCHAR(50) DEFAULT 'bulletin';`,
+      `ALTER TABLE announcements ADD COLUMN show_timer TINYINT(1) DEFAULT 1;`,
     ];
 
     for (const alterSql of columnsToAdd) {
@@ -3238,7 +3240,7 @@ app.get('/api/admin/stats', async (req, res) => {
   }
 });
 
-// 4. Announcements
+// 4. Announcements & Bulletins
 app.get('/api/announcements', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM announcements ORDER BY created_at DESC');
@@ -3246,6 +3248,8 @@ app.get('/api/announcements', async (req, res) => {
       id: a.id,
       title: a.title,
       message: a.message,
+      category: a.category || 'bulletin',
+      showTimer: a.show_timer === 1 || a.show_timer === true,
       scheduledDateTime: a.scheduled_datetime,
       targetQuizId: a.target_quiz_id,
       isActive: Boolean(a.is_active),
@@ -3260,11 +3264,39 @@ app.post('/api/announcements', authenticateAdmin, async (req, res) => {
   try {
     const a = req.body;
     await pool.query(
-      `INSERT INTO announcements (id, title, message, scheduled_datetime, target_quiz_id, is_active, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [a.id, a.title, a.message, a.scheduledDateTime, a.targetQuizId, a.isActive ? 1 : 0, a.createdAt]
+      `INSERT INTO announcements (id, title, message, category, show_timer, scheduled_datetime, target_quiz_id, is_active, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         title = VALUES(title),
+         message = VALUES(message),
+         category = VALUES(category),
+         show_timer = VALUES(show_timer),
+         scheduled_datetime = VALUES(scheduled_datetime),
+         target_quiz_id = VALUES(target_quiz_id),
+         is_active = VALUES(is_active)`,
+      [
+        a.id,
+        a.title,
+        a.message,
+        a.category || 'bulletin',
+        a.showTimer === false ? 0 : 1,
+        a.scheduledDateTime || new Date().toISOString(),
+        a.targetQuizId || null,
+        a.isActive === false ? 0 : 1,
+        a.createdAt || new Date().toISOString()
+      ]
     );
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/announcements/:id/toggle', authenticateAdmin, async (req, res) => {
+  try {
+    const { isActive } = req.body;
+    await pool.query('UPDATE announcements SET is_active = ? WHERE id = ?', [isActive ? 1 : 0, req.params.id]);
+    res.json({ success: true, isActive: Boolean(isActive) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

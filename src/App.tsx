@@ -276,10 +276,24 @@ function MainAppContent() {
   };
 
   const handleSaveAnnouncement = (ann: Announcement) => {
-    const updated = [ann, ...announcements];
+    const existingIndex = announcements.findIndex(a => a.id === ann.id);
+    let updated: Announcement[];
+    if (existingIndex >= 0) {
+      updated = [...announcements];
+      updated[existingIndex] = ann;
+    } else {
+      updated = [ann, ...announcements];
+    }
     setAnnouncements(updated);
     localStorage.setItem(ANNOUNCEMENTS_KEY, JSON.stringify(updated));
     saveAnnouncementToCloud(ann);
+  };
+
+  const handleToggleAnnouncement = (id: string, nextActiveState: boolean) => {
+    const target = announcements.find(a => a.id === id);
+    if (!target) return;
+    const updated = { ...target, isActive: nextActiveState };
+    handleSaveAnnouncement(updated);
   };
 
   const handleDeleteAnnouncement = (id: string) => {

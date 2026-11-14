@@ -729,7 +729,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       defaultTab: 'banners',
       items: [
         { id: 'banners', label: 'Banners & Ads' },
-        { id: 'announcements', label: 'Notices', count: announcements.length },
+        { id: 'announcements', label: 'Bulletins & Notices', count: announcements.length },
         { id: 'emails', label: 'Email Campaigns' },
       ],
     },
