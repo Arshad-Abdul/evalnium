@@ -525,6 +525,7 @@ async function initDatabase() {
       `ALTER TABLE quizzes ADD COLUMN max_attempts INT DEFAULT 0;`,
       `ALTER TABLE quizzes ADD COLUMN allow_manual_early_move TINYINT(1) DEFAULT 0;`,
       `ALTER TABLE quizzes ADD COLUMN result_announcement_datetime VARCHAR(100) DEFAULT NULL;`,
+      `ALTER TABLE quizzes ADD COLUMN result_emails_sent TINYINT(1) DEFAULT 0;`,
       `ALTER TABLE quizzes ADD COLUMN max_tab_switches INT DEFAULT 3;`,
       `ALTER TABLE visitor_logs ADD COLUMN visit_count INT DEFAULT 1;`,
       `ALTER TABLE visitor_logs ADD COLUMN duration_seconds INT DEFAULT 0;`,
@@ -940,6 +941,58 @@ async function initDatabase() {
     }
 
     console.log(`✅ All MySQL Database Tables & Indexes (Banners, Discussions, Proctoring, Audit Logs) Verified & Ready!`);
+
+    // Automated periodic check for scheduled result announcement releases
+    setInterval(async () => {
+      if (!pool) return;
+      try {
+        const [dueQuizzes] = await pool.query(
+          'SELECT id, title, result_announcement_datetime FROM quizzes WHERE result_announcement_datetime IS NOT NULL AND result_announcement_datetime != "" AND (result_emails_sent IS NULL OR result_emails_sent = 0)'
+        );
+
+        const now = Date.now();
+        for (const q of dueQuizzes) {
+          const scheduledTime = new Date(q.result_announcement_datetime).getTime();
+          if (!isNaN(scheduledTime) && now >= scheduledTime) {
+            await pool.query('UPDATE quizzes SET result_emails_sent = 1 WHERE id = ?', [q.id]);
+
+            const [results] = await pool.query(
+              'SELECT DISTINCT candidate_email, candidate_name, score, max_score, percentage, passed, attempted_at FROM results WHERE quiz_id = ? AND candidate_email IS NOT NULL AND candidate_email != "" ORDER BY attempted_at DESC',
+              [q.id]
+            );
+
+            if (results.length > 0) {
+              const candidatesMap = new Map();
+              for (const r of results) {
+                const email = String(r.candidate_email).toLowerCase().trim();
+                if (!candidatesMap.has(email)) candidatesMap.set(email, r);
+              }
+
+              const candidates = Array.from(candidatesMap.values());
+              const appUrl = (process.env.APP_URL || process.env.FRONTEND_URL || 'https://evalnium.com').replace(/\/+$/, '');
+
+              for (const cand of candidates) {
+                try {
+                  await sendTemplatedEmail(cand.candidate_email, 'candidate_notice', {
+                    candidate_name: cand.candidate_name || 'Candidate',
+                    notice_title: `🎯 Result Announced: ${q.title}`,
+                    notice_content: `Your scorecard for "${q.title}" has been officially published.\n\nScore: ${cand.score} / ${cand.max_score} (${cand.percentage}%)\nResult: ${cand.passed ? 'PASSED ✓' : 'FAILED ✗'}\n\nYou can now log in to review your detailed question-by-question answer key, explanations, and download your Certificate at:\n${appUrl}`,
+                    action_url: `${appUrl}/#/dashboard`,
+                    action_button_text: 'View My Scorecard & Answers'
+                  });
+                  await new Promise(resolve => setTimeout(resolve, 80));
+                } catch (mailErr) {
+                  console.error(`Auto result dispatch failed for ${cand.candidate_email}:`, mailErr.message);
+                }
+              }
+              console.log(`[AUTO RESULT ANNOUNCEMENT] Dispatched scorecard emails to ${candidates.length} candidates for "${q.title}".`);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[AUTO RESULT DISPATCH ERROR]:', err.message);
+      }
+    }, 5 * 60 * 1000);
   } catch (err) {
     console.error('❌ Failed to initialize MySQL Database:', err);
   }
@@ -1798,10 +1851,10 @@ app.get('/api/quizzes', async (req, res) => {
         }
       }
 
-      const isPractice = Boolean(q.enable_practice_mode);
-      // Determine if questions should expose answer keys and rationale
-      // Admin always has access; non-admins only get answers/explanations if practice mode is explicitly active
-      const canExposeSolutions = isAdmin || isPractice;
+      // Solutions & answer rationales are provided for candidate scorecards & educational review.
+      // Only withheld if the quiz has a scheduled future result announcement date and caller is not an admin.
+      const isResultGated = q.result_announcement_datetime && Date.now() < new Date(q.result_announcement_datetime).getTime();
+      const canExposeSolutions = isAdmin || !isResultGated;
 
       // Do not leak question banks for locked (accessCode) or not-yet-started scheduled exams
       const unlockedIds = getUnlockedQuizIds(req);
@@ -2066,6 +2119,64 @@ app.post('/api/quizzes', authenticateAdmin, async (req, res) => {
     if (connection) {
       connection.release();
     }
+  }
+});
+
+// Dispatch Result Announcement Emails to candidates who attempted the exam
+app.post('/api/quizzes/:id/dispatch-results-email', authenticateAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [[quiz]] = await pool.query('SELECT * FROM quizzes WHERE id = ?', [id]);
+    if (!quiz) {
+      return res.status(404).json({ error: 'Quiz not found' });
+    }
+
+    const [results] = await pool.query(
+      'SELECT DISTINCT candidate_email, candidate_name, score, max_score, percentage, passed, attempted_at FROM results WHERE quiz_id = ? AND candidate_email IS NOT NULL AND candidate_email != "" ORDER BY attempted_at DESC',
+      [id]
+    );
+
+    if (results.length === 0) {
+      return res.json({ success: true, count: 0, message: 'No candidate submissions with email found for this exam.' });
+    }
+
+    // Deduplicate by email (keeping latest attempt)
+    const candidatesMap = new Map();
+    for (const r of results) {
+      const email = String(r.candidate_email).toLowerCase().trim();
+      if (!candidatesMap.has(email)) {
+        candidatesMap.set(email, r);
+      }
+    }
+
+    const candidates = Array.from(candidatesMap.values());
+    const appUrl = (process.env.APP_URL || process.env.FRONTEND_URL || 'https://evalnium.com').replace(/\/+$/, '');
+
+    // Fire dispatches in background
+    (async () => {
+      let dispatchedCount = 0;
+      for (const cand of candidates) {
+        try {
+          await sendTemplatedEmail(cand.candidate_email, 'candidate_notice', {
+            candidate_name: cand.candidate_name || 'Candidate',
+            notice_title: `🎯 Result Announced: ${quiz.title}`,
+            notice_content: `Your scorecard for "${quiz.title}" has been officially published.\n\nScore: ${cand.score} / ${cand.max_score} (${cand.percentage}%)\nResult: ${cand.passed ? 'PASSED ✓' : 'FAILED ✗'}\n\nYou can now log in to review your detailed question-by-question answer key, explanations, and download your Certificate at:\n${appUrl}`,
+            action_url: `${appUrl}/#/dashboard`,
+            action_button_text: 'View My Scorecard & Answers'
+          });
+          dispatchedCount++;
+          await new Promise(resolve => setTimeout(resolve, 80));
+        } catch (mailErr) {
+          console.error(`Failed to dispatch result email to ${cand.candidate_email}:`, mailErr.message);
+        }
+      }
+      console.log(`[RESULT EMAILS] Successfully delivered ${dispatchedCount} result notifications for "${quiz.title}".`);
+    })();
+
+    res.json({ success: true, count: candidates.length, message: `Dispatched result announcement emails to ${candidates.length} candidate(s).` });
+  } catch (err) {
+    console.error('Failed to dispatch result emails:', err);
+    res.status(500).json({ error: err.message || 'Server error' });
   }
 });
 

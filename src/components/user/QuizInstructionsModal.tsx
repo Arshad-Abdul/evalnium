@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import type { Quiz } from '../../types/quiz';
-import { Clock, HelpCircle, Award, ShieldAlert, Play, ArrowLeft, User, Trophy, RefreshCw, BookOpen } from 'lucide-react';
+import { 
+  Clock, HelpCircle, Award, ShieldAlert, Play, ArrowLeft, User, Trophy, RefreshCw, BookOpen,
+  AlertTriangle, RotateCcw, Calendar, Shield, FileCheck
+} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface QuizInstructionsModalProps {
@@ -37,16 +40,19 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4">
-      <div className="bg-white max-w-xl w-full p-5 sm:p-6 rounded-xl border border-slate-200 space-y-5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white max-w-2xl w-full p-5 sm:p-6 rounded-2xl border border-slate-200 space-y-5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 my-8">
         
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
           <div className="min-w-0">
-            <span className="text-[11px] font-mono font-semibold uppercase tracking-wide text-indigo-700">
+            <span className="text-[11px] font-mono font-semibold uppercase tracking-wide text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
               {quiz.topic}
             </span>
-            <h2 className="text-lg sm:text-xl font-bold text-slate-900 mt-1">{quiz.title}</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 mt-2">{quiz.title}</h2>
+            {quiz.description && (
+              <p className="text-xs text-slate-500 mt-1 line-clamp-2">{quiz.description}</p>
+            )}
           </div>
           <button
             type="button"
@@ -59,13 +65,15 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
         </div>
 
         {/* Quick Stats Strip */}
-        <div className="grid grid-cols-3 divide-x divide-slate-200 rounded-lg border border-slate-200 bg-slate-50/70">
+        <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 rounded-xl border border-slate-200 bg-slate-50/70">
           <div className="p-3 text-center">
             <div className="flex items-center justify-center gap-1 text-[11px] text-slate-500 font-medium">
               <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
-              <span>MCQs</span>
+              <span>Questions</span>
             </div>
-            <span className="block font-mono font-bold text-base sm:text-lg text-slate-900 mt-0.5 tabular-nums">{quiz.questionCount ?? quiz.questions.length}</span>
+            <span className="block font-mono font-bold text-base text-slate-900 mt-0.5 tabular-nums">
+              {quiz.questionCount ?? quiz.questions.length} MCQs
+            </span>
           </div>
 
           <div className="p-3 text-center">
@@ -73,7 +81,9 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
               <Clock className="w-3.5 h-3.5 text-slate-400" />
               <span>Duration</span>
             </div>
-            <span className="block font-mono font-bold text-base sm:text-lg text-slate-900 mt-0.5 tabular-nums">{quiz.timeLimitMinutes} min</span>
+            <span className="block font-mono font-bold text-base text-slate-900 mt-0.5 tabular-nums">
+              {quiz.timeLimitMinutes} Mins
+            </span>
           </div>
 
           <div className="p-3 text-center">
@@ -81,56 +91,128 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
               <Award className="w-3.5 h-3.5 text-slate-400" />
               <span>Pass Mark</span>
             </div>
-            <span className="block font-mono font-bold text-base sm:text-lg text-emerald-700 mt-0.5 tabular-nums">{quiz.passingPercentage}%</span>
+            <span className="block font-mono font-bold text-base text-emerald-700 mt-0.5 tabular-nums">
+              {quiz.passingPercentage}%
+            </span>
+          </div>
+
+          <div className="p-3 text-center">
+            <div className="flex items-center justify-center gap-1 text-[11px] text-slate-500 font-medium">
+              <AlertTriangle className="w-3.5 h-3.5 text-slate-400" />
+              <span>Negative Mark</span>
+            </div>
+            <span className={`block font-mono font-bold text-base mt-0.5 tabular-nums ${
+              quiz.negativeMarks ? 'text-rose-600' : 'text-slate-600'
+            }`}>
+              {quiz.negativeMarks ? `-${quiz.negativeMarks}` : 'None'}
+            </span>
           </div>
         </div>
 
-        {/* Exam Type Callout Rule */}
-        {quiz.quizType === 'live_contest' ? (
-          <div className="p-3.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-950 text-xs space-y-1">
-            <span className="font-bold text-amber-900 flex items-center gap-1.5 text-xs uppercase tracking-wide">
-              <Trophy className="w-3.5 h-3.5 text-amber-600" />
-              <span>Live Contest Exam · Strict Single Attempt</span>
-            </span>
-            <p className="text-amber-900/90 leading-relaxed">
-              You get <strong>1 attempt</strong>. Once submitted, your score is locked on the Leaderboard and retakes are disabled.
-            </p>
-          </div>
-        ) : (
-          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 text-xs flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-slate-500 shrink-0" />
-            <span><strong className="text-slate-900">Practice Exam:</strong> Unlimited attempts enabled with instant rationale review.</span>
-          </div>
-        )}
-
-        {/* Exam Rules & Instructions */}
-        <div className="space-y-2 text-xs text-slate-600 bg-slate-50/70 p-4 rounded-lg border border-slate-200">
-          <h4 className="font-bold text-slate-900 flex items-center gap-1.5 text-xs uppercase tracking-wide mb-2">
-            <ShieldAlert className="w-4 h-4 text-slate-600" />
-            <span>CBT Examination Rules</span>
+        {/* Configured Exam Settings & Rules Grid */}
+        <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200 space-y-3">
+          <h4 className="font-bold text-slate-900 flex items-center gap-1.5 text-xs uppercase tracking-wide">
+            <ShieldAlert className="w-4 h-4 text-indigo-600" />
+            <span>Configured Exam Rules & Policies</span>
           </h4>
-          <ul className="space-y-1.5 list-disc list-inside text-slate-600 text-xs">
-            <li>The exam countdown timer begins as soon as you click <strong>Begin Test Now</strong>.</li>
-            <li>Each question has 4 choices with 1 correct option.</li>
-            {quiz.negativeMarks ? <li className="text-rose-700 font-semibold">Negative Marking: -{quiz.negativeMarks} marks deducted for incorrect answers.</li> : null}
-            <li>Use the Question Palette on the right to navigate between questions.</li>
-            <li>Automatic submission will occur when the timer reaches zero.</li>
-            <li>Your scorecard and answer rationale will be generated immediately upon submission.</li>
-          </ul>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+            {/* Timing Mode */}
+            <div className="p-2.5 rounded-lg bg-white border border-slate-200/90 flex items-start gap-2">
+              <Clock className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-slate-800 block">Timing Rule</span>
+                <span className="text-slate-600 text-[11px]">
+                  {quiz.timingMode === 'sectional' 
+                    ? `Sectional Timed (${quiz.sectionalConfig?.length || 2} Sections)` 
+                    : quiz.timingMode === 'question' 
+                      ? `Per-Question Timer (${quiz.questionTimeLimitSeconds || 60}s / MCQ)`
+                      : 'Full Paper Timer (Flexible Navigation)'}
+                </span>
+              </div>
+            </div>
+
+            {/* Attempts Policy */}
+            <div className="p-2.5 rounded-lg bg-white border border-slate-200/90 flex items-start gap-2">
+              <RotateCcw className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-slate-800 block">Retakes & Attempts</span>
+                <span className="text-slate-600 text-[11px]">
+                  {quiz.quizType === 'live_contest' 
+                    ? 'Strict Single Attempt (Live Contest)' 
+                    : quiz.maxAttempts && quiz.maxAttempts > 0 
+                      ? `Maximum ${quiz.maxAttempts} Attempt${quiz.maxAttempts === 1 ? '' : 's'} Allowed` 
+                      : 'Unlimited Practice Retakes Allowed'}
+                </span>
+              </div>
+            </div>
+
+            {/* Anti-Cheating Proctoring */}
+            <div className="p-2.5 rounded-lg bg-white border border-slate-200/90 flex items-start gap-2">
+              <Shield className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-slate-800 block">Anti-Cheating Guard</span>
+                <span className="text-slate-600 text-[11px]">
+                  {quiz.enableAntiCheating 
+                    ? `Active Proctoring (Max ${quiz.maxTabSwitches || 3} Tab Switches)`
+                    : 'Standard Browser Mode'}
+                </span>
+              </div>
+            </div>
+
+            {/* Result Announcement */}
+            <div className="p-2.5 rounded-lg bg-white border border-slate-200/90 flex items-start gap-2">
+              <Calendar className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-slate-800 block">Scorecard & Key</span>
+                <span className="text-slate-600 text-[11px]">
+                  {quiz.resultAnnouncementDateTime 
+                    ? `Announced on ${new Date(quiz.resultAnnouncementDateTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} at ${new Date(quiz.resultAnnouncementDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                    : 'Instant Scorecard, Rank & Explanations on submit'}
+                </span>
+              </div>
+            </div>
+
+            {/* Assessment Mode */}
+            <div className="p-2.5 rounded-lg bg-white border border-slate-200/90 flex items-start gap-2">
+              <BookOpen className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-slate-800 block">Assessment Mode</span>
+                <span className="text-slate-600 text-[11px]">
+                  {quiz.enablePracticeMode 
+                    ? 'Instant Practice Mode (Explanations during test)' 
+                    : 'Formal CBT Examination Simulation'}
+                </span>
+              </div>
+            </div>
+
+            {/* Certificate */}
+            <div className="p-2.5 rounded-lg bg-white border border-slate-200/90 flex items-start gap-2">
+              <FileCheck className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-slate-800 block">Certificate of Merit</span>
+                <span className="text-slate-600 text-[11px]">
+                  {quiz.enableCertificate !== false 
+                    ? `Verifiable Practice Certificate upon scoring ≥ ${quiz.passingPercentage}%`
+                    : 'Scorecard Only (No Certificate)'}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Candidate Name Input */}
         <div>
           <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 mb-1.5">
             <User className="w-3.5 h-3.5 text-slate-500" />
-            <span>Candidate Name</span>
+            <span>Candidate Name (Appears on Scorecard & Certificate)</span>
           </label>
           <input
             type="text"
             value={candidateName}
             onChange={(e) => setCandidateName(e.target.value)}
             placeholder="Enter your name..."
-            className="w-full px-3 py-2.5 rounded-lg bg-white border border-slate-200 text-slate-900 font-medium text-sm focus:border-slate-400 focus:outline-none"
+            className="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 font-medium text-sm focus:border-indigo-500 focus:outline-none"
           />
         </div>
 
@@ -139,7 +221,7 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
           <button
             type="button"
             onClick={onCancel}
-            className="w-1/3 py-2.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold text-xs transition-colors cursor-pointer"
+            className="w-1/3 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold text-xs transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -147,10 +229,10 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
           <button
             type="button"
             onClick={() => onStartExam(candidateName || 'Candidate')}
-            className={`w-2/3 py-2.5 rounded-lg text-white font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer ${
+            className={`w-2/3 py-2.5 rounded-xl text-white font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-md ${
               isResuming 
-                ? 'bg-amber-600 hover:bg-amber-700' 
-                : 'bg-slate-900 hover:bg-slate-800'
+                ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20' 
+                : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'
             }`}
           >
             {isResuming ? (
@@ -160,8 +242,8 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
               </>
             ) : (
               <>
-                <Play className="w-3.5 h-3.5 fill-white" />
-                <span>Begin Test Now</span>
+                <Play className="w-4 h-4 text-white" />
+                <span>Begin Examination Now</span>
               </>
             )}
           </button>

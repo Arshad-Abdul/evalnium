@@ -486,6 +486,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setActiveSubTab('manage');
   };
 
+  const [dispatchingResultId, setDispatchingResultId] = useState<string | null>(null);
+
+  const handleDispatchResultEmails = async (quiz: Quiz) => {
+    if (!window.confirm(`Do you want to send result scorecard notification emails to all candidates who attempted "${quiz.title}"?`)) {
+      return;
+    }
+    setDispatchingResultId(quiz.id);
+    try {
+      const res = await fetch(`/api/quizzes/${quiz.id}/dispatch-results-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`✅ Result emails successfully dispatched to ${data.count || 0} candidate(s)!`);
+      } else {
+        alert(`❌ Failed to dispatch result emails: ${data.error || 'Server error'}`);
+      }
+    } catch (err: any) {
+      alert(`❌ Network error while dispatching emails: ${err.message}`);
+    } finally {
+      setDispatchingResultId(null);
+    }
+  };
+
   const handleEditQuizClick = (quiz: Quiz) => {
     const parseRes: ParseResult = {
       existingQuizId: quiz.id,
@@ -2344,6 +2370,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     >
                       <Edit className="w-3.5 h-3.5 text-indigo-600" />
                       <span>Edit Quiz</span>
+                    </button>
+
+                    {/* Email Results to Candidates Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleDispatchResultEmails(quiz)}
+                      disabled={dispatchingResultId === quiz.id}
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 hover:border-indigo-300 flex items-center gap-1 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                      title="Email results scorecard notification to all candidates who attempted this exam"
+                    >
+                      <Mail className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>{dispatchingResultId === quiz.id ? 'Sending...' : 'Email Results'}</span>
                     </button>
 
                     {/* Explicit Status Badge & Publish/Unpublish Action */}

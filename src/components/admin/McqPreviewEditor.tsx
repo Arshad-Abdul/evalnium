@@ -40,7 +40,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [passingPercentage, setPassingPercentage] = useState(parseResult.passingPercentage ?? 60);
   const [negativeMarks, setNegativeMarks] = useState<number>(parseResult.negativeMarks ?? 0.25);
   const [shuffleQuestions, setShuffleQuestions] = useState(parseResult.shuffleQuestions ?? true);
-  const [shuffleOptions, setShuffleOptions] = useState(parseResult.shuffleOptions ?? true);
+  const [shuffleOptions, setShuffleOptions] = useState(parseResult.shuffleOptions ?? false);
   const [enablePracticeMode, setEnablePracticeMode] = useState(parseResult.enablePracticeMode ?? false);
   const [quizType, setQuizType] = useState<'practice' | 'live_contest'>(parseResult.quizType || 'practice');
   const [scheduledStartDateTime, setScheduledStartDateTime] = useState<string>(parseResult.scheduledStartDateTime || '');
@@ -71,7 +71,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [preventEarlyNextQuestion, setPreventEarlyNextQuestion] = useState(parseResult.preventEarlyNextQuestion ?? false);
   const [questionViewMode, setQuestionViewMode] = useState<'both' | 'single_only' | 'all_only'>(parseResult.questionViewMode || 'both');
   const [allowManualEarlyMove, setAllowManualEarlyMove] = useState(parseResult.allowManualEarlyMove ?? false);
-  const [notifyCandidates, setNotifyCandidates] = useState<boolean>(true);
+  const [notifyCandidates, setNotifyCandidates] = useState<boolean>(false);
 
 
   // Section type with both auto-range and manual question pick support

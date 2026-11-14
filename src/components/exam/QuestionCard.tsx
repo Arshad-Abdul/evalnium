@@ -238,9 +238,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             { id: 'D', text: 'Option D' }
           ];
 
+        // Ensure options always display in neat alphabetical order (A, B, C, D) without jumbled badges
+        const orderedOptions = [...safeOptions].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+
         return (
           <div className="grid grid-cols-1 gap-2.5 pt-1">
-            {safeOptions.map((opt) => {
+            {orderedOptions.map((opt) => {
               const isMSQ = question.questionType === 'multiple_select';
               const isSelected = isMSQ
                 ? (userAnswer?.selectedOptionIds || []).includes(opt.id)

@@ -62,15 +62,9 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 
   const activeQuestions = React.useMemo(() => {
     let prepared = quiz.questions.map(q => {
-      if (quiz.shuffleOptions && q.options.length > 0) {
-        const shuffled = [...q.options];
-        for (let i = shuffled.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-        }
-        return { ...q, options: shuffled };
-      }
-      return q;
+      // Maintain strict, consistent authored alphabetical order (A, B, C, D) so numbering and answer keys never scramble
+      const orderedOpts = [...(q.options || [])].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+      return { ...q, options: orderedOpts };
     });
 
     if (quiz.shuffleQuestions && prepared.length > 0) {

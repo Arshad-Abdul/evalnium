@@ -599,59 +599,64 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                 )}
 
                 {/* Option Choices Status Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
-                  {q.options.map((opt) => {
-                    const isMSQq = q.questionType === 'multiple_select';
-                    const isCandidateChoice = isMSQq
-                      ? selectedOptIds.includes(opt.id)
-                      : selectedOptId === opt.id;
-                    const correctIds = q.correctOptionIds || [q.correctOptionId];
-                    const isRightAnswer = correctIds.includes(opt.id);
-                    const hindiOptText = autoHindiMap[q.id]?.options?.[opt.id];
+                {(() => {
+                  const orderedOptions = [...q.options].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
+                      {orderedOptions.map((opt) => {
+                        const isMSQq = q.questionType === 'multiple_select';
+                        const isCandidateChoice = isMSQq
+                          ? selectedOptIds.includes(opt.id)
+                          : selectedOptId === opt.id;
+                        const correctIds = q.correctOptionIds || (q.correctOptionId ? [q.correctOptionId] : []);
+                        const isRightAnswer = correctIds.includes(opt.id);
+                        const hindiOptText = autoHindiMap[q.id]?.options?.[opt.id];
 
-                    let optStyle = 'bg-slate-50 border-slate-200 text-slate-700';
+                        let optStyle = 'bg-slate-50 border-slate-200 text-slate-700';
 
-                    if (isRightAnswer) {
-                      optStyle = 'bg-emerald-50 border-emerald-400 text-emerald-950 font-medium';
-                    } else if (isCandidateChoice && !isRightAnswer) {
-                      optStyle = 'bg-rose-50 border-rose-300 text-rose-950';
-                    }
+                        if (isRightAnswer) {
+                          optStyle = 'bg-emerald-50 border-emerald-400 text-emerald-950 font-medium';
+                        } else if (isCandidateChoice && !isRightAnswer) {
+                          optStyle = 'bg-rose-50 border-rose-300 text-rose-950';
+                        }
 
-                    return (
-                      <div
-                        key={opt.id}
-                        className={`p-2.5 rounded border flex items-center justify-between text-xs transition-colors ${optStyle}`}
-                      >
-                        <div className="flex items-center space-x-2.5">
-                          <span className={`w-5 h-5 rounded font-mono font-bold text-xs flex items-center justify-center flex-shrink-0 ${isRightAnswer
-                              ? 'bg-emerald-600 text-white'
-                              : isCandidateChoice
-                                ? 'bg-rose-600 text-white'
-                                : 'bg-slate-200 text-slate-700'
-                            }`}>
-                            {opt.id}
-                          </span>
-                          <div className="flex flex-col text-left">
-                            <span className="font-medium">
-                              {languageMode === 'hi' && hindiOptText ? hindiOptText : opt.text}
-                            </span>
-                            {languageMode === 'dual' && hindiOptText && hindiOptText !== opt.text && (
-                              <span className="text-[11px] text-slate-500 pt-0.5">
-                                {hindiOptText}
+                        return (
+                          <div
+                            key={opt.id}
+                            className={`p-2.5 rounded border flex items-center justify-between text-xs transition-colors ${optStyle}`}
+                          >
+                            <div className="flex items-center space-x-2.5">
+                              <span className={`w-5 h-5 rounded font-mono font-bold text-xs flex items-center justify-center flex-shrink-0 ${isRightAnswer
+                                  ? 'bg-emerald-600 text-white'
+                                  : isCandidateChoice
+                                    ? 'bg-rose-600 text-white'
+                                    : 'bg-slate-200 text-slate-700'
+                                }`}>
+                                {opt.id}
+                              </span>
+                              <div className="flex flex-col text-left">
+                                <span className="font-medium">
+                                  {languageMode === 'hi' && hindiOptText ? hindiOptText : opt.text}
+                                </span>
+                                {languageMode === 'dual' && hindiOptText && hindiOptText !== opt.text && (
+                                  <span className="text-[11px] text-slate-500 pt-0.5">
+                                    {hindiOptText}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {isCandidateChoice && (
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white border border-slate-300 text-slate-700 flex-shrink-0">
+                                Candidate Choice
                               </span>
                             )}
                           </div>
-                        </div>
-
-                        {isCandidateChoice && (
-                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white border border-slate-300 text-slate-700 flex-shrink-0">
-                            Candidate Choice
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
 
                 {/* Explanation Box */}
                 <div className="p-3 rounded bg-slate-50 border border-slate-200 text-xs space-y-1">
@@ -661,7 +666,13 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                   </span>
                   <div className="text-slate-700 leading-relaxed space-y-1">
                     {(() => {
-                      const defaultExp = `Option (${q.correctOptionId}): "${q.options.find(o => o.id === q.correctOptionId)?.text || ''}" is the correct answer according to standard key.`;
+                      const effectiveCorrectId = q.correctOptionId || q.correctOptionIds?.[0] || '';
+                      const matchedOpt = effectiveCorrectId ? q.options.find(o => o.id === effectiveCorrectId) : null;
+                      const defaultExp = matchedOpt
+                        ? `Option (${effectiveCorrectId}): "${matchedOpt.text}" is the correct answer according to standard key.`
+                        : effectiveCorrectId
+                          ? `Option (${effectiveCorrectId}) is the correct answer according to standard key.`
+                          : 'Official answer key recorded in examination database.';
                       const rawExp = q.explanation || defaultExp;
                       const hindiExp = q.explanationHindi || autoHindiMap[q.id]?.explanation;
 

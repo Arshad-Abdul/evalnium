@@ -13,10 +13,12 @@ import {
   Lock,
   Menu,
   X,
+  Info,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { AuthModal } from './auth/AuthModal';
 import { EditProfileModal } from './auth/EditProfileModal';
+import { AboutModal } from './common/AboutModal';
 import { EvalniumLogo } from './brand/EvalniumLogo';
 
 interface NavbarProps {
@@ -41,6 +43,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { currentUser, logoutCandidate } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState<boolean>(false);
+  const [showAboutModal, setShowAboutModal] = useState<boolean>(false);
   const [showUserDropdown, setShowUserDropdown] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [clockString, setClockString] = useState<string>('');
@@ -186,6 +189,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {!currentUser && !isAdminAuthenticated && (
                   <Lock className="w-3 h-3 text-slate-400 shrink-0" />
                 )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAboutModal(true)}
+                className="px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                title="About Evalnium Portal & Features"
+              >
+                <Info className="w-4 h-4 text-indigo-500" />
+                <span>About</span>
               </button>
 
               {isAdminVisible && (
@@ -427,6 +440,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                   )}
                 </button>
 
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setShowAboutModal(true);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Info className="w-4 h-4 text-indigo-500" />
+                    <span>About Evalnium</span>
+                  </span>
+                </button>
+
                 {onOpenRevisionHub && (
                   <button
                     type="button"
@@ -537,9 +564,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       )}
 
-      {/* Authentication & Profile Modals */}
+      {/* Authentication, Profile & About Modals */}
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       <EditProfileModal isOpen={showEditProfileModal} onClose={() => setShowEditProfileModal(false)} />
+      <AboutModal isOpen={showAboutModal} onClose={() => setShowAboutModal(false)} />
     </>
   );
 };
