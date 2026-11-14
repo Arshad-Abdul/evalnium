@@ -4,6 +4,7 @@ import type { Announcement } from './types/announcement';
 import {
   getStoredQuizzes,
   saveQuiz,
+  toggleQuizPublishInCloud,
   deleteQuiz,
   getStoredResults,
   saveResult,
@@ -259,11 +260,19 @@ function MainAppContent() {
     refreshDataFromMySQL();
   };
 
-  const handleTogglePublish = (quiz: Quiz) => {
-    const updatedQuiz = { ...quiz, isPublished: !quiz.isPublished };
-    const updated = saveQuiz(updatedQuiz);
-    setQuizzes(updated);
-    refreshDataFromMySQL();
+  const handleTogglePublish = async (quiz: Quiz) => {
+    const nextState = !quiz.isPublished;
+    const updatedQuiz = { ...quiz, isPublished: nextState };
+
+    // 1. Immediate optimistic UI update
+    setQuizzes(prev => prev.map(q => q.id === quiz.id ? updatedQuiz : q));
+    saveQuiz(updatedQuiz);
+
+    // 2. Persist directly to MySQL in background
+    await toggleQuizPublishInCloud(quiz.id, nextState);
+
+    // 3. Re-sync from MySQL cleanly
+    await refreshDataFromMySQL();
   };
 
   const handleSaveAnnouncement = (ann: Announcement) => {

@@ -107,6 +107,21 @@ export function saveQuiz(quiz: Quiz): Quiz[] {
   return updated;
 }
 
+export async function toggleQuizPublishInCloud(id: string, isPublished: boolean): Promise<boolean> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/quizzes/${id}/publish`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ isPublished }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('❌ Failed to toggle publish status in cloud:', err);
+    return false;
+  }
+}
+
 export function deleteQuiz(id: string): Quiz[] {
   const quizzes = getStoredQuizzes();
   const updated = quizzes.filter(q => q.id !== id);

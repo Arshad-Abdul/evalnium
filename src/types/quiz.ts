@@ -113,6 +113,8 @@ export interface QuizAttemptResult {
 
 export interface ParseResult {
   existingQuizId?: string;
+  isPublished?: boolean;
+  createdAt?: string;
   title?: string;
   description?: string;
   topic?: string;

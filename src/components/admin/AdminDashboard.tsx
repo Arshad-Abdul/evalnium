@@ -9,7 +9,7 @@ import { AuditLogsManager } from './AuditLogsManager';
 import { CandidateResponseModal } from './CandidateResponseModal';
 import { EmailManager } from './EmailManager';
 import { ConfirmModal } from '../common/ConfirmModal';
-import { Plus, Trash2, FileDown, Layers, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, Trophy, LogOut, Globe, Radio, Laptop, Smartphone, Monitor, ShieldCheck, UserCheck, Search, Filter, RefreshCw, Compass, MapPin, Download, Image as ImageIcon, BarChart2, Calendar, TrendingUp, History, Terminal, Mail, Phone, Briefcase, Building2, GraduationCap } from 'lucide-react';
+import { Plus, Trash2, FileDown, Layers, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, EyeOff, Trophy, LogOut, Globe, Radio, Laptop, Smartphone, Monitor, ShieldCheck, UserCheck, Search, Filter, RefreshCw, Compass, MapPin, Download, Image as ImageIcon, BarChart2, Calendar, TrendingUp, History, Terminal, Mail, Phone, Briefcase, Building2, GraduationCap } from 'lucide-react';
 import { getStoredResults } from '../../utils/storage';
 
 interface AdminDashboardProps {
@@ -489,6 +489,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleEditQuizClick = (quiz: Quiz) => {
     const parseRes: ParseResult = {
       existingQuizId: quiz.id,
+      isPublished: quiz.isPublished,
+      createdAt: quiz.createdAt,
       title: quiz.title,
       description: quiz.description,
       topic: quiz.topic,
@@ -2344,15 +2346,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <span>Edit Quiz</span>
                     </button>
 
-                    <button
-                      onClick={() => onTogglePublish(quiz)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${quiz.isPublished
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                        : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
-                        }`}
-                    >
-                      {quiz.isPublished ? 'Published' : 'Draft'}
-                    </button>
+                    {/* Explicit Status Badge & Publish/Unpublish Action */}
+                    {quiz.isPublished ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          Live
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onTogglePublish(quiz)}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-amber-50 text-amber-700 hover:text-amber-800 border border-amber-300 hover:border-amber-400 flex items-center gap-1 transition-all shadow-sm cursor-pointer"
+                          title="Unpublish this exam: hides it from students immediately"
+                        >
+                          <EyeOff className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Unpublish</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                          Draft
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onTogglePublish(quiz)}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1 transition-all shadow-sm cursor-pointer"
+                          title="Publish this exam: makes it live in the student catalog"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-white" />
+                          <span>Publish</span>
+                        </button>
+                      </div>
+                    )}
 
                     <button
                       onClick={() => handleExportJSON(quiz)}

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import type { ParsedQuestion, ParseResult, Quiz, DifficultyLevel } from '../../types/quiz';
 import { translateToHindi } from '../../utils/translator';
 import { getStoredQuizzes } from '../../utils/storage';
-import { Mail, Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages } from 'lucide-react';
+import { Mail, Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages, Eye, EyeOff } from 'lucide-react';
 
 
 interface McqPreviewEditorProps {
@@ -46,6 +46,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [scheduledStartDateTime, setScheduledStartDateTime] = useState<string>(parseResult.scheduledStartDateTime || '');
   const [scheduledEndDateTime, setScheduledEndDateTime] = useState<string>(parseResult.scheduledEndDateTime || '');
   const [defaultLanguageMode, setDefaultLanguageMode] = useState<'en' | 'hi' | 'dual'>(parseResult.defaultLanguageMode || 'en');
+  const [isPublished, setIsPublished] = useState<boolean>(parseResult.isPublished ?? true);
 
   // --- Privacy & Access Controls ---
   const [accessCode, setAccessCode] = useState<string>(parseResult.accessCode || '');
@@ -257,9 +258,9 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
     setQuestions([...questions, newQ]);
   };
 
-  const handlePublish = () => {
+  const handlePublish = (targetPublished: boolean = isPublished) => {
     if (questions.length === 0) {
-      alert('Quiz must have at least 1 question before publishing.');
+      alert('Quiz must have at least 1 question before saving.');
       return;
     }
 
@@ -280,8 +281,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       scheduledStartDateTime: scheduledStartDateTime || undefined,
       scheduledEndDateTime: scheduledEndDateTime || undefined,
       defaultLanguageMode,
-      isPublished: true,
-      createdAt: new Date().toISOString(),
+      isPublished: targetPublished,
+      createdAt: parseResult.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       author: 'Admin Importer',
 
@@ -432,11 +433,23 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
           </button>
 
           <button
-            onClick={handlePublish}
-            className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center space-x-2 transition-all"
+            type="button"
+            onClick={() => handlePublish(false)}
+            className="px-4 py-2 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold flex items-center space-x-1.5 transition-all shadow-xs cursor-pointer"
+            title="Save as Draft: hidden from students in candidate catalog"
           >
-            <Save className="w-4 h-4" />
-            <span>Publish Quiz to Candidate Portal</span>
+            <EyeOff className="w-4 h-4 text-amber-600" />
+            <span>Save as Draft (Unpublished)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handlePublish(true)}
+            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center space-x-1.5 transition-all cursor-pointer"
+            title="Publish: make live immediately in student catalog"
+          >
+            <Eye className="w-4 h-4" />
+            <span>Publish to Portal (Live)</span>
           </button>
         </div>
       </div>
@@ -447,6 +460,47 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
           <Layers className="w-5 h-5 text-indigo-600" />
           <span>Quiz Information & Advanced Controls</span>
         </h3>
+
+        {/* Publication Status Control */}
+        <div className="flex flex-wrap items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200 gap-3">
+          <div className="flex items-center space-x-2.5">
+            <span className="text-xs font-bold text-slate-700">Exam Visibility:</span>
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
+              isPublished 
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${isPublished ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`}></span>
+              {isPublished ? 'Published (Live for Students)' : 'Draft (Hidden from Students)'}
+            </span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => setIsPublished(true)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer ${
+                isPublished
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Published</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsPublished(false)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer ${
+                !isPublished
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              <EyeOff className="w-3.5 h-3.5" />
+              <span>Draft (Unpublished)</span>
+            </button>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -1649,11 +1703,23 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
           Cancel & Back
         </button>
         <button
-          onClick={handlePublish}
-          className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center space-x-2 transition-all"
+          type="button"
+          onClick={() => handlePublish(false)}
+          className="px-4 py-2.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold flex items-center space-x-1.5 transition-all shadow-xs cursor-pointer"
+          title="Save as Draft: hidden from students in candidate catalog"
         >
-          <Save className="w-4 h-4" />
-          <span>Publish Quiz to Candidate Portal</span>
+          <EyeOff className="w-4 h-4 text-amber-600" />
+          <span>Save as Draft (Unpublished)</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handlePublish(true)}
+          className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center space-x-2 transition-all cursor-pointer"
+          title="Publish: make live immediately in student catalog"
+        >
+          <Eye className="w-4 h-4" />
+          <span>Publish to Portal (Live)</span>
         </button>
       </div>
     </div>

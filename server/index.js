@@ -1925,6 +1925,27 @@ app.post('/api/quizzes/:id/verify-access', quizAccessLimiter, async (req, res) =
   }
 });
 
+// Fast atomic toggle for quiz publishing / unpublishing
+app.patch('/api/quizzes/:id/publish', authenticateAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { isPublished } = req.body;
+  try {
+    const pubVal = isPublished ? 1 : 0;
+    const updatedAt = new Date().toISOString();
+    const [result] = await pool.query(
+      'UPDATE quizzes SET is_published = ?, updated_at = ? WHERE id = ?',
+      [pubVal, updatedAt, id]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Quiz not found' });
+    }
+    return res.json({ success: true, id, isPublished: Boolean(pubVal), updatedAt });
+  } catch (err) {
+    console.error('Error toggling quiz publish status:', err);
+    return res.status(500).json({ error: err.message || 'Failed to update publish status' });
+  }
+});
+
 app.post('/api/quizzes', authenticateAdmin, async (req, res) => {
   let connection;
   try {
