@@ -501,14 +501,17 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
       />
 
       {/* Live AI Proctoring Radar & Anti-Cheating Monitor */}
-      <div className="flex justify-end">
-        <ProctoringMonitor
-          quizId={quiz.id}
-          candidateName={candidateName}
-          candidateEmail={currentUser?.email}
-          enableCameraProctoring={quiz.enableAntiCheating !== false}
-        />
-      </div>
+      {Boolean(quiz.enableAntiCheating) && (
+        <div className="flex justify-end">
+          <ProctoringMonitor
+            quizId={quiz.id}
+            candidateName={candidateName}
+            candidateEmail={currentUser?.email}
+            enabled={Boolean(quiz.enableAntiCheating)}
+            enableCameraProctoring={Boolean(quiz.enableAntiCheating)}
+          />
+        </div>
+      )}
 
       {/* Anti-Cheating Tab Switch Warning Banner */}
       {showAntiCheatWarning && (

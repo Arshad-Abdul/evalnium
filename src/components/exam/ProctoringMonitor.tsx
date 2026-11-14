@@ -5,6 +5,7 @@ interface ProctoringMonitorProps {
   quizId: string;
   candidateName: string;
   candidateEmail?: string;
+  enabled?: boolean;
   enableCameraProctoring?: boolean;
   onViolationAlert?: (message: string) => void;
 }
@@ -13,9 +14,16 @@ export const ProctoringMonitor: React.FC<ProctoringMonitorProps> = ({
   quizId,
   candidateName,
   candidateEmail,
+  enabled = true,
   enableCameraProctoring = true,
   onViolationAlert,
 }) => {
+  // If anti-cheating / proctoring is disabled for this quiz, completely disable component and listeners
+  const isEnabled = Boolean(enabled);
+  if (!isEnabled) {
+    return null;
+  }
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -33,9 +41,9 @@ export const ProctoringMonitor: React.FC<ProctoringMonitorProps> = ({
 
   const sessionId = useRef(`proc_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`).current;
 
-  // Initialize Camera Stream if supported
+  // Initialize Camera Stream if supported and enabled
   useEffect(() => {
-    if (!enableCameraProctoring) return;
+    if (!isEnabled || !enableCameraProctoring) return;
 
     let localStream: MediaStream | null = null;
     navigator.mediaDevices
@@ -108,6 +116,8 @@ export const ProctoringMonitor: React.FC<ProctoringMonitorProps> = ({
 
   // Window Blur & Tab Switch Listeners
   useEffect(() => {
+    if (!isEnabled) return;
+
     const handleVisibilityChange = () => {
       if (document.hidden) {
         logViolation('TAB_SWITCH', 'Candidate switched away from the active examination browser tab.');
