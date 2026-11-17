@@ -532,6 +532,8 @@ async function initDatabase() {
       `ALTER TABLE visitor_logs ADD COLUMN duration_seconds INT DEFAULT 0;`,
       `ALTER TABLE announcements ADD COLUMN category VARCHAR(50) DEFAULT 'bulletin';`,
       `ALTER TABLE announcements ADD COLUMN show_timer TINYINT(1) DEFAULT 1;`,
+      `ALTER TABLE announcements ADD COLUMN show_date TINYINT(1) DEFAULT 1;`,
+      `ALTER TABLE announcements ADD COLUMN show_time TINYINT(1) DEFAULT 1;`,
     ];
 
     for (const alterSql of columnsToAdd) {
@@ -3250,6 +3252,8 @@ app.get('/api/announcements', async (req, res) => {
       message: a.message,
       category: a.category || 'bulletin',
       showTimer: a.show_timer === 1 || a.show_timer === true,
+      showDate: a.show_date === null || a.show_date === undefined ? true : (a.show_date === 1 || a.show_date === true),
+      showTime: a.show_time === null || a.show_time === undefined ? true : (a.show_time === 1 || a.show_time === true),
       scheduledDateTime: a.scheduled_datetime,
       targetQuizId: a.target_quiz_id,
       isActive: Boolean(a.is_active),
@@ -3264,13 +3268,15 @@ app.post('/api/announcements', authenticateAdmin, async (req, res) => {
   try {
     const a = req.body;
     await pool.query(
-      `INSERT INTO announcements (id, title, message, category, show_timer, scheduled_datetime, target_quiz_id, is_active, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO announcements (id, title, message, category, show_timer, show_date, show_time, scheduled_datetime, target_quiz_id, is_active, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          title = VALUES(title),
          message = VALUES(message),
          category = VALUES(category),
          show_timer = VALUES(show_timer),
+         show_date = VALUES(show_date),
+         show_time = VALUES(show_time),
          scheduled_datetime = VALUES(scheduled_datetime),
          target_quiz_id = VALUES(target_quiz_id),
          is_active = VALUES(is_active)`,
@@ -3279,7 +3285,9 @@ app.post('/api/announcements', authenticateAdmin, async (req, res) => {
         a.title,
         a.message,
         a.category || 'bulletin',
-        a.showTimer === false ? 0 : 1,
+        a.showTimer ? 1 : 0,
+        a.showDate === false ? 0 : 1,
+        a.showTime === false ? 0 : 1,
         a.scheduledDateTime || new Date().toISOString(),
         a.targetQuizId || null,
         a.isActive === false ? 0 : 1,

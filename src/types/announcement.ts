@@ -6,6 +6,8 @@ export interface Announcement {
   message: string;
   category?: AnnouncementCategory; // 'bulletin' | 'exam' | 'notice' | 'alert'
   showTimer?: boolean; // Live countdown timer for upcoming scheduled exams/notices
+  showDate?: boolean; // Display date stamp on banner (defaults to true)
+  showTime?: boolean; // Display time stamp on banner (defaults to true)
   scheduledDateTime: string; // ISO string e.g. "2026-08-10T10:00:00"
   targetQuizId?: string;
   targetTopic?: string;

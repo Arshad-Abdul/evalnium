@@ -24,7 +24,9 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [category, setCategory] = useState<AnnouncementCategory>('bulletin');
-  const [showTimer, setShowTimer] = useState(true);
+  const [showTimer, setShowTimer] = useState(false);
+  const [showDate, setShowDate] = useState(true);
+  const [showTime, setShowTime] = useState(true);
   const [scheduledDateTime, setScheduledDateTime] = useState('');
   const [targetQuizId, setTargetQuizId] = useState('');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -37,7 +39,9 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
   const [editTitle, setEditTitle] = useState('');
   const [editMessage, setEditMessage] = useState('');
   const [editCategory, setEditCategory] = useState<AnnouncementCategory>('bulletin');
-  const [editShowTimer, setEditShowTimer] = useState(true);
+  const [editShowTimer, setEditShowTimer] = useState(false);
+  const [editShowDate, setEditShowDate] = useState(true);
+  const [editShowTime, setEditShowTime] = useState(true);
   const [editScheduledDateTime, setEditScheduledDateTime] = useState('');
   const [editTargetQuizId, setEditTargetQuizId] = useState('');
   const [editIsActive, setEditIsActive] = useState(true);
@@ -64,7 +68,9 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
     setEditTitle(ann.title);
     setEditMessage(ann.message);
     setEditCategory(ann.category || 'bulletin');
-    setEditShowTimer(ann.showTimer ?? true);
+    setEditShowTimer(Boolean(ann.showTimer));
+    setEditShowDate(ann.showDate !== false);
+    setEditShowTime(ann.showTime !== false);
     setEditScheduledDateTime(toDatetimeLocal(ann.scheduledDateTime));
     setEditTargetQuizId(ann.targetQuizId || '');
     setEditIsActive(ann.isActive);
@@ -83,7 +89,9 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
       title: editTitle.trim(),
       message: editMessage.trim(),
       category: editCategory,
-      showTimer: editCategory === 'exam' ? editShowTimer : (editScheduledDateTime ? editShowTimer : false),
+      showTimer: editShowTimer,
+      showDate: editShowDate,
+      showTime: editShowTime,
       scheduledDateTime: effectiveScheduleTime,
       targetQuizId: editTargetQuizId || undefined,
       isActive: editIsActive,
@@ -109,7 +117,9 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
       title: title.trim(),
       message: message.trim(),
       category,
-      showTimer: category === 'exam' ? showTimer : (scheduledDateTime ? showTimer : false),
+      showTimer,
+      showDate,
+      showTime,
       scheduledDateTime: effectiveScheduleTime,
       targetQuizId: targetQuizId || undefined,
       isActive: true, // Published by default
@@ -122,7 +132,9 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
     setMessage('');
     setScheduledDateTime('');
     setTargetQuizId('');
-    setShowTimer(true);
+    setShowTimer(category === 'exam');
+    setShowDate(true);
+    setShowTime(true);
 
     setTimeout(() => setSuccessMsg(null), 3500);
   };
@@ -263,7 +275,12 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
                 <button
                   type="button"
                   key={item.id}
-                  onClick={() => setCategory(item.id)}
+                  onClick={() => {
+                    setCategory(item.id);
+                    if (item.id === 'exam') {
+                      setShowTimer(true);
+                    }
+                  }}
                   className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                     isSelected
                       ? 'border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-500/20 shadow-xs'
@@ -338,28 +355,65 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
           />
         </div>
 
-        {/* Link to Exam & Countdown Checkbox */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-slate-700">
-              Direct Link to Quiz / Exam (Optional)
-            </label>
-            <select
-              value={targetQuizId}
-              onChange={(e) => setTargetQuizId(e.target.value)}
-              className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo-600 shadow-2xs font-medium bg-white"
-            >
-              <option value="">-- No Direct Link (Display Notice Only) --</option>
-              {quizzes.map((q) => (
-                <option key={q.id} value={q.id}>
-                  {q.title} ({q.topic || 'General'})
-                </option>
-              ))}
-            </select>
+        {/* Direct Link to Quiz / Exam */}
+        <div className="space-y-1.5 pt-1">
+          <label className="block text-xs font-bold text-slate-700">
+            Direct Link to Quiz / Exam (Optional)
+          </label>
+          <select
+            value={targetQuizId}
+            onChange={(e) => setTargetQuizId(e.target.value)}
+            className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo-600 shadow-2xs font-medium bg-white"
+          >
+            <option value="">-- No Direct Link (Display Notice Only) --</option>
+            {quizzes.map((q) => (
+              <option key={q.id} value={q.id}>
+                {q.title} ({q.topic || 'General'})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Banner Display & Timing Controls (Available for all 4 Announcement categories) */}
+        <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <span>⚙️ Banner Display &amp; Timing Controls</span>
+            </span>
+            <span className="text-[10px] text-slate-500 font-mono">Applies to all announcement types</span>
           </div>
 
-          <div className="flex flex-col justify-end">
-            <label className="flex items-center space-x-2.5 p-2.5 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-100/70 transition-all cursor-pointer">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Show Date Checkbox */}
+            <label className="flex items-center space-x-2.5 p-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-all cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showDate}
+                onChange={(e) => setShowDate(e.target.checked)}
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+              />
+              <div className="text-xs">
+                <span className="font-bold text-slate-800 block">📅 Show Date</span>
+                <span className="text-[10px] text-slate-500 font-medium">e.g. 14 Nov</span>
+              </div>
+            </label>
+
+            {/* Show Time Checkbox */}
+            <label className="flex items-center space-x-2.5 p-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-all cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showTime}
+                onChange={(e) => setShowTime(e.target.checked)}
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+              />
+              <div className="text-xs">
+                <span className="font-bold text-slate-800 block">🕒 Show Time</span>
+                <span className="text-[10px] text-slate-500 font-medium">e.g. 07:41 PM</span>
+              </div>
+            </label>
+
+            {/* Show Countdown Timer Checkbox */}
+            <label className="flex items-center space-x-2.5 p-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-all cursor-pointer">
               <input
                 type="checkbox"
                 checked={showTimer}
@@ -367,11 +421,17 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
                 className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
               />
               <div className="text-xs">
-                <span className="font-bold text-slate-800">Show Live Countdown Timer</span>
-                <p className="text-[10px] text-slate-500">Ticks down dynamically until the scheduled date arrives</p>
+                <span className="font-bold text-slate-800 block">⏳ Live Countdown</span>
+                <span className="text-[10px] text-slate-500 font-medium">Ticks down to start time</span>
               </div>
             </label>
           </div>
+
+          {!showDate && !showTime && (
+            <p className="text-[11px] text-indigo-700 bg-indigo-50 p-2 rounded-lg border border-indigo-100 font-medium">
+              💡 Date and time stamps will be completely hidden from the student banner (perfect for permanent/evergreen bulletins).
+            </p>
+          )}
         </div>
 
         {/* Submit */}
@@ -480,10 +540,17 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
                       )}
 
                       {/* Timer Enabled Indicator */}
-                      {ann.showTimer && isFuture && (
+                      {ann.showTimer && (
                         <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-mono font-bold flex items-center space-x-1">
-                          <Clock className="w-3 h-3 text-amber-600 animate-spin" style={{ animationDuration: '6s' }} />
-                          <span>Countdown Active</span>
+                          <Clock className={`w-3 h-3 text-amber-600 ${isFuture ? 'animate-spin' : ''}`} style={{ animationDuration: '6s' }} />
+                          <span>Countdown {isFuture ? 'Active' : 'Passed'}</span>
+                        </span>
+                      )}
+
+                      {/* Date / Time Visibility Indicator */}
+                      {ann.showDate === false && ann.showTime === false && (
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200 text-[10px] font-mono font-semibold">
+                          Timestamp Hidden on Banner
                         </span>
                       )}
 
@@ -497,14 +564,16 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
                     </p>
 
                     <div className="flex flex-wrap items-center gap-4 text-[11px] font-mono text-slate-500 pt-0.5">
-                      <span className="flex items-center space-x-1 text-slate-700">
+                      <span className={`flex items-center space-x-1 ${ann.showDate === false ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
                         <Calendar className="w-3.5 h-3.5 text-slate-400" />
                         <span>{schedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        {ann.showDate === false && <span className="text-[9px] font-mono no-underline text-amber-600 bg-amber-50 px-1 rounded ml-1">Hidden</span>}
                       </span>
 
-                      <span className="flex items-center space-x-1 text-slate-600">
+                      <span className={`flex items-center space-x-1 ${ann.showTime === false ? 'text-slate-400 line-through' : 'text-slate-600'}`}>
                         <Clock className="w-3.5 h-3.5 text-slate-400" />
                         <span>{schedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        {ann.showTime === false && <span className="text-[9px] font-mono no-underline text-amber-600 bg-amber-50 px-1 rounded ml-1">Hidden</span>}
                       </span>
 
                       {linkedQuiz && (
@@ -680,27 +749,52 @@ export const AnnouncementManager: React.FC<AnnouncementManagerProps> = ({
                 </div>
               </div>
 
-              {/* Timer Checkbox & Status */}
-              <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={editShowTimer}
-                    onChange={(e) => setEditShowTimer(e.target.checked)}
-                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span>Show Live Countdown Timer</span>
-                </label>
+              {/* Banner Display Controls in Edit Modal */}
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <span className="text-xs font-bold text-slate-800 block">Banner Display &amp; Timing Options:</span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <label className="flex items-center gap-2 p-2 rounded-lg border border-slate-200 bg-slate-50 cursor-pointer text-xs font-medium text-slate-800 hover:bg-slate-100 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={editShowDate}
+                      onChange={(e) => setEditShowDate(e.target.checked)}
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span>📅 Show Date</span>
+                  </label>
 
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={editIsActive}
-                    onChange={(e) => setEditIsActive(e.target.checked)}
-                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
-                  />
-                  <span>Published Live (Visible on Portal)</span>
-                </label>
+                  <label className="flex items-center gap-2 p-2 rounded-lg border border-slate-200 bg-slate-50 cursor-pointer text-xs font-medium text-slate-800 hover:bg-slate-100 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={editShowTime}
+                      onChange={(e) => setEditShowTime(e.target.checked)}
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span>🕒 Show Time</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 p-2 rounded-lg border border-slate-200 bg-slate-50 cursor-pointer text-xs font-medium text-slate-800 hover:bg-slate-100 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={editShowTimer}
+                      onChange={(e) => setEditShowTimer(e.target.checked)}
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span>⏳ Countdown</span>
+                  </label>
+                </div>
+
+                <div className="pt-1.5 flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={editIsActive}
+                      onChange={(e) => setEditIsActive(e.target.checked)}
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span>Published Live (Visible on Portal)</span>
+                  </label>
+                </div>
               </div>
 
               {/* Action Buttons */}
