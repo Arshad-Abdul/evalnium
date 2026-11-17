@@ -627,6 +627,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       preventEarlyNextSection: quiz.preventEarlyNextSection,
       preventPreviousQuestionReturn: quiz.preventPreviousQuestionReturn,
       preventEarlyNextQuestion: quiz.preventEarlyNextQuestion,
+      preventQuestionCopy: quiz.preventQuestionCopy,
       questionViewMode: quiz.questionViewMode || 'both',
       allowManualEarlyMove: quiz.allowManualEarlyMove,
       sectionalConfig: quiz.sectionalConfig?.map(sec => ({
@@ -639,6 +640,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       questions: quiz.questions.map((q, idx) => ({
         tempId: q.id || `q_${idx}`,
         questionText: q.questionText,
+        passage: q.passage,
         questionEnglish: q.questionEnglish,
         questionHindi: q.questionHindi,
         options: q.options,

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { Quiz } from '../../types/quiz';
 import { 
   Clock, HelpCircle, Award, ShieldAlert, Play, ArrowLeft, User, Trophy, RefreshCw, BookOpen,
-  AlertTriangle, RotateCcw, Calendar, Shield, FileCheck, Shuffle, Globe, CheckCircle2
+  AlertTriangle, RotateCcw, Calendar, Shield, FileCheck, Shuffle, Globe, CheckCircle2, Lock
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -264,7 +264,7 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
               </div>
 
               {/* 11. Certificate of Merit */}
-              <div className="p-2.5 rounded-lg bg-white border border-slate-200/90 flex items-start gap-2 sm:col-span-2">
+              <div className="p-2.5 rounded-lg bg-white border border-slate-200/90 flex items-start gap-2">
                 <FileCheck className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-bold text-slate-800 block">Certificate of Merit</span>
@@ -272,6 +272,19 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
                     {quiz.enableCertificate !== false && hasPassingCutoff 
                       ? `Verifiable Digital Educational Certificate upon scoring ≥ ${quiz.passingPercentage}%` 
                       : 'Scorecard & Performance Analytics Only (No Certificate issued)'}
+                  </span>
+                </div>
+              </div>
+
+              {/* 12. Content Protection / Anti-Piracy Guard */}
+              <div className="p-2.5 rounded-lg bg-white border border-slate-200/90 flex items-start gap-2">
+                <Lock className={`w-4 h-4 shrink-0 mt-0.5 ${quiz.preventQuestionCopy !== false ? 'text-indigo-600' : 'text-slate-400'}`} />
+                <div>
+                  <span className="font-bold text-slate-800 block">Anti-Piracy Guard</span>
+                  <span className="text-slate-600 text-[11px] leading-relaxed">
+                    {quiz.preventQuestionCopy !== false 
+                      ? 'Protected Content (Question copying & selection disabled)' 
+                      : 'Standard Flexible (Text selection enabled)'}
                   </span>
                 </div>
               </div>

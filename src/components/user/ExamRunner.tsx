@@ -218,6 +218,48 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     };
   }, [quiz.enableAntiCheating, quiz.maxTabSwitches, handleForceSubmit]);
 
+  // Anti-Piracy Content Protection Guard: block text copying, right-click, cut, and key shortcuts
+  useEffect(() => {
+    if (quiz.preventQuestionCopy === false) return;
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      return false;
+    };
+
+    const handleCopyCut = (e: ClipboardEvent) => {
+      e.preventDefault();
+      return false;
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isModifier = e.ctrlKey || e.metaKey;
+      if (
+        (isModifier && ['c', 'x', 'u', 's', 'p', 'a'].includes(e.key.toLowerCase())) ||
+        e.key === 'F12'
+      ) {
+        const target = e.target as HTMLElement;
+        const isInputField = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
+        if (!isInputField || ['u', 's', 'p'].includes(e.key.toLowerCase()) || e.key === 'F12') {
+          e.preventDefault();
+          return false;
+        }
+      }
+    };
+
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('copy', handleCopyCut);
+    document.addEventListener('cut', handleCopyCut);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('copy', handleCopyCut);
+      document.removeEventListener('cut', handleCopyCut);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [quiz.preventQuestionCopy]);
+
   // Save progress & userAnswers to LocalStorage on state update
   useEffect(() => {
     try {
@@ -492,7 +534,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
   const reviewCount = Object.values(userAnswers).filter(a => a.isMarkedForReview).length;
 
   return (
-    <div className="min-h-[92vh] flex flex-col justify-between space-y-4 sm:space-y-6">
+    <div className={`min-h-[92vh] flex flex-col justify-between space-y-4 sm:space-y-6 ${quiz.preventQuestionCopy !== false ? 'select-none' : ''}`}>
       
       {/* Exam Header */}
       <ExamHeader

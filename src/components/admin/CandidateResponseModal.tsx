@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Check, XCircle, MinusCircle, AlertCircle } from 'lucide-react';
+import { X, Check, XCircle, MinusCircle, AlertCircle, BookOpen } from 'lucide-react';
 import type { Quiz, QuizAttemptResult } from '../../types/quiz';
 
 interface CandidateResponseModalProps {
@@ -115,6 +115,17 @@ export const CandidateResponseModal: React.FC<CandidateResponseModalProps> = ({ 
 
               {/* Question Content */}
               <div className="p-4 space-y-4">
+                {q.passage && (
+                  <div className="rounded-xl border border-blue-200/90 bg-blue-50/60 p-3 space-y-1.5 shadow-2xs">
+                    <div className="flex items-center space-x-2 text-xs font-bold text-blue-950 uppercase">
+                      <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Reading Comprehension Passage</span>
+                    </div>
+                    <div className="text-xs text-slate-800 leading-relaxed font-serif max-h-48 overflow-y-auto pr-2 custom-scrollbar whitespace-pre-line border border-blue-100/60 rounded-lg p-2.5 bg-white/80">
+                      {q.passage}
+                    </div>
+                  </div>
+                )}
                 <p className="text-sm font-semibold text-slate-800 whitespace-pre-wrap">{q.questionText}</p>
                 {q.imageUrl && <img src={q.imageUrl} alt="Question Graphic" className="max-h-48 rounded-lg border border-slate-200" />}
 

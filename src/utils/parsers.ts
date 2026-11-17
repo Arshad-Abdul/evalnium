@@ -141,6 +141,82 @@ export function detectAndExtractMatchFollowing(rawText: string): MatchFollowingE
   return null;
 }
 
+export interface ComprehensionPassageExtraction {
+  passage: string;
+  question: string;
+}
+
+/**
+ * Deduplicate repeated passage content (often happens when copied across PDF page boundaries e.g. "28 | Page")
+ */
+function deduplicatePassage(text: string): string {
+  const halfLen = Math.floor(text.length / 2);
+  for (let len = halfLen; len > 40; len--) {
+    const chunk = text.substring(0, len).trim();
+    const secondIndex = text.indexOf(chunk, len - 20);
+    if (secondIndex !== -1 && secondIndex < len + 80) {
+      return text.substring(0, secondIndex).trim();
+    }
+  }
+  return text;
+}
+
+/**
+ * Automatically detects Reading Comprehension passages and isolates the reading passage from the question prompt.
+ * Handles UGC-NET, NTA, Bank PO, and CTET formats.
+ */
+export function extractComprehensionPassage(rawText: string): ComprehensionPassageExtraction | null {
+  if (!rawText) return null;
+  const text = rawText.trim();
+
+  const compPrefixRegex = /^(?:Comprehension\s*:?\s*)?Read the (?:following )?passage (?:carefully )?and answer the question(?:s)?(?:\s*given below)?\s*:?\s*/i;
+  const isComp = compPrefixRegex.test(text) || 
+    /^(?:Directions?\s*:?\s*)?Read the (?:following )?passage/i.test(text) || 
+    /^(?:गद्यांश|निर्देश)\s*:?\s*(?:निम्नलिखित\s*)?गद्यांश को पढ़कर/i.test(text) ||
+    /\b(?:Comprehension\s*:?\s*)?Read the (?:following )?passage/i.test(text);
+
+  if (!isComp) return null;
+
+  let body = text.replace(compPrefixRegex, '').trim();
+  // Strip PDF header/footer artifacts e.g. "28 | P age", "30 | Page", "Page 28 of 50"
+  body = body.replace(/\b\d+\s*\|\s*P\s*age\b/gi, '')
+             .replace(/\b\d+\s*\|\s*Page\b/gi, '')
+             .replace(/\b\d+\s*I\s*P\s*age\b/gi, '')
+             .replace(/\bPage\s*\d+\s*(?:of\s*\d+)?\b/gi, '')
+             .trim();
+
+  // Strip any internal repeated "Comprehension: Read the following passage..." headers
+  body = body.replace(/(?:Comprehension\s*:?\s*)?Read the (?:following )?passage (?:carefully )?and answer the question(?:s)?(?:\s*given below)?\s*:?\s*/gi, ' ').trim();
+
+  // Find question prompt at the end
+  const qMarkIndex = body.lastIndexOf('?');
+  if (qMarkIndex !== -1) {
+    const textBeforeQ = body.substring(0, qMarkIndex);
+    const match = textBeforeQ.match(/(?:(?<=[.!?])\s+|^)(What|Why|How|Which|Where|When|Who|Whom|Whose|According to|Based on|Considering|In the light of|The author|In the passage|Select the|Identify the|उपर्युक्त|गद्यांश के अनुसार|लेखक के अनुसार)[^.!?]*$/i);
+    if (match && match.index !== undefined) {
+      let passage = body.substring(0, match.index).trim();
+      const question = body.substring(match.index).trim();
+      passage = deduplicatePassage(passage);
+      if (passage && question) {
+        return { passage, question };
+      }
+    }
+  }
+
+  // Fallback if no question mark at end: split at last sentence if last sentence looks like a question starter
+  const lastPeriodIndex = body.lastIndexOf('.');
+  if (lastPeriodIndex !== -1 && lastPeriodIndex < body.length - 15) {
+    const candidateQ = body.substring(lastPeriodIndex + 1).trim();
+    if (/^(?:What|Why|How|Which|According|Based|Considering|Identify|Select)/i.test(candidateQ)) {
+      let passage = body.substring(0, lastPeriodIndex + 1).trim();
+      passage = deduplicatePassage(passage);
+      return { passage, question: candidateQ };
+    }
+  }
+
+  return null;
+}
+
 /**
  * Universal Smart Text Parser for Questions & Answers
  */
@@ -301,11 +377,21 @@ export function parsePlainText(text: string): ParseResult {
       listII = matchData.listII;
     }
 
+    // Auto-detect reading comprehension passage if present
+    const compData = extractComprehensionPassage(effectiveQText || effectiveQEng || '');
+    let passage: string | undefined = undefined;
+    if (compData) {
+      passage = compData.passage;
+      effectiveQText = compData.question;
+      if (effectiveQEng) effectiveQEng = compData.question;
+    }
+
     if (questionText && (options.length >= 2 || isValid)) {
       questions.push({
         tempId: `parsed_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
         questionText: effectiveQText,
         questionEnglish: effectiveQEng,
+        passage,
         questionHindi,
         questionType: qType,
         listI,
@@ -468,10 +554,20 @@ export function parseCSV(csvContent: string): ParseResult {
         listII = matchData.listII;
       }
 
+      // Smart Auto-Detection for Reading Comprehension Passage
+      const compData = extractComprehensionPassage(effectiveQuestionText || effectiveQuestionEnglish || '');
+      let passage: string | undefined = undefined;
+      if (compData) {
+        passage = compData.passage;
+        effectiveQuestionText = compData.question;
+        if (effectiveQuestionEnglish) effectiveQuestionEnglish = compData.question;
+      }
+
       if (effectiveQuestionText || safeOptions.length >= 1) {
         questions.push({
           tempId: `csv_${idx}_${Date.now()}`,
           questionText: effectiveQuestionText || `Question ${idx + 1}`,
+          passage,
           questionEnglish: effectiveQuestionEnglish || (effectiveQuestionText && !questionHindi ? effectiveQuestionText : undefined),
           questionHindi: questionHindi || undefined,
           questionType,
@@ -552,10 +648,19 @@ export function parseCSV(csvContent: string): ParseResult {
           listII = matchData.listII;
         }
 
+        // Smart Auto-Detection for Reading Comprehension Passage
+        const compData = extractComprehensionPassage(effectiveQText);
+        let passage: string | undefined = undefined;
+        if (compData) {
+          passage = compData.passage;
+          effectiveQText = compData.question;
+        }
+
         if (effectiveQText && opts.length >= 2) {
           questions.push({
             tempId: `csv_pos_${i}_${Date.now()}`,
             questionText: effectiveQText,
+            passage,
             questionType,
             listI,
             listII,

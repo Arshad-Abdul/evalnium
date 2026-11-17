@@ -143,6 +143,19 @@ export const RevisionHubModal: React.FC<RevisionHubModalProps> = ({ isOpen, onCl
                   </div>
                 </div>
 
+                {/* Reading Comprehension Passage */}
+                {q.passage && (
+                  <div className="my-2 rounded-xl border border-blue-200/90 bg-gradient-to-br from-blue-50/70 via-indigo-50/30 to-white p-3 space-y-1.5 shadow-2xs">
+                    <div className="flex items-center space-x-2 text-xs font-bold text-blue-950 uppercase">
+                      <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Reading Comprehension Passage</span>
+                    </div>
+                    <div className="text-xs text-slate-800 leading-relaxed font-serif max-h-48 overflow-y-auto pr-2 custom-scrollbar whitespace-pre-line border border-blue-100/60 rounded-lg p-2.5 bg-white/80">
+                      {q.passage}
+                    </div>
+                  </div>
+                )}
+
                 <h4 className="font-bold text-slate-900 text-sm leading-snug whitespace-pre-line">{q.questionText}</h4>
 
                 {/* Question Image / Diagram */}

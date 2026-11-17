@@ -10,6 +10,7 @@ export interface Option {
 export interface Question {
   id: string;
   questionText: string;
+  passage?: string; // Optional reading comprehension passage / case study text
   questionEnglish?: string;
   questionHindi?: string;
   options: Option[];
@@ -75,7 +76,7 @@ export interface Quiz {
   preventEarlyNextQuestion?: boolean;
   questionViewMode?: 'both' | 'single_only' | 'all_only';
   allowManualEarlyMove?: boolean; // Allow candidate to manually finish section early & move to next (but cannot return)
-
+  preventQuestionCopy?: boolean; // Anti-piracy guard: disables question text selection, copying, and right-click during exam
 
   notifyCandidates?: boolean; // If true, triggers new_exam_alert email broadcast to all candidates upon publishing
 
@@ -154,6 +155,7 @@ export interface ParseResult {
   maxTabSwitches?: number;
   resultAnnouncementDateTime?: string;
   autoEmailResults?: boolean;
+  preventQuestionCopy?: boolean;
 
   questions: ParsedQuestion[];
   errors: string[];
@@ -163,6 +165,7 @@ export interface ParseResult {
 export interface ParsedQuestion {
   tempId?: string;
   questionText: string;
+  passage?: string;
   questionEnglish?: string;
   questionHindi?: string;
   options: Option[];

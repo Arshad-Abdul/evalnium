@@ -2,8 +2,8 @@ import React, { useMemo, useState } from 'react';
 import type { ParsedQuestion, ParseResult, Quiz, DifficultyLevel } from '../../types/quiz';
 import { translateToHindi } from '../../utils/translator';
 import { getStoredQuizzes } from '../../utils/storage';
-import { detectAndExtractMatchFollowing, healMatchOption } from '../../utils/parsers';
-import { Mail, Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages, Eye, EyeOff } from 'lucide-react';
+import { detectAndExtractMatchFollowing, healMatchOption, extractComprehensionPassage } from '../../utils/parsers';
+import { Mail, Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages, Eye, EyeOff, BookOpen, Lock } from 'lucide-react';
 
 
 interface McqPreviewEditorProps {
@@ -73,6 +73,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [preventEarlyNextQuestion, setPreventEarlyNextQuestion] = useState(parseResult.preventEarlyNextQuestion ?? false);
   const [questionViewMode, setQuestionViewMode] = useState<'both' | 'single_only' | 'all_only'>(parseResult.questionViewMode || 'both');
   const [allowManualEarlyMove, setAllowManualEarlyMove] = useState(parseResult.allowManualEarlyMove ?? false);
+  const [preventQuestionCopy, setPreventQuestionCopy] = useState<boolean>(parseResult.preventQuestionCopy ?? true);
   const [notifyCandidates, setNotifyCandidates] = useState<boolean>(false);
 
 
@@ -127,6 +128,16 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       let qType = q.questionType;
       let qText = q.questionText;
       let qEng = q.questionEnglish;
+      let passage = q.passage;
+
+      if (!passage) {
+        const comp = extractComprehensionPassage(qText || qEng || '');
+        if (comp) {
+          passage = comp.passage;
+          qText = comp.question;
+          if (qEng) qEng = comp.question;
+        }
+      }
 
       if (!listI || listI.every(x => !x)) {
         const extracted = detectAndExtractMatchFollowing(qText || qEng || '');
@@ -142,6 +153,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       return {
         ...q,
         questionText: qText,
+        passage,
         questionEnglish: qEng,
         questionType: qType || 'mcq',
         listI,
@@ -151,6 +163,24 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       };
     });
   });
+
+  const handleAutoExtractPassage = (qId?: string) => {
+    if (!qId) return;
+    const targetQ = questions.find(item => item.tempId === qId);
+    if (!targetQ) return;
+    const raw = targetQ.questionText || targetQ.questionEnglish || '';
+    const extracted = extractComprehensionPassage(raw);
+    if (extracted) {
+      setQuestions(prev => prev.map(item => item.tempId === qId ? {
+        ...item,
+        passage: extracted.passage,
+        questionText: extracted.question,
+        questionEnglish: extracted.question,
+      } : item));
+    } else {
+      alert('Could not automatically isolate a reading passage from the question text. You can click "+ Add Passage" to paste or enter the passage text manually.');
+    }
+  };
 
   const handleAutoExtractMatchLists = (qId?: string) => {
     if (!qId) return;
@@ -353,6 +383,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       preventEarlyNextQuestion,
       questionViewMode,
       allowManualEarlyMove,
+      preventQuestionCopy,
       notifyCandidates,
       sectionalConfig: (() => {
         // Build sequential auto-ranges for 'auto' sections; use manual picks for 'manual' sections
@@ -377,6 +408,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       questions: questions.map((q, idx) => ({
         id: q.tempId || `q_${idx + 1}_${Date.now()}`,
         questionText: q.questionText,
+        passage: q.passage,
         questionEnglish: q.questionEnglish,
         questionHindi: q.questionHindi,
         options: (q.options && q.options.length >= 2) ? q.options : [
@@ -786,6 +818,25 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                 type="checkbox"
                 checked={enableAntiCheating}
                 onChange={(e) => setEnableAntiCheating(e.target.checked)}
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+              />
+            </label>
+
+            {/* Anti-Piracy Question Copy Protection */}
+            <label className="p-3 rounded-xl bg-white border border-slate-200 flex items-center justify-between cursor-pointer hover:border-slate-300">
+              <div>
+                <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-indigo-600" />
+                  🔒 Prevent Question Copying (Anti-Piracy Guard)
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium block">
+                  Disables text selection, copy shortcuts, and right-click during exam
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={preventQuestionCopy}
+                onChange={(e) => setPreventQuestionCopy(e.target.checked)}
                 className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
               />
             </label>
@@ -1557,19 +1608,78 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               </button>
             </div>
 
+            {/* Reading Comprehension Passage (Optional / Case Study) */}
+            {q.passage !== undefined && (
+              <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900">
+                    <BookOpen className="w-4 h-4 text-blue-600" />
+                    <span>📖 Reading Comprehension Passage / Case Study</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, passage: undefined } : item));
+                    }}
+                    className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold"
+                  >
+                    Remove Passage
+                  </button>
+                </div>
+                <textarea
+                  rows={4}
+                  value={q.passage}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, passage: val } : item));
+                  }}
+                  placeholder="Paste or edit the comprehension passage / case study text here..."
+                  className="w-full p-2.5 rounded-lg bg-white border border-blue-200 text-slate-800 text-xs font-serif leading-relaxed focus:border-blue-500 focus:outline-none"
+                />
+                <p className="text-[10px] text-blue-600 font-medium">
+                  💡 This passage will be displayed in a dedicated, scrollable reading pane for the candidate during the CBT exam.
+                </p>
+              </div>
+            )}
+
             {/* Question Text Field & Image Attachment URL */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <span className="text-xs font-bold text-slate-700">Question Text (English / Primary):</span>
-                <button
-                  type="button"
-                  onClick={() => handleAutoTranslateQuestion(q.tempId || '')}
-                  className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold flex items-center space-x-1.5 transition-all shadow-2xs"
-                  title="Automatically generate Hindi translation"
-                >
-                  <Languages className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Translate to Hindi ✨</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  {q.passage === undefined && (
+                    <button
+                      type="button"
+                      onClick={() => handleAutoExtractPassage(q.tempId)}
+                      className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-xs font-bold flex items-center space-x-1.5 transition-all shadow-2xs"
+                      title="Auto-isolate reading passage from question statement"
+                    >
+                      <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Extract Passage 📖</span>
+                    </button>
+                  )}
+                  {q.passage === undefined && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, passage: '' } : item));
+                      }}
+                      className="text-[11px] font-bold text-slate-500 hover:text-indigo-600 flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Add Passage</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleAutoTranslateQuestion(q.tempId || '')}
+                    className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold flex items-center space-x-1.5 transition-all shadow-2xs"
+                    title="Automatically generate Hindi translation"
+                  >
+                    <Languages className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Translate to Hindi ✨</span>
+                  </button>
+                </div>
               </div>
 
               <textarea

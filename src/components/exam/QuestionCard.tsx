@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Question, UserAnswer } from '../../types/quiz';
 import { translateToHindi } from '../../utils/translator';
-import { Bookmark, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { Bookmark, Clock, CheckCircle2, XCircle, BookOpen } from 'lucide-react';
 import { AudioPlayerButton } from '../common/AudioPlayerButton';
 
 interface QuestionCardProps {
@@ -155,6 +155,24 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           )}
         </div>
       </div>
+
+      {/* Reading Comprehension Passage / Case Study */}
+      {question.passage && (
+        <div className="rounded-xl border border-blue-200/90 bg-gradient-to-br from-blue-50/70 via-indigo-50/30 to-white p-4 shadow-2xs space-y-2.5">
+          <div className="flex items-center justify-between pb-2 border-b border-blue-200/70">
+            <div className="flex items-center space-x-2 text-xs font-bold text-blue-950 tracking-wide uppercase">
+              <BookOpen className="w-4 h-4 text-blue-600" />
+              <span>Reading Comprehension Passage</span>
+            </div>
+            <span className="text-[11px] font-semibold text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-full">
+              Read carefully & answer below
+            </span>
+          </div>
+          <div className="text-xs sm:text-sm text-slate-800 leading-relaxed font-serif max-h-64 overflow-y-auto pr-2 custom-scrollbar whitespace-pre-line select-text border border-blue-100/60 rounded-lg p-3 bg-white/80">
+            {question.passage}
+          </div>
+        </div>
+      )}
 
       {/* Question Statement Content */}
       <div className="py-1">
