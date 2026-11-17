@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import type { ParsedQuestion, ParseResult, Quiz, DifficultyLevel } from '../../types/quiz';
 import { translateToHindi } from '../../utils/translator';
 import { getStoredQuizzes } from '../../utils/storage';
+import { detectAndExtractMatchFollowing, healMatchOption } from '../../utils/parsers';
 import { Mail, Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages, Eye, EyeOff } from 'lucide-react';
 
 
@@ -110,19 +111,66 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
 
   const [questions, setQuestions] = useState<ParsedQuestion[]>(() => {
     return parseResult.questions.map((q) => {
-      const opts = (q.options && q.options.length > 0) ? q.options : [
+      // Auto-heal any option that lost its 'A-' in match combinations e.g. "III, B-III, C-I, D-IV"
+      const opts = (q.options && q.options.length > 0) ? q.options.map(o => ({
+        ...o,
+        text: healMatchOption(o.text)
+      })) : [
         { id: 'A', text: '' },
         { id: 'B', text: '' },
         { id: 'C', text: '' },
         { id: 'D', text: '' },
       ];
+
+      let listI = q.listI;
+      let listII = q.listII;
+      let qType = q.questionType;
+      let qText = q.questionText;
+      let qEng = q.questionEnglish;
+
+      if (!listI || listI.every(x => !x)) {
+        const extracted = detectAndExtractMatchFollowing(qText || qEng || '');
+        if (extracted) {
+          qType = 'match_following';
+          listI = extracted.listI;
+          listII = extracted.listII;
+          qText = extracted.cleanStem || qText;
+          if (qEng) qEng = extracted.cleanStem || qEng;
+        }
+      }
+
       return {
         ...q,
+        questionText: qText,
+        questionEnglish: qEng,
+        questionType: qType || 'mcq',
+        listI,
+        listII,
         options: opts,
         correctOptionId: q.correctOptionId || 'A',
       };
     });
   });
+
+  const handleAutoExtractMatchLists = (qId?: string) => {
+    if (!qId) return;
+    const targetQ = questions.find(item => item.tempId === qId);
+    if (!targetQ) return;
+    const raw = targetQ.questionText || targetQ.questionEnglish || '';
+    const extracted = detectAndExtractMatchFollowing(raw);
+    if (extracted) {
+      setQuestions(prev => prev.map(item => item.tempId === qId ? {
+        ...item,
+        questionType: 'match_following',
+        listI: extracted.listI,
+        listII: extracted.listII,
+        questionText: extracted.cleanStem || item.questionText,
+        questionEnglish: extracted.cleanStem || item.questionEnglish,
+      } : item));
+    } else {
+      alert('Could not automatically detect List I & List II columns in the question text. Please fill in the items manually in the boxes below.');
+    }
+  };
 
   const handleAddOptionToQuestion = (qId: string) => {
     setQuestions(prev => prev.map(q => {
@@ -1460,7 +1508,21 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                   value={q.questionType || 'mcq'}
                   onChange={(e) => {
                     const newType = e.target.value as any;
-                    setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, questionType: newType } : item));
+                    setQuestions(prev => prev.map(item => {
+                      if (item.tempId !== q.tempId) return item;
+                      let updated = { ...item, questionType: newType };
+                      // If switching to match_following and lists are empty, try auto-extracting from text
+                      if (newType === 'match_following' && (!item.listI || item.listI.every(x => !x))) {
+                        const extracted = detectAndExtractMatchFollowing(item.questionText || item.questionEnglish || '');
+                        if (extracted) {
+                          updated.listI = extracted.listI;
+                          updated.listII = extracted.listII;
+                          updated.questionText = extracted.cleanStem || item.questionText;
+                          updated.questionEnglish = extracted.cleanStem || item.questionEnglish;
+                        }
+                      }
+                      return updated;
+                    }));
                   }}
                   className="p-1.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none"
                 >
@@ -1590,9 +1652,20 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
             {/* Match the Following List I & List II Builder */}
             {q.questionType === 'match_following' && (
               <div className="p-4 rounded-xl bg-indigo-50/60 border border-indigo-200 space-y-3">
-                <h5 className="text-xs font-extrabold text-indigo-950 flex items-center space-x-1">
-                  <span>🧩 Match the Following List Columns</span>
-                </h5>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h5 className="text-xs font-extrabold text-indigo-950 flex items-center space-x-1">
+                    <span>🧩 Match the Following List Columns</span>
+                  </h5>
+                  <button
+                    type="button"
+                    onClick={() => handleAutoExtractMatchLists(q.tempId)}
+                    className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] flex items-center space-x-1 shadow-2xs transition-colors cursor-pointer"
+                    title="Automatically extract List I & List II columns from the question text above"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Auto-Extract Columns from Text</span>
+                  </button>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-bold">
                   <div className="space-y-1.5">
                     <span className="text-indigo-900 block">List I (Items 1, 2, 3, 4):</span>

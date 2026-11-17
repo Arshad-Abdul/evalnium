@@ -33,11 +33,112 @@ function fixMojibake(str: string): string {
 }
 
 /**
- * Helper to strip leading option letter prefixes like "A) ", "B. ", "(C) " from option values
+ * Helper to strip leading option letter prefixes like "A) ", "B. ", "(C) " from option values.
+ * Strictly preserves match-the-following pairing formats (e.g., "A-III, B-I, C-IV, D-II" or "A-1, B-2").
  */
-function cleanOptionText(text: string): string {
+export function cleanOptionText(text: string, expectedOptionId?: string): string {
   if (!text) return '';
-  return text.replace(/^[\(\[]?\s*[A-D1-4][\.\:\)\-]\s*/i, '').trim();
+  const trimmed = text.trim();
+
+  // 1. If this option text is a match-the-following pairing pattern, NEVER strip anything!
+  // e.g. "A-III, B-III, C-I, D-IV", "A-1, B-2, C-3, D-4", "A-(iv), B-(i)", "(a)-(iii), (b)-(i)"
+  if (/[A-D]\s*[\-\–—\:\=→]\s*[IVX0-9a-z\(\)]+[\s\,]+[A-D]\s*[\-\–—\:\=→]/i.test(trimmed)) {
+    return trimmed;
+  }
+  if (/\bB\s*[\-\–—\:\=→]/i.test(trimmed) && /\bC\s*[\-\–—\:\=→]/i.test(trimmed)) {
+    return trimmed;
+  }
+  // If text starts with A-, B-, C-, D- followed by roman numeral or number, it's a pairing!
+  if (/^[A-D]\s*[\-\–—\:\=→]\s*(?:[IVX]+|\d+|\([IVX0-9]+\))/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  // 2. If an expectedOptionId is passed (e.g. 'B', 'C', 'D'), only strip if it matches THAT option!
+  // It makes no sense for Option B to strip "A-"!
+  if (expectedOptionId) {
+    const escaped = expectedOptionId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`^[\\(\\[]?\\s*${escaped}[\\.\\:\\)]\\s*`, 'i');
+    return trimmed.replace(regex, '').trim();
+  }
+
+  // 3. General fallback: only strip standard option prefixes like "A. ", "A) ", "(A) ",
+  // NOT hyphens "A-" which are overwhelmingly used in match pairings (e.g. A-I, A-IV)
+  return trimmed.replace(/^[\(\[]?\s*[A-D1-4][\.\:\)]\s*/i, '').trim();
+}
+
+/**
+ * Auto-heal options that lost their leading "A-" due to legacy parsing
+ * e.g. "III, B-III, C-I, D-IV" -> "A-III, B-III, C-I, D-IV"
+ */
+export function healMatchOption(text: string): string {
+  if (!text) return text;
+  const trimmed = text.trim();
+  if (/^[IVX0-9a-z\(\)]+[\s\,]+B\s*[\-\–—\:\=→]/i.test(trimmed)) {
+    return 'A-' + trimmed;
+  }
+  return text;
+}
+
+export interface MatchFollowingExtraction {
+  isMatch: boolean;
+  cleanStem: string;
+  listI: string[];
+  listII: string[];
+}
+
+/**
+ * Automatically detects and extracts List I & List II items from match-the-following questions
+ * Handles both:
+ * 1. Interleaved table exports (A. Item A I. Item I B. Item B II. Item II ...)
+ * 2. Sequential sections (List I: A. ... B. ... List II: I. ... II. ...)
+ */
+export function detectAndExtractMatchFollowing(rawText: string): MatchFollowingExtraction | null {
+  if (!rawText) return null;
+  const text = rawText.trim();
+
+  // Pattern 1: Interleaved table export: A. [Item A] I. [Item I] B. [Item B] II. [Item II] ...
+  const interleavedRegex = /(?:(?:^|\s)(?:A\.|\(A\)|1\.|\(1\))\s*)([\s\S]+?)\s*(?:(?:I\.|\(I\)|1\.|\(1\))\s*)([\s\S]+?)\s*(?:(?:B\.|\(B\)|2\.|\(2\))\s*)([\s\S]+?)\s*(?:(?:II\.|\(II\)|2\.|\(2\))\s*)([\s\S]+?)\s*(?:(?:C\.|\(C\)|3\.|\(3\))\s*)([\s\S]+?)\s*(?:(?:III\.|\(III\)|3\.|\(3\))\s*)([\s\S]+?)\s*(?:(?:D\.|\(D\)|4\.|\(4\))\s*)([\s\S]+?)\s*(?:(?:IV\.|\(IV\)|4\.|\(4\))\s*)([\s\S]+?)(?=(?:\s*(?:Choose the correct|Select the correct|Options?|Codes?:?|$)))/i;
+  
+  const m1 = text.match(interleavedRegex);
+  if (m1) {
+    const listI = [m1[1].trim(), m1[3].trim(), m1[5].trim(), m1[7].trim()];
+    const listII = [m1[2].trim(), m1[4].trim(), m1[6].trim(), m1[8].trim()];
+
+    const matchIndex = m1.index || 0;
+    let cleanStem = text.substring(0, matchIndex).trim();
+    cleanStem = cleanStem.replace(/List\s*I\s*(?:\([^\)]*\))?\s*List\s*II\s*(?:\([^\)]*\))?\s*$/i, '').trim();
+    if (!cleanStem) cleanStem = 'Match the items of List I with List II:';
+
+    return {
+      isMatch: true,
+      cleanStem,
+      listI,
+      listII,
+    };
+  }
+
+  // Pattern 2: Sequential List I: A. ... B. ... C. ... D. ... List II: I. ... II. ... III. ... IV. ...
+  const seqRegex = /(?:List\s*I|सूची\s*I|खण्ड\s*A)[\s\S]*?(?:(?:^|\s)(?:A\.|\(A\)|1\.|\(1\))\s*)([\s\S]+?)\s*(?:(?:B\.|\(B\)|2\.|\(2\))\s*)([\s\S]+?)\s*(?:(?:C\.|\(C\)|3\.|\(3\))\s*)([\s\S]+?)\s*(?:(?:D\.|\(D\)|4\.|\(4\))\s*)([\s\S]+?)\s*(?:List\s*II|सूची\s*II|खण्ड\s*B)[\s\S]*?(?:(?:^|\s)(?:I\.|\(I\)|1\.|\(1\))\s*)([\s\S]+?)\s*(?:(?:II\.|\(II\)|2\.|\(2\))\s*)([\s\S]+?)\s*(?:(?:III\.|\(III\)|3\.|\(3\))\s*)([\s\S]+?)\s*(?:(?:IV\.|\(IV\)|4\.|\(4\))\s*)([\s\S]+?)(?=(?:\s*(?:Choose the correct|Select the correct|Options?|Codes?:?|$)))/i;
+
+  const m2 = text.match(seqRegex);
+  if (m2) {
+    const listI = [m2[1].trim(), m2[2].trim(), m2[3].trim(), m2[4].trim()];
+    const listII = [m2[5].trim(), m2[6].trim(), m2[7].trim(), m2[8].trim()];
+
+    const matchIndex = m2.index || 0;
+    let cleanStem = text.substring(0, matchIndex).trim();
+    cleanStem = cleanStem.replace(/List\s*I\s*(?:\([^\)]*\))?.*$/i, '').trim();
+    if (!cleanStem) cleanStem = 'Match the items of List I with List II:';
+
+    return {
+      isMatch: true,
+      cleanStem,
+      listI,
+      listII,
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -184,12 +285,31 @@ export function parsePlainText(text: string): ParseResult {
     if (!questionText) validationError = 'Missing question text';
     else if (options.length < 2) validationError = 'Fewer than 2 options found';
 
+    // Auto-detect match-the-following lists if present
+    const matchData = detectAndExtractMatchFollowing(questionText || questionEnglish || '');
+    let effectiveQText = questionText;
+    let effectiveQEng = questionEnglish;
+    let qType: 'mcq' | 'multiple_select' | 'match_following' = 'mcq';
+    let listI: string[] | undefined = undefined;
+    let listII: string[] | undefined = undefined;
+
+    if (matchData) {
+      qType = 'match_following';
+      effectiveQText = matchData.cleanStem;
+      if (effectiveQEng) effectiveQEng = matchData.cleanStem;
+      listI = matchData.listI;
+      listII = matchData.listII;
+    }
+
     if (questionText && (options.length >= 2 || isValid)) {
       questions.push({
         tempId: `parsed_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-        questionText,
-        questionEnglish,
+        questionText: effectiveQText,
+        questionEnglish: effectiveQEng,
         questionHindi,
+        questionType: qType,
+        listI,
+        listII,
         options: options.length >= 2 ? options : [
           { id: 'A', text: 'True' },
           { id: 'B', text: 'False' }
@@ -313,16 +433,16 @@ export function parseCSV(csvContent: string): ParseResult {
       }
 
       const options: { id: string; text: string }[] = [];
-      if (finalOptA) options.push({ id: 'A', text: cleanOptionText(finalOptA) });
-      if (finalOptB) options.push({ id: 'B', text: cleanOptionText(finalOptB) });
-      if (finalOptC) options.push({ id: 'C', text: cleanOptionText(finalOptC) });
-      if (finalOptD) options.push({ id: 'D', text: cleanOptionText(finalOptD) });
+      if (finalOptA) options.push({ id: 'A', text: cleanOptionText(finalOptA, 'A') });
+      if (finalOptB) options.push({ id: 'B', text: cleanOptionText(finalOptB, 'B') });
+      if (finalOptC) options.push({ id: 'C', text: cleanOptionText(finalOptC, 'C') });
+      if (finalOptD) options.push({ id: 'D', text: cleanOptionText(finalOptD, 'D') });
 
       const safeOptions = options.length >= 2 ? options : [
-        { id: 'A', text: cleanOptionText(finalOptA) || 'Option A' },
-        { id: 'B', text: cleanOptionText(finalOptB) || 'Option B' },
-        { id: 'C', text: cleanOptionText(finalOptC) || 'Option C' },
-        { id: 'D', text: cleanOptionText(finalOptD) || 'Option D' }
+        { id: 'A', text: cleanOptionText(finalOptA, 'A') || 'Option A' },
+        { id: 'B', text: cleanOptionText(finalOptB, 'B') || 'Option B' },
+        { id: 'C', text: cleanOptionText(finalOptC, 'C') || 'Option C' },
+        { id: 'D', text: cleanOptionText(finalOptD, 'D') || 'Option D' }
       ].filter(o => Boolean(o.text));
 
       const correctOpt = safeOptions.find(o => o.id === answer);
@@ -332,12 +452,31 @@ export function parseCSV(csvContent: string): ParseResult {
 
       const finalExplanation = explanation || defaultExp;
 
-      if (questionText || safeOptions.length >= 1) {
+      // Smart Auto-Detection for Match the Following Lists
+      const matchData = detectAndExtractMatchFollowing(questionText || questionEnglish || '');
+      let effectiveQuestionText = questionText;
+      let effectiveQuestionEnglish = questionEnglish;
+      let questionType: 'mcq' | 'multiple_select' | 'match_following' = 'mcq';
+      let listI: string[] | undefined = undefined;
+      let listII: string[] | undefined = undefined;
+
+      if (matchData) {
+        questionType = 'match_following';
+        effectiveQuestionText = matchData.cleanStem;
+        if (effectiveQuestionEnglish) effectiveQuestionEnglish = matchData.cleanStem;
+        listI = matchData.listI;
+        listII = matchData.listII;
+      }
+
+      if (effectiveQuestionText || safeOptions.length >= 1) {
         questions.push({
           tempId: `csv_${idx}_${Date.now()}`,
-          questionText: questionText || `Question ${idx + 1}`,
-          questionEnglish: questionEnglish || (questionText && !questionHindi ? questionText : undefined),
+          questionText: effectiveQuestionText || `Question ${idx + 1}`,
+          questionEnglish: effectiveQuestionEnglish || (effectiveQuestionText && !questionHindi ? effectiveQuestionText : undefined),
           questionHindi: questionHindi || undefined,
+          questionType,
+          listI,
+          listII,
           options: safeOptions.length >= 2 ? safeOptions : [
             { id: 'A', text: 'Option A' },
             { id: 'B', text: 'Option B' }
@@ -387,7 +526,8 @@ export function parseCSV(csvContent: string): ParseResult {
           if (j === row.length - 1 && /^[A-D1-4]$/i.test(val) && opts.length >= 2) {
             break;
           }
-          opts.push({ id: String.fromCharCode(optLetter++), text: cleanOptionText(val) });
+          const char = String.fromCharCode(optLetter++);
+          opts.push({ id: char, text: cleanOptionText(val, char) });
         }
 
         let ansKey = 'A';
@@ -398,10 +538,27 @@ export function parseCSV(csvContent: string): ParseResult {
           ansKey = String.fromCharCode(64 + parseInt(lastVal, 10));
         }
 
-        if (qText && opts.length >= 2) {
+        // Auto-detect match-the-following lists if present
+        const matchData = detectAndExtractMatchFollowing(qText);
+        let effectiveQText = qText;
+        let questionType: 'mcq' | 'multiple_select' | 'match_following' = 'mcq';
+        let listI: string[] | undefined = undefined;
+        let listII: string[] | undefined = undefined;
+
+        if (matchData) {
+          questionType = 'match_following';
+          effectiveQText = matchData.cleanStem;
+          listI = matchData.listI;
+          listII = matchData.listII;
+        }
+
+        if (effectiveQText && opts.length >= 2) {
           questions.push({
             tempId: `csv_pos_${i}_${Date.now()}`,
-            questionText: qText,
+            questionText: effectiveQText,
+            questionType,
+            listI,
+            listII,
             options: opts,
             correctOptionId: ansKey,
             explanation: `Option (${ansKey}) is the correct answer.`,
