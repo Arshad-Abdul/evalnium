@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { Question } from '../../types/quiz';
 import { Bookmark, X, BookOpen, Trash2, HelpCircle } from 'lucide-react';
 import { AudioPlayerButton } from '../common/AudioPlayerButton';
+import { getItemPrefix, cleanItemText } from '../../utils/parsers';
 import { useAuth } from '../../context/AuthContext';
 
 interface RevisionHubModalProps {
@@ -170,28 +171,48 @@ export const RevisionHubModal: React.FC<RevisionHubModalProps> = ({ isOpen, onCl
                   <div className="my-2 p-3 rounded-xl bg-indigo-50/70 border border-indigo-200 shadow-xs">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                       {q.listI && q.listI.some(Boolean) && (
-                        <div className="space-y-1">
+                        <div className="space-y-1.5">
                           <span className="text-indigo-950 font-extrabold block border-b border-indigo-200 pb-1 uppercase tracking-wider text-[11px]">
-                            List I
+                            {q.listITitle || 'List I'}
                           </span>
-                          {q.listI.map((item, i) => item ? (
-                            <div key={i} className="p-2 rounded-lg bg-white border border-indigo-100 font-bold text-slate-800 shadow-2xs text-xs">
-                              {item}
-                            </div>
-                          ) : null)}
+                          {q.listI.map((item, i) => {
+                            if (!item) return null;
+                            const prefix = getItemPrefix(i, q.listIOrder || 'alpha_upper');
+                            const text = cleanItemText(item);
+                            return (
+                              <div key={i} className="p-2 rounded-lg bg-white border border-indigo-100 font-medium text-slate-800 shadow-2xs text-xs flex items-center gap-1.5">
+                                {prefix && (
+                                  <span className="px-1.5 py-0.5 rounded bg-indigo-50 font-mono font-bold text-indigo-900 text-[11px] shrink-0">
+                                    {prefix}
+                                  </span>
+                                )}
+                                <span>{text}</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
 
                       {q.listII && q.listII.some(Boolean) && (
-                        <div className="space-y-1">
+                        <div className="space-y-1.5">
                           <span className="text-indigo-950 font-extrabold block border-b border-indigo-200 pb-1 uppercase tracking-wider text-[11px]">
-                            List II
+                            {q.listIITitle || 'List II'}
                           </span>
-                          {q.listII.map((item, i) => item ? (
-                            <div key={i} className="p-2 rounded-lg bg-white border border-indigo-100 font-bold text-slate-800 shadow-2xs text-xs">
-                              {item}
-                            </div>
-                          ) : null)}
+                          {q.listII.map((item, i) => {
+                            if (!item) return null;
+                            const prefix = getItemPrefix(i, q.listIIOrder || 'roman_upper');
+                            const text = cleanItemText(item);
+                            return (
+                              <div key={i} className="p-2 rounded-lg bg-white border border-indigo-100 font-medium text-slate-800 shadow-2xs text-xs flex items-center gap-1.5">
+                                {prefix && (
+                                  <span className="px-1.5 py-0.5 rounded bg-indigo-50 font-mono font-bold text-indigo-900 text-[11px] shrink-0">
+                                    {prefix}
+                                  </span>
+                                )}
+                                <span>{text}</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

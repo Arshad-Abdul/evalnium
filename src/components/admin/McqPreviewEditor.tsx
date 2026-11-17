@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import type { ParsedQuestion, ParseResult, Quiz, DifficultyLevel } from '../../types/quiz';
+import type { ParsedQuestion, ParseResult, Quiz, DifficultyLevel, ListOrderStyle } from '../../types/quiz';
 import { translateToHindi } from '../../utils/translator';
 import { getStoredQuizzes } from '../../utils/storage';
-import { detectAndExtractMatchFollowing, healMatchOption, extractComprehensionPassage } from '../../utils/parsers';
+import { detectAndExtractMatchFollowing, healMatchOption, extractComprehensionPassage, getItemPrefix, cleanItemText } from '../../utils/parsers';
 import { Mail, Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages, Eye, EyeOff, BookOpen, Lock } from 'lucide-react';
 
 
@@ -125,6 +125,10 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
 
       let listI = q.listI;
       let listII = q.listII;
+      let listITitle = q.listITitle;
+      let listIITitle = q.listIITitle;
+      let listIOrder = q.listIOrder || 'alpha_upper';
+      let listIIOrder = q.listIIOrder || 'roman_upper';
       let qType = q.questionType;
       let qText = q.questionText;
       let qEng = q.questionEnglish;
@@ -145,6 +149,10 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
           qType = 'match_following';
           listI = extracted.listI;
           listII = extracted.listII;
+          listITitle = extracted.listITitle || listITitle;
+          listIITitle = extracted.listIITitle || listIITitle;
+          listIOrder = extracted.listIOrder || listIOrder;
+          listIIOrder = extracted.listIIOrder || listIIOrder;
           qText = extracted.cleanStem || qText;
           if (qEng) qEng = extracted.cleanStem || qEng;
         }
@@ -158,6 +166,10 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
         questionType: qType || 'mcq',
         listI,
         listII,
+        listITitle: listITitle || 'List I',
+        listIITitle: listIITitle || 'List II',
+        listIOrder: listIOrder || 'alpha_upper',
+        listIIOrder: listIIOrder || 'roman_upper',
         options: opts,
         correctOptionId: q.correctOptionId || 'A',
       };
@@ -194,6 +206,10 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
         questionType: 'match_following',
         listI: extracted.listI,
         listII: extracted.listII,
+        listITitle: extracted.listITitle || item.listITitle || 'List I',
+        listIITitle: extracted.listIITitle || item.listIITitle || 'List II',
+        listIOrder: extracted.listIOrder || item.listIOrder || 'alpha_upper',
+        listIIOrder: extracted.listIIOrder || item.listIIOrder || 'roman_upper',
         questionText: extracted.cleanStem || item.questionText,
         questionEnglish: extracted.cleanStem || item.questionEnglish,
       } : item));
@@ -423,6 +439,10 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
         imageUrl: q.imageUrl,
         listI: q.listI,
         listII: q.listII,
+        listITitle: q.listITitle,
+        listIITitle: q.listIITitle,
+        listIOrder: q.listIOrder,
+        listIIOrder: q.listIIOrder,
         explanation: q.explanation,
         explanationEnglish: q.explanationEnglish,
         explanationHindi: q.explanationHindi,
@@ -1761,9 +1781,9 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
 
             {/* Match the Following List I & List II Builder */}
             {q.questionType === 'match_following' && (
-              <div className="p-4 rounded-xl bg-indigo-50/60 border border-indigo-200 space-y-3">
+              <div className="p-4 rounded-xl bg-indigo-50/60 border border-indigo-200 space-y-3.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h5 className="text-xs font-extrabold text-indigo-950 flex items-center space-x-1">
+                  <h5 className="text-xs font-extrabold text-indigo-950 flex items-center space-x-1.5">
                     <span>🧩 Match the Following List Columns</span>
                   </h5>
                   <button
@@ -1776,41 +1796,140 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                     <span>Auto-Extract Columns from Text</span>
                   </button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-bold">
-                  <div className="space-y-1.5">
-                    <span className="text-indigo-900 block">List I (Items 1, 2, 3, 4):</span>
-                    {[0, 1, 2, 3].map(i => (
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  {/* Column I */}
+                  <div className="space-y-2.5 p-3.5 rounded-xl bg-white border border-indigo-200 shadow-2xs">
+                    {/* Heading & Order Selector */}
+                    <div className="space-y-1.5 pb-2 border-b border-indigo-100">
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-[11px] font-bold text-indigo-950 uppercase tracking-wide">
+                          Column I Heading:
+                        </label>
+                        <select
+                          value={q.listIOrder || 'alpha_upper'}
+                          onChange={(e) => {
+                            const newOrder = e.target.value as ListOrderStyle;
+                            setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, listIOrder: newOrder } : item));
+                          }}
+                          className="p-1 rounded-md bg-indigo-50 border border-indigo-200 text-[11px] font-bold text-indigo-900 focus:outline-none"
+                          title="Prefix / Order style for List I"
+                        >
+                          <option value="alpha_upper">🔤 Capital (A, B, C, D)</option>
+                          <option value="roman_upper">🔢 Roman Upper (I, II, III, IV)</option>
+                          <option value="numeric">1️⃣ Numbers (1, 2, 3, 4)</option>
+                          <option value="alpha_lower">🔡 Small (a, b, c, d)</option>
+                          <option value="roman_lower">ⅰ Roman Lower (i, ii, iii, iv)</option>
+                          <option value="bullets">• Bullets</option>
+                          <option value="arrows">➜ Arrows</option>
+                          <option value="none">∅ None (No prefix)</option>
+                        </select>
+                      </div>
                       <input
-                        key={i}
                         type="text"
-                        value={q.listI?.[i] || ''}
+                        value={q.listITitle ?? 'List I'}
                         onChange={(e) => {
-                          const newListI = [...(q.listI || ['', '', '', ''])];
-                          newListI[i] = e.target.value;
-                          setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, listI: newListI } : item));
+                          const val = e.target.value;
+                          setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, listITitle: val } : item));
                         }}
-                        placeholder={`1. Item ${i + 1}...`}
-                        className="w-full p-2 rounded-lg bg-white border border-indigo-200 text-xs font-medium"
+                        placeholder="e.g. List I (Name of Canon) or Column A"
+                        className="w-full p-2 rounded-lg bg-indigo-50/50 border border-indigo-200 text-xs font-bold text-indigo-950 focus:bg-white focus:outline-none"
                       />
-                    ))}
+                    </div>
+
+                    {/* Column I Items */}
+                    <div className="space-y-2">
+                      {[0, 1, 2, 3].map(i => {
+                        const prefix = getItemPrefix(i, q.listIOrder || 'alpha_upper');
+                        return (
+                          <div key={i} className="flex items-center gap-1.5">
+                            {prefix && (
+                              <span className="w-8 py-1.5 rounded-md bg-indigo-100/90 text-indigo-900 font-mono font-bold text-xs text-center shrink-0 border border-indigo-200 select-none">
+                                {prefix}
+                              </span>
+                            )}
+                            <input
+                              type="text"
+                              value={q.listI?.[i] || ''}
+                              onChange={(e) => {
+                                const newListI = [...(q.listI || ['', '', '', ''])];
+                                newListI[i] = e.target.value;
+                                setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, listI: newListI } : item));
+                              }}
+                              placeholder={`Item ${i + 1}...`}
+                              className="w-full p-2 rounded-lg bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-indigo-500 text-xs font-medium text-slate-800"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <span className="text-indigo-900 block">List II (Items A, B, C, D):</span>
-                    {[0, 1, 2, 3].map(i => (
+                  {/* Column II */}
+                  <div className="space-y-2.5 p-3.5 rounded-xl bg-white border border-indigo-200 shadow-2xs">
+                    {/* Heading & Order Selector */}
+                    <div className="space-y-1.5 pb-2 border-b border-indigo-100">
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-[11px] font-bold text-indigo-950 uppercase tracking-wide">
+                          Column II Heading:
+                        </label>
+                        <select
+                          value={q.listIIOrder || 'roman_upper'}
+                          onChange={(e) => {
+                            const newOrder = e.target.value as ListOrderStyle;
+                            setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, listIIOrder: newOrder } : item));
+                          }}
+                          className="p-1 rounded-md bg-indigo-50 border border-indigo-200 text-[11px] font-bold text-indigo-900 focus:outline-none"
+                          title="Prefix / Order style for List II"
+                        >
+                          <option value="roman_upper">🔢 Roman Upper (I, II, III, IV)</option>
+                          <option value="alpha_upper">🔤 Capital (A, B, C, D)</option>
+                          <option value="numeric">1️⃣ Numbers (1, 2, 3, 4)</option>
+                          <option value="alpha_lower">🔡 Small (a, b, c, d)</option>
+                          <option value="roman_lower">ⅰ Roman Lower (i, ii, iii, iv)</option>
+                          <option value="bullets">• Bullets</option>
+                          <option value="arrows">➜ Arrows</option>
+                          <option value="none">∅ None (No prefix)</option>
+                        </select>
+                      </div>
                       <input
-                        key={i}
                         type="text"
-                        value={q.listII?.[i] || ''}
+                        value={q.listIITitle ?? 'List II'}
                         onChange={(e) => {
-                          const newListII = [...(q.listII || ['', '', '', ''])];
-                          newListII[i] = e.target.value;
-                          setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, listII: newListII } : item));
+                          const val = e.target.value;
+                          setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, listIITitle: val } : item));
                         }}
-                        placeholder={`${String.fromCharCode(65 + i)}. Item ${String.fromCharCode(65 + i)}...`}
-                        className="w-full p-2 rounded-lg bg-white border border-indigo-200 text-xs font-medium"
+                        placeholder="e.g. List II (No. of Canons) or Column B"
+                        className="w-full p-2 rounded-lg bg-indigo-50/50 border border-indigo-200 text-xs font-bold text-indigo-950 focus:bg-white focus:outline-none"
                       />
-                    ))}
+                    </div>
+
+                    {/* Column II Items */}
+                    <div className="space-y-2">
+                      {[0, 1, 2, 3].map(i => {
+                        const prefix = getItemPrefix(i, q.listIIOrder || 'roman_upper');
+                        return (
+                          <div key={i} className="flex items-center gap-1.5">
+                            {prefix && (
+                              <span className="w-8 py-1.5 rounded-md bg-indigo-100/90 text-indigo-900 font-mono font-bold text-xs text-center shrink-0 border border-indigo-200 select-none">
+                                {prefix}
+                              </span>
+                            )}
+                            <input
+                              type="text"
+                              value={q.listII?.[i] || ''}
+                              onChange={(e) => {
+                                const newListII = [...(q.listII || ['', '', '', ''])];
+                                newListII[i] = e.target.value;
+                                setQuestions(prev => prev.map(item => item.tempId === q.tempId ? { ...item, listII: newListII } : item));
+                              }}
+                              placeholder={`Match ${i + 1}...`}
+                              className="w-full p-2 rounded-lg bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-indigo-500 text-xs font-medium text-slate-800"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>

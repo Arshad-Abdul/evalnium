@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { QuizAttemptResult, Quiz, Question, UserAnswer } from '../../types/quiz';
 import { getStoredResults } from '../../utils/storage';
 import { translateToHindi } from '../../utils/translator';
+import { getItemPrefix, cleanItemText } from '../../utils/parsers';
 import { Trophy, AlertCircle, RotateCcw, Home, HelpCircle, BookOpen, Languages, Target, UserCheck, Clock, CheckCircle2, XCircle, Award } from 'lucide-react';
 import { AudioPlayerButton } from '../common/AudioPlayerButton';
 import { CertificateModal } from './CertificateModal';
@@ -561,28 +562,39 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
 
                 {/* Match the Following List I vs List II Box */}
                 {q.questionType === 'match_following' && (q.listI || q.listII) && (
-                  <div className="my-2.5 p-3.5 rounded bg-slate-50 border border-slate-200">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  <div className="my-2.5 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
                       {q.listI && q.listI.some(Boolean) && (
-                        <div className="space-y-1.5">
-                          <span className="text-slate-800 font-bold block border-b border-slate-200 pb-1 font-mono uppercase">
-                            List I
+                        <div className="space-y-2">
+                          <span className="text-slate-900 font-extrabold block border-b border-slate-200 pb-1.5 font-mono uppercase">
+                            {q.listITitle || 'List I'}
                           </span>
                           {q.listI.map((item, itemIdx) => {
                             if (!item) return null;
                             const hindiItem = autoHindiMap[q.id]?.listI?.[itemIdx];
+                            const prefix = getItemPrefix(itemIdx, q.listIOrder || 'alpha_upper');
+                            const displayText = cleanItemText(item);
+                            const displayHindi = hindiItem ? cleanItemText(hindiItem) : '';
+
                             return (
-                              <div key={itemIdx} className="p-2 rounded bg-white border border-slate-200 font-medium text-slate-800">
-                                {languageMode === 'en' && item}
-                                {languageMode === 'hi' && (hindiItem || item)}
-                                {languageMode === 'dual' && (
-                                  <div className="space-y-0.5">
-                                    <div>{item}</div>
-                                    {hindiItem && hindiItem !== item && (
-                                      <div className="text-[11px] text-slate-500 font-normal">{hindiItem}</div>
-                                    )}
-                                  </div>
+                              <div key={itemIdx} className="p-2.5 rounded-lg bg-white border border-slate-200 font-medium text-slate-800 flex items-start gap-2 shadow-2xs">
+                                {prefix && (
+                                  <span className="w-6 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-900 font-mono font-bold text-xs text-center shrink-0 select-none">
+                                    {prefix}
+                                  </span>
                                 )}
+                                <div className="flex-1 min-w-0">
+                                  {languageMode === 'en' && displayText}
+                                  {languageMode === 'hi' && (displayHindi || displayText)}
+                                  {languageMode === 'dual' && (
+                                    <div className="space-y-0.5">
+                                      <div>{displayText}</div>
+                                      {displayHindi && displayHindi !== displayText && (
+                                        <div className="text-[11px] text-slate-500 font-normal">{displayHindi}</div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             );
                           })}
@@ -590,25 +602,36 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                       )}
 
                       {q.listII && q.listII.some(Boolean) && (
-                        <div className="space-y-1.5">
-                          <span className="text-slate-800 font-bold block border-b border-slate-200 pb-1 font-mono uppercase">
-                            List II
+                        <div className="space-y-2">
+                          <span className="text-slate-900 font-extrabold block border-b border-slate-200 pb-1.5 font-mono uppercase">
+                            {q.listIITitle || 'List II'}
                           </span>
                           {q.listII.map((item, itemIdx) => {
                             if (!item) return null;
                             const hindiItem = autoHindiMap[q.id]?.listII?.[itemIdx];
+                            const prefix = getItemPrefix(itemIdx, q.listIIOrder || 'roman_upper');
+                            const displayText = cleanItemText(item);
+                            const displayHindi = hindiItem ? cleanItemText(hindiItem) : '';
+
                             return (
-                              <div key={itemIdx} className="p-2 rounded bg-white border border-slate-200 font-medium text-slate-800">
-                                {languageMode === 'en' && item}
-                                {languageMode === 'hi' && (hindiItem || item)}
-                                {languageMode === 'dual' && (
-                                  <div className="space-y-0.5">
-                                    <div>{item}</div>
-                                    {hindiItem && hindiItem !== item && (
-                                      <div className="text-[11px] text-slate-500 font-normal">{hindiItem}</div>
-                                    )}
-                                  </div>
+                              <div key={itemIdx} className="p-2.5 rounded-lg bg-white border border-slate-200 font-medium text-slate-800 flex items-start gap-2 shadow-2xs">
+                                {prefix && (
+                                  <span className="w-6 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-900 font-mono font-bold text-xs text-center shrink-0 select-none">
+                                    {prefix}
+                                  </span>
                                 )}
+                                <div className="flex-1 min-w-0">
+                                  {languageMode === 'en' && displayText}
+                                  {languageMode === 'hi' && (displayHindi || displayText)}
+                                  {languageMode === 'dual' && (
+                                    <div className="space-y-0.5">
+                                      <div>{displayText}</div>
+                                      {displayHindi && displayHindi !== displayText && (
+                                        <div className="text-[11px] text-slate-500 font-normal">{displayHindi}</div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             );
                           })}

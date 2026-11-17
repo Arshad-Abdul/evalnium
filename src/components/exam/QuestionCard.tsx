@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Question, UserAnswer } from '../../types/quiz';
 import { translateToHindi } from '../../utils/translator';
+import { getItemPrefix, cleanItemText } from '../../utils/parsers';
 import { Bookmark, Clock, CheckCircle2, XCircle, BookOpen } from 'lucide-react';
 import { AudioPlayerButton } from '../common/AudioPlayerButton';
 
@@ -188,28 +189,39 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
       {/* Match the Following List I vs List II Box */}
       {question.questionType === 'match_following' && (question.listI || question.listII) && (
-        <div className="my-3 p-3.5 rounded bg-slate-50 border border-slate-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+        <div className="my-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
             {question.listI && question.listI.some(Boolean) && (
-              <div className="space-y-1.5">
-                <span className="text-slate-800 font-bold block border-b border-slate-200 pb-1 font-mono uppercase">
-                  List I (Items)
+              <div className="space-y-2">
+                <span className="text-slate-900 font-extrabold block border-b border-slate-200 pb-1.5 font-mono text-xs uppercase tracking-wide">
+                  {question.listITitle || 'List I'}
                 </span>
                 {question.listI.map((item, idx) => {
                   if (!item) return null;
                   const hindiItem = autoHindiListI[idx];
+                  const prefix = getItemPrefix(idx, question.listIOrder || 'alpha_upper');
+                  const displayText = cleanItemText(item);
+                  const displayHindi = hindiItem ? cleanItemText(hindiItem) : '';
+
                   return (
-                    <div key={idx} className="p-2 rounded bg-white border border-slate-200 font-medium text-slate-800">
-                      {languageMode === 'en' && item}
-                      {languageMode === 'hi' && (hindiItem || item)}
-                      {languageMode === 'dual' && (
-                        <div className="space-y-0.5">
-                          <div>{item}</div>
-                          {hindiItem && hindiItem !== item && (
-                            <div className="text-[11px] text-slate-500 font-normal">{hindiItem}</div>
-                          )}
-                        </div>
+                    <div key={idx} className="p-2.5 rounded-lg bg-white border border-slate-200 font-medium text-slate-800 flex items-start gap-2 shadow-2xs">
+                      {prefix && (
+                        <span className="w-6 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-900 font-mono font-bold text-xs text-center shrink-0 select-none">
+                          {prefix}
+                        </span>
                       )}
+                      <div className="flex-1 min-w-0">
+                        {languageMode === 'en' && displayText}
+                        {languageMode === 'hi' && (displayHindi || displayText)}
+                        {languageMode === 'dual' && (
+                          <div className="space-y-0.5">
+                            <div>{displayText}</div>
+                            {displayHindi && displayHindi !== displayText && (
+                              <div className="text-[11px] text-slate-500 font-normal">{displayHindi}</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -217,25 +229,36 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             )}
 
             {question.listII && question.listII.some(Boolean) && (
-              <div className="space-y-1.5">
-                <span className="text-slate-800 font-bold block border-b border-slate-200 pb-1 font-mono uppercase">
-                  List II (Matches)
+              <div className="space-y-2">
+                <span className="text-slate-900 font-extrabold block border-b border-slate-200 pb-1.5 font-mono text-xs uppercase tracking-wide">
+                  {question.listIITitle || 'List II'}
                 </span>
                 {question.listII.map((item, idx) => {
                   if (!item) return null;
                   const hindiItem = autoHindiListII[idx];
+                  const prefix = getItemPrefix(idx, question.listIIOrder || 'roman_upper');
+                  const displayText = cleanItemText(item);
+                  const displayHindi = hindiItem ? cleanItemText(hindiItem) : '';
+
                   return (
-                    <div key={idx} className="p-2 rounded bg-white border border-slate-200 font-medium text-slate-800">
-                      {languageMode === 'en' && item}
-                      {languageMode === 'hi' && (hindiItem || item)}
-                      {languageMode === 'dual' && (
-                        <div className="space-y-0.5">
-                          <div>{item}</div>
-                          {hindiItem && hindiItem !== item && (
-                            <div className="text-[11px] text-slate-500 font-normal">{hindiItem}</div>
-                          )}
-                        </div>
+                    <div key={idx} className="p-2.5 rounded-lg bg-white border border-slate-200 font-medium text-slate-800 flex items-start gap-2 shadow-2xs">
+                      {prefix && (
+                        <span className="w-6 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-900 font-mono font-bold text-xs text-center shrink-0 select-none">
+                          {prefix}
+                        </span>
                       )}
+                      <div className="flex-1 min-w-0">
+                        {languageMode === 'en' && displayText}
+                        {languageMode === 'hi' && (displayHindi || displayText)}
+                        {languageMode === 'dual' && (
+                          <div className="space-y-0.5">
+                            <div>{displayText}</div>
+                            {displayHindi && displayHindi !== displayText && (
+                              <div className="text-[11px] text-slate-500 font-normal">{displayHindi}</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}

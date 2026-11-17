@@ -1,6 +1,44 @@
 import Papa from 'papaparse';
 import * as mammoth from 'mammoth';
-import type { ParsedQuestion, ParseResult } from '../types/quiz';
+import type { ParsedQuestion, ParseResult, ListOrderStyle } from '../types/quiz';
+
+/**
+ * Returns formatted prefix (e.g. "A.", "I.", "1.", "•", "➜") according to the chosen order style.
+ */
+export function getItemPrefix(index: number, style?: ListOrderStyle): string {
+  switch (style) {
+    case 'alpha_upper':
+      return `${String.fromCharCode(65 + index)}.`;
+    case 'roman_upper': {
+      const roman = ['I.', 'II.', 'III.', 'IV.', 'V.', 'VI.', 'VII.', 'VIII.'];
+      return roman[index] || `${index + 1}.`;
+    }
+    case 'numeric':
+      return `${index + 1}.`;
+    case 'alpha_lower':
+      return `(${String.fromCharCode(97 + index)})`;
+    case 'roman_lower': {
+      const roman = ['(i)', '(ii)', '(iii)', '(iv)', '(v)', '(vi)', '(vii)', '(viii)'];
+      return roman[index] || `(${index + 1})`;
+    }
+    case 'bullets':
+      return '•';
+    case 'arrows':
+      return '➜';
+    case 'none':
+    default:
+      return '';
+  }
+}
+
+/**
+ * Strips any redundant leading item prefixes e.g. "A. ", "I. ", "1. ", "(A) "
+ * so the dynamic list order badge can be applied cleanly.
+ */
+export function cleanItemText(item: string): string {
+  if (!item) return '';
+  return item.replace(/^(?:[A-Za-z0-9IVXivx]+[\.\:\)]|\([A-Za-z0-9IVXivx]+\)|[•\-\➜\→])\s+/, '').trim();
+}
 
 /**
  * Automatic Mojibake Repair Helper (Fixes garbled Hindi text from Excel ANSI/Windows-1252 export like "à¤ªà¥...")
@@ -84,6 +122,10 @@ export interface MatchFollowingExtraction {
   cleanStem: string;
   listI: string[];
   listII: string[];
+  listITitle?: string;
+  listIITitle?: string;
+  listIOrder?: ListOrderStyle;
+  listIIOrder?: ListOrderStyle;
 }
 
 /**
@@ -106,7 +148,19 @@ export function detectAndExtractMatchFollowing(rawText: string): MatchFollowingE
 
     const matchIndex = m1.index || 0;
     let cleanStem = text.substring(0, matchIndex).trim();
-    cleanStem = cleanStem.replace(/List\s*I\s*(?:\([^\)]*\))?\s*List\s*II\s*(?:\([^\)]*\))?\s*$/i, '').trim();
+
+    let listITitle = 'List I';
+    let listIITitle = 'List II';
+
+    // Auto-detect custom column headings e.g. "List I (Name of Canon) List II (No. of Canons)"
+    const headerMatch = cleanStem.match(/(?:List\s*I|सूची\s*I|Column\s*A|खण्ड\s*A)\s*(\([^\)]+\)|:[^\n\r\(\)]+)?\s*(?:List\s*II|सूची\s*II|Column\s*B|खण्ड\s*B)\s*(\([^\)]+\)|:[^\n\r\(\)]+)?\s*$/i);
+    if (headerMatch) {
+      if (headerMatch[1]) listITitle = `List I ${headerMatch[1].trim()}`;
+      if (headerMatch[2]) listIITitle = `List II ${headerMatch[2].trim()}`;
+      cleanStem = cleanStem.substring(0, headerMatch.index).trim();
+    } else {
+      cleanStem = cleanStem.replace(/List\s*I\s*(?:\([^\)]*\))?\s*List\s*II\s*(?:\([^\)]*\))?\s*$/i, '').trim();
+    }
     if (!cleanStem) cleanStem = 'Match the items of List I with List II:';
 
     return {
@@ -114,6 +168,10 @@ export function detectAndExtractMatchFollowing(rawText: string): MatchFollowingE
       cleanStem,
       listI,
       listII,
+      listITitle,
+      listIITitle,
+      listIOrder: 'alpha_upper',
+      listIIOrder: 'roman_upper',
     };
   }
 
@@ -127,6 +185,15 @@ export function detectAndExtractMatchFollowing(rawText: string): MatchFollowingE
 
     const matchIndex = m2.index || 0;
     let cleanStem = text.substring(0, matchIndex).trim();
+
+    let listITitle = 'List I';
+    let listIITitle = 'List II';
+
+    const seqHeaderI = text.match(/(?:List\s*I|सूची\s*I|Column\s*A|खण्ड\s*A)\s*(\([^\)]+\)|:[^\n\r\(\)]+)/i);
+    const seqHeaderII = text.match(/(?:List\s*II|सूची\s*II|Column\s*B|खण्ड\s*B)\s*(\([^\)]+\)|:[^\n\r\(\)]+)/i);
+    if (seqHeaderI && seqHeaderI[1]) listITitle = `List I ${seqHeaderI[1].trim()}`;
+    if (seqHeaderII && seqHeaderII[1]) listIITitle = `List II ${seqHeaderII[1].trim()}`;
+
     cleanStem = cleanStem.replace(/List\s*I\s*(?:\([^\)]*\))?.*$/i, '').trim();
     if (!cleanStem) cleanStem = 'Match the items of List I with List II:';
 
@@ -135,6 +202,10 @@ export function detectAndExtractMatchFollowing(rawText: string): MatchFollowingE
       cleanStem,
       listI,
       listII,
+      listITitle,
+      listIITitle,
+      listIOrder: 'alpha_upper',
+      listIIOrder: 'roman_upper',
     };
   }
 
@@ -368,6 +439,10 @@ export function parsePlainText(text: string): ParseResult {
     let qType: 'mcq' | 'multiple_select' | 'match_following' = 'mcq';
     let listI: string[] | undefined = undefined;
     let listII: string[] | undefined = undefined;
+    let listITitle: string | undefined = undefined;
+    let listIITitle: string | undefined = undefined;
+    let listIOrder: ListOrderStyle | undefined = undefined;
+    let listIIOrder: ListOrderStyle | undefined = undefined;
 
     if (matchData) {
       qType = 'match_following';
@@ -375,6 +450,10 @@ export function parsePlainText(text: string): ParseResult {
       if (effectiveQEng) effectiveQEng = matchData.cleanStem;
       listI = matchData.listI;
       listII = matchData.listII;
+      listITitle = matchData.listITitle;
+      listIITitle = matchData.listIITitle;
+      listIOrder = matchData.listIOrder;
+      listIIOrder = matchData.listIIOrder;
     }
 
     // Auto-detect reading comprehension passage if present
@@ -396,6 +475,10 @@ export function parsePlainText(text: string): ParseResult {
         questionType: qType,
         listI,
         listII,
+        listITitle,
+        listIITitle,
+        listIOrder,
+        listIIOrder,
         options: options.length >= 2 ? options : [
           { id: 'A', text: 'True' },
           { id: 'B', text: 'False' }
@@ -545,6 +628,10 @@ export function parseCSV(csvContent: string): ParseResult {
       let questionType: 'mcq' | 'multiple_select' | 'match_following' = 'mcq';
       let listI: string[] | undefined = undefined;
       let listII: string[] | undefined = undefined;
+      let listITitle: string | undefined = undefined;
+      let listIITitle: string | undefined = undefined;
+      let listIOrder: ListOrderStyle | undefined = undefined;
+      let listIIOrder: ListOrderStyle | undefined = undefined;
 
       if (matchData) {
         questionType = 'match_following';
@@ -552,6 +639,10 @@ export function parseCSV(csvContent: string): ParseResult {
         if (effectiveQuestionEnglish) effectiveQuestionEnglish = matchData.cleanStem;
         listI = matchData.listI;
         listII = matchData.listII;
+        listITitle = matchData.listITitle;
+        listIITitle = matchData.listIITitle;
+        listIOrder = matchData.listIOrder;
+        listIIOrder = matchData.listIIOrder;
       }
 
       // Smart Auto-Detection for Reading Comprehension Passage
@@ -573,6 +664,10 @@ export function parseCSV(csvContent: string): ParseResult {
           questionType,
           listI,
           listII,
+          listITitle,
+          listIITitle,
+          listIOrder,
+          listIIOrder,
           options: safeOptions.length >= 2 ? safeOptions : [
             { id: 'A', text: 'Option A' },
             { id: 'B', text: 'Option B' }
@@ -640,12 +735,20 @@ export function parseCSV(csvContent: string): ParseResult {
         let questionType: 'mcq' | 'multiple_select' | 'match_following' = 'mcq';
         let listI: string[] | undefined = undefined;
         let listII: string[] | undefined = undefined;
+        let listITitle: string | undefined = undefined;
+        let listIITitle: string | undefined = undefined;
+        let listIOrder: ListOrderStyle | undefined = undefined;
+        let listIIOrder: ListOrderStyle | undefined = undefined;
 
         if (matchData) {
           questionType = 'match_following';
           effectiveQText = matchData.cleanStem;
           listI = matchData.listI;
           listII = matchData.listII;
+          listITitle = matchData.listITitle;
+          listIITitle = matchData.listIITitle;
+          listIOrder = matchData.listIOrder;
+          listIIOrder = matchData.listIIOrder;
         }
 
         // Smart Auto-Detection for Reading Comprehension Passage
@@ -664,6 +767,10 @@ export function parseCSV(csvContent: string): ParseResult {
             questionType,
             listI,
             listII,
+            listITitle,
+            listIITitle,
+            listIOrder,
+            listIIOrder,
             options: opts,
             correctOptionId: ansKey,
             explanation: `Option (${ansKey}) is the correct answer.`,

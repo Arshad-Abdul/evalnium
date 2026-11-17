@@ -1,4 +1,5 @@
 export type QuestionType = 'mcq' | 'multiple_select' | 'match_following';
+export type ListOrderStyle = 'alpha_upper' | 'roman_upper' | 'numeric' | 'alpha_lower' | 'roman_lower' | 'bullets' | 'arrows' | 'none';
 export type DifficultyLevel = 'Easy' | 'Medium' | 'Hard';
 
 export interface Option {
@@ -20,6 +21,10 @@ export interface Question {
   imageUrl?: string;
   listI?: string[]; // Match the Following List I items
   listII?: string[]; // Match the Following List II items
+  listITitle?: string; // Custom heading for List I e.g. "List I (Name of Canon)"
+  listIITitle?: string; // Custom heading for List II e.g. "List II (No. of Canons)"
+  listIOrder?: ListOrderStyle; // Numbering / bullet style for List I items (defaults to 'alpha_upper')
+  listIIOrder?: ListOrderStyle; // Numbering / bullet style for List II items (defaults to 'roman_upper')
   explanation?: string;
   explanationEnglish?: string;
   explanationHindi?: string;
@@ -175,6 +180,10 @@ export interface ParsedQuestion {
   imageUrl?: string;
   listI?: string[];
   listII?: string[];
+  listITitle?: string;
+  listIITitle?: string;
+  listIOrder?: ListOrderStyle;
+  listIIOrder?: ListOrderStyle;
   explanation?: string;
   explanationEnglish?: string;
   explanationHindi?: string;

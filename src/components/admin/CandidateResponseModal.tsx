@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Check, XCircle, MinusCircle, AlertCircle, BookOpen } from 'lucide-react';
 import type { Quiz, QuizAttemptResult } from '../../types/quiz';
+import { getItemPrefix, cleanItemText } from '../../utils/parsers';
 
 interface CandidateResponseModalProps {
   attemptResult: QuizAttemptResult;
@@ -128,6 +129,48 @@ export const CandidateResponseModal: React.FC<CandidateResponseModalProps> = ({ 
                 )}
                 <p className="text-sm font-semibold text-slate-800 whitespace-pre-wrap">{q.questionText}</p>
                 {q.imageUrl && <img src={q.imageUrl} alt="Question Graphic" className="max-h-48 rounded-lg border border-slate-200" />}
+
+                {/* Match the Following List I vs List II Box */}
+                {q.questionType === 'match_following' && (q.listI || q.listII) && (
+                  <div className="my-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      {q.listI && q.listI.some(Boolean) && (
+                        <div className="space-y-1.5">
+                          <span className="text-slate-900 font-bold block border-b border-slate-200 pb-1 font-mono uppercase">
+                            {q.listITitle || 'List I'}
+                          </span>
+                          {q.listI.map((item, idx) => {
+                            if (!item) return null;
+                            const prefix = getItemPrefix(idx, q.listIOrder || 'alpha_upper');
+                            return (
+                              <div key={idx} className="p-2 rounded bg-white border border-slate-200 font-medium text-slate-800 flex items-center gap-1.5">
+                                {prefix && <span className="font-mono font-bold text-slate-900 shrink-0">{prefix}</span>}
+                                <span>{cleanItemText(item)}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {q.listII && q.listII.some(Boolean) && (
+                        <div className="space-y-1.5">
+                          <span className="text-slate-900 font-bold block border-b border-slate-200 pb-1 font-mono uppercase">
+                            {q.listIITitle || 'List II'}
+                          </span>
+                          {q.listII.map((item, idx) => {
+                            if (!item) return null;
+                            const prefix = getItemPrefix(idx, q.listIIOrder || 'roman_upper');
+                            return (
+                              <div key={idx} className="p-2 rounded bg-white border border-slate-200 font-medium text-slate-800 flex items-center gap-1.5">
+                                {prefix && <span className="font-mono font-bold text-slate-900 shrink-0">{prefix}</span>}
+                                <span>{cleanItemText(item)}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Options Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
