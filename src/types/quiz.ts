@@ -82,6 +82,8 @@ export interface Quiz {
   questionViewMode?: 'both' | 'single_only' | 'all_only';
   allowManualEarlyMove?: boolean; // Allow candidate to manually finish section early & move to next (but cannot return)
   preventQuestionCopy?: boolean; // Anti-piracy guard: disables question text selection, copying, and right-click during exam
+  preventScreenshot?: boolean; // Anti-screenshot guard: blocks PrtScn, Snipping Tool blur shield, Print/PDF blocking
+  enableWatermark?: boolean; // Dynamic candidate forensic watermark (Name, Email, UID)
 
   notifyCandidates?: boolean; // If true, triggers new_exam_alert email broadcast to all candidates upon publishing
 
@@ -161,6 +163,8 @@ export interface ParseResult {
   resultAnnouncementDateTime?: string;
   autoEmailResults?: boolean;
   preventQuestionCopy?: boolean;
+  preventScreenshot?: boolean;
+  enableWatermark?: boolean;
 
   questions: ParsedQuestion[];
   errors: string[];

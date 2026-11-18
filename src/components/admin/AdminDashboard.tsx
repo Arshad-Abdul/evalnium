@@ -628,6 +628,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       preventPreviousQuestionReturn: quiz.preventPreviousQuestionReturn,
       preventEarlyNextQuestion: quiz.preventEarlyNextQuestion,
       preventQuestionCopy: quiz.preventQuestionCopy,
+      preventScreenshot: quiz.preventScreenshot,
+      enableWatermark: quiz.enableWatermark,
       questionViewMode: quiz.questionViewMode || 'both',
       allowManualEarlyMove: quiz.allowManualEarlyMove,
       sectionalConfig: quiz.sectionalConfig?.map(sec => ({

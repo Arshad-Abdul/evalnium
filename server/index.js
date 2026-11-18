@@ -495,7 +495,9 @@ async function initDatabase() {
         prevent_early_next_question TINYINT(1) DEFAULT 0,
         question_view_mode VARCHAR(50) DEFAULT 'both',
         allow_manual_early_move TINYINT(1) DEFAULT 0,
-        prevent_question_copy TINYINT(1) DEFAULT 1
+        prevent_question_copy TINYINT(1) DEFAULT 1,
+        prevent_screenshot TINYINT(1) DEFAULT 1,
+        enable_watermark TINYINT(1) DEFAULT 1
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
@@ -543,6 +545,8 @@ async function initDatabase() {
       `ALTER TABLE announcements ADD COLUMN show_date TINYINT(1) DEFAULT 1;`,
       `ALTER TABLE announcements ADD COLUMN show_time TINYINT(1) DEFAULT 1;`,
       `ALTER TABLE quizzes ADD COLUMN prevent_question_copy TINYINT(1) DEFAULT 1;`,
+      `ALTER TABLE quizzes ADD COLUMN prevent_screenshot TINYINT(1) DEFAULT 1;`,
+      `ALTER TABLE quizzes ADD COLUMN enable_watermark TINYINT(1) DEFAULT 1;`,
       `ALTER TABLE questions ADD COLUMN passage LONGTEXT DEFAULT NULL;`,
       `ALTER TABLE questions ADD COLUMN list_i_title VARCHAR(255) DEFAULT NULL;`,
       `ALTER TABLE questions ADD COLUMN list_ii_title VARCHAR(255) DEFAULT NULL;`,
@@ -2054,6 +2058,8 @@ app.get('/api/quizzes', async (req, res) => {
         preventPreviousQuestionReturn: Boolean(q.prevent_prev_question),
         preventEarlyNextQuestion: Boolean(q.prevent_early_next_question),
         preventQuestionCopy: q.prevent_question_copy !== undefined && q.prevent_question_copy !== null ? Boolean(q.prevent_question_copy) : true,
+        preventScreenshot: q.prevent_screenshot !== undefined && q.prevent_screenshot !== null ? Boolean(q.prevent_screenshot) : true,
+        enableWatermark: q.enable_watermark !== undefined && q.enable_watermark !== null ? Boolean(q.enable_watermark) : true,
         shuffleQuestions: q.shuffle_questions !== undefined ? Boolean(q.shuffle_questions) : true,
         shuffleOptions: q.shuffle_options !== undefined ? Boolean(q.shuffle_options) : true,
         enablePracticeMode: Boolean(q.enable_practice_mode),
@@ -2153,20 +2159,20 @@ app.post('/api/quizzes', authenticateAdmin, async (req, res) => {
       `INSERT INTO quizzes (
         id, title, description, topic, category, difficulty, time_limit_minutes, passing_percentage, negative_marks, quiz_type, scheduled_start_datetime, scheduled_end_datetime, is_published, created_at, updated_at, author,
         enable_certificate, enable_anti_cheating, timing_mode, sectional_config_json, question_time_limit_seconds, prevent_prev_section, prevent_early_next_section, prevent_prev_question, prevent_early_next_question,
-        shuffle_questions, shuffle_options, enable_practice_mode, default_language_mode, access_code, allowed_emails, question_view_mode, max_attempts, allow_manual_early_move, result_announcement_datetime, auto_email_results, max_tab_switches, prevent_question_copy
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        shuffle_questions, shuffle_options, enable_practice_mode, default_language_mode, access_code, allowed_emails, question_view_mode, max_attempts, allow_manual_early_move, result_announcement_datetime, auto_email_results, max_tab_switches, prevent_question_copy, prevent_screenshot, enable_watermark
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE 
         title=?, description=?, topic=?, category=?, difficulty=?, time_limit_minutes=?, passing_percentage=?, negative_marks=?, quiz_type=?, scheduled_start_datetime=?, scheduled_end_datetime=?, is_published=?, updated_at=?,
         enable_certificate=?, enable_anti_cheating=?, timing_mode=?, sectional_config_json=?, question_time_limit_seconds=?, prevent_prev_section=?, prevent_early_next_section=?, prevent_prev_question=?, prevent_early_next_question=?,
-        shuffle_questions=?, shuffle_options=?, enable_practice_mode=?, default_language_mode=?, access_code=?, allowed_emails=?, question_view_mode=?, max_attempts=?, allow_manual_early_move=?, result_announcement_datetime=?, auto_email_results=?, max_tab_switches=?, prevent_question_copy=?`,
+        shuffle_questions=?, shuffle_options=?, enable_practice_mode=?, default_language_mode=?, access_code=?, allowed_emails=?, question_view_mode=?, max_attempts=?, allow_manual_early_move=?, result_announcement_datetime=?, auto_email_results=?, max_tab_switches=?, prevent_question_copy=?, prevent_screenshot=?, enable_watermark=?`,
       [
         q.id, q.title, q.description, normalizedTopic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.scheduledStartDateTime || null, q.scheduledEndDateTime || null, q.isPublished ? 1 : 0, q.createdAt, q.updatedAt, q.author || 'Admin',
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
-        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3, q.preventQuestionCopy !== false ? 1 : 0,
+        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3, q.preventQuestionCopy !== false ? 1 : 0, q.preventScreenshot !== false ? 1 : 0, q.enableWatermark !== false ? 1 : 0,
 
         q.title, q.description, normalizedTopic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.scheduledStartDateTime || null, q.scheduledEndDateTime || null, q.isPublished ? 1 : 0, q.updatedAt,
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
-        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3, q.preventQuestionCopy !== false ? 1 : 0
+        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3, q.preventQuestionCopy !== false ? 1 : 0, q.preventScreenshot !== false ? 1 : 0, q.enableWatermark !== false ? 1 : 0
       ]
     );
 

@@ -3,7 +3,7 @@ import type { ParsedQuestion, ParseResult, Quiz, DifficultyLevel, ListOrderStyle
 import { translateToHindi } from '../../utils/translator';
 import { getStoredQuizzes } from '../../utils/storage';
 import { detectAndExtractMatchFollowing, healMatchOption, extractComprehensionPassage, getItemPrefix, cleanItemText, formatPremiseStatements } from '../../utils/parsers';
-import { Mail, Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages, Eye, EyeOff, BookOpen, Lock } from 'lucide-react';
+import { Mail, Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages, Eye, EyeOff, BookOpen, Lock, Fingerprint } from 'lucide-react';
 
 
 interface McqPreviewEditorProps {
@@ -74,6 +74,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [questionViewMode, setQuestionViewMode] = useState<'both' | 'single_only' | 'all_only'>(parseResult.questionViewMode || 'both');
   const [allowManualEarlyMove, setAllowManualEarlyMove] = useState(parseResult.allowManualEarlyMove ?? false);
   const [preventQuestionCopy, setPreventQuestionCopy] = useState<boolean>(parseResult.preventQuestionCopy ?? true);
+  const [preventScreenshot, setPreventScreenshot] = useState<boolean>(parseResult.preventScreenshot ?? true);
+  const [enableWatermark, setEnableWatermark] = useState<boolean>(parseResult.enableWatermark ?? true);
   const [notifyCandidates, setNotifyCandidates] = useState<boolean>(false);
 
 
@@ -405,6 +407,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       questionViewMode,
       allowManualEarlyMove,
       preventQuestionCopy,
+      preventScreenshot,
+      enableWatermark,
       notifyCandidates,
       sectionalConfig: (() => {
         // Build sequential auto-ranges for 'auto' sections; use manual picks for 'manual' sections
@@ -863,6 +867,44 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                 checked={preventQuestionCopy}
                 onChange={(e) => setPreventQuestionCopy(e.target.checked)}
                 className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+              />
+            </label>
+
+            {/* Anti-Screenshot & Screen Capture Protection */}
+            <label className="p-3 rounded-xl bg-white border border-slate-200 flex items-center justify-between cursor-pointer hover:border-slate-300">
+              <div>
+                <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
+                  📸 Block Screenshots & Screen Capture Shield
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium block">
+                  Blackouts screen on focus loss (Win+Shift+S), blocks PrtScn key, and disables Print/PDF
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={preventScreenshot}
+                onChange={(e) => setPreventScreenshot(e.target.checked)}
+                className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500"
+              />
+            </label>
+
+            {/* Candidate Forensic Watermark Switch */}
+            <label className="p-3 rounded-xl bg-white border border-slate-200 flex items-center justify-between cursor-pointer hover:border-slate-300">
+              <div>
+                <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <Fingerprint className="w-3.5 h-3.5 text-blue-600" />
+                  💧 Candidate Forensic Watermark (Camera Shield)
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium block">
+                  Stamps candidate Name, Email & UID across questions to deter mobile camera leaks
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={enableWatermark}
+                onChange={(e) => setEnableWatermark(e.target.checked)}
+                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
               />
             </label>
 

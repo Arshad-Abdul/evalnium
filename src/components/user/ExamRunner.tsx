@@ -221,21 +221,28 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 
   // Anti-Piracy Content Protection Guard: block text copying, right-click, cut, PrintScreen, and screen snip
   useEffect(() => {
-    if (quiz.preventQuestionCopy === false) return;
+    const isCopyGuardEnabled = quiz.preventQuestionCopy !== false;
+    const isScreenshotGuardEnabled = quiz.preventScreenshot !== false;
+
+    if (!isCopyGuardEnabled && !isScreenshotGuardEnabled) return;
 
     const handleContextMenu = (e: MouseEvent) => {
-      e.preventDefault();
-      return false;
+      if (isCopyGuardEnabled) {
+        e.preventDefault();
+        return false;
+      }
     };
 
     const handleCopyCut = (e: ClipboardEvent) => {
-      e.preventDefault();
-      return false;
+      if (isCopyGuardEnabled) {
+        e.preventDefault();
+        return false;
+      }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 1. Intercept PrintScreen key and wipe clipboard
-      if (e.key === 'PrintScreen') {
+      // 1. Intercept PrintScreen key and wipe clipboard if screenshot guard is active
+      if (isScreenshotGuardEnabled && e.key === 'PrintScreen') {
         e.preventDefault();
         try {
           navigator.clipboard.writeText('⚠️ Screen capture and question copying are strictly prohibited on Evalnium CBT.');
@@ -244,23 +251,25 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         return false;
       }
 
-      // 2. Block DevTools (F12), Print, View Source, Select All, Copy, Cut
-      const isModifier = e.ctrlKey || e.metaKey;
-      if (
-        (isModifier && ['c', 'x', 'u', 's', 'p', 'a'].includes(e.key.toLowerCase())) ||
-        e.key === 'F12'
-      ) {
-        const target = e.target as HTMLElement;
-        const isInputField = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
-        if (!isInputField || ['u', 's', 'p'].includes(e.key.toLowerCase()) || e.key === 'F12') {
-          e.preventDefault();
-          return false;
+      // 2. Block DevTools (F12), Print, View Source, Select All, Copy, Cut if copy guard is active
+      if (isCopyGuardEnabled) {
+        const isModifier = e.ctrlKey || e.metaKey;
+        if (
+          (isModifier && ['c', 'x', 'u', 's', 'p', 'a'].includes(e.key.toLowerCase())) ||
+          e.key === 'F12'
+        ) {
+          const target = e.target as HTMLElement;
+          const isInputField = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
+          if (!isInputField || ['u', 's', 'p'].includes(e.key.toLowerCase()) || e.key === 'F12') {
+            e.preventDefault();
+            return false;
+          }
         }
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'PrintScreen') {
+      if (isScreenshotGuardEnabled && e.key === 'PrintScreen') {
         try {
           navigator.clipboard.writeText('⚠️ Screen capture and question copying are strictly prohibited on Evalnium CBT.');
         } catch {}
@@ -268,7 +277,9 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     };
 
     const handleWindowBlur = () => {
-      setIsWindowBlurred(true);
+      if (isScreenshotGuardEnabled) {
+        setIsWindowBlurred(true);
+      }
     };
 
     const handleWindowFocus = () => {
@@ -292,7 +303,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
       window.removeEventListener('blur', handleWindowBlur);
       window.removeEventListener('focus', handleWindowFocus);
     };
-  }, [quiz.preventQuestionCopy]);
+  }, [quiz.preventQuestionCopy, quiz.preventScreenshot]);
 
   // Save progress & userAnswers to LocalStorage on state update
   useEffect(() => {
@@ -785,7 +796,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
           {/* Question Box */}
           <div className="lg:col-span-3 bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-6 relative overflow-hidden">
             {/* Dynamic Anti-Leak Security Watermark */}
-            {quiz.preventQuestionCopy !== false && (
+            {quiz.enableWatermark !== false && (
               <div
                 className="absolute inset-0 pointer-events-none select-none overflow-hidden z-0 flex flex-wrap items-center justify-around opacity-[0.035] rotate-[-22deg] scale-125"
                 aria-hidden="true"
@@ -799,7 +810,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
             )}
 
             {/* Snipping Tool / Window Blur Privacy Shield */}
-            {isWindowBlurred && quiz.preventQuestionCopy !== false && (
+            {isWindowBlurred && quiz.preventScreenshot !== false && (
               <div className="absolute inset-0 z-40 bg-slate-950/80 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center text-white space-y-3">
                 <div className="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-400/40 flex items-center justify-center">
                   <ShieldAlert className="w-6 h-6 text-amber-400 animate-pulse" />
