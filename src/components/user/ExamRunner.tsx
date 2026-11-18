@@ -420,13 +420,13 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     });
   }, [currentQuestion?.id, currentQuestion?.questionType]);
 
-  const handleClearChoice = (qId: string) => {
+  const handleClearChoice = useCallback((qId: string) => {
     setUserAnswers((prev) => {
       const existing = prev[qId];
       if (!existing) return prev;
       return { ...prev, [qId]: { ...existing, selectedOptionId: null, selectedOptionIds: [] } };
     });
-  };
+  }, []);
 
   const handleToggleMarkForReview = useCallback((qId: string) => {
     const qObj = activeQuestions.find(q => q.id === qId);
@@ -441,7 +441,120 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
       if (nextState && qObj) saveBookmarkedQuestion(qObj, currentUser?.uid);
       return { ...prev, [qId]: { ...existing, isMarkedForReview: nextState } };
     });
-  }, [activeQuestions]);
+  }, [activeQuestions, currentUser?.uid]);
+
+  const canGoPrev = currentQuestionIndex > 0 && quiz.preventPreviousQuestionReturn !== true;
+
+  const handlePrevQuestion = useCallback(() => {
+    if (!canGoPrev) return;
+    setCurrentQuestionIndex((prev) => Math.max(0, prev - 1));
+  }, [canGoPrev]);
+
+  const canGoNext = !(
+    (quiz.timingMode === 'question' && quiz.preventEarlyNextQuestion === true && questionTimeRemainingSeconds > 0) ||
+    isBlockedBySectionLock
+  );
+
+  const handleNextQuestion = useCallback(() => {
+    if (!canGoNext) return;
+    if (currentQuestionIndex < activeQuestions.length - 1) {
+      if (isLastQuestionOfSection && !isLastSection && quiz.timingMode === 'sectional') {
+        const nextBoundary = sectionBoundaries[currentSectionIdx + 1];
+        if (nextBoundary) setCurrentQuestionIndex(nextBoundary.start);
+      } else {
+        setCurrentQuestionIndex((prev) => Math.min(activeQuestions.length - 1, prev + 1));
+      }
+    }
+  }, [canGoNext, currentQuestionIndex, activeQuestions.length, isLastQuestionOfSection, isLastSection, quiz.timingMode, sectionBoundaries, currentSectionIdx]);
+
+  // Global CBT Examination Keyboard Navigation Listener
+  useEffect(() => {
+    const handleExamKeyDown = (e: KeyboardEvent) => {
+      // 1. Never intercept when typing inside text inputs, textareas, or contentEditable elements
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
+      // 2. If a modal is open, let Escape close it and ignore question shortcuts
+      if (showSubmitModal || showMobilePalette) {
+        if (e.key === 'Escape') {
+          setShowSubmitModal(false);
+          setShowMobilePalette(false);
+        }
+        return;
+      }
+
+      // 3. Ignore if system modifier keys are held (Ctrl, Alt, Meta)
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+      const key = e.key;
+
+      // 4. Navigation: Next (ArrowRight)
+      if (key === 'ArrowRight') {
+        e.preventDefault();
+        handleNextQuestion();
+        return;
+      }
+
+      // 5. Navigation: Previous (ArrowLeft)
+      if (key === 'ArrowLeft') {
+        e.preventDefault();
+        handlePrevQuestion();
+        return;
+      }
+
+      // 6. Review Toggle: 'M' or 'm'
+      if (key === 'm' || key === 'M') {
+        e.preventDefault();
+        if (currentQuestion?.id) {
+          handleToggleMarkForReview(currentQuestion.id);
+        }
+        return;
+      }
+
+      // 7. Clear Response: 'Backspace' or 'Delete'
+      if (key === 'Backspace' || key === 'Delete') {
+        e.preventDefault();
+        if (currentQuestion?.id) {
+          handleClearChoice(currentQuestion.id);
+        }
+        return;
+      }
+
+      // 8. Option Choices: [1-5] or [A-E / a-e]
+      // Works for Single Choice (select) AND Multiple Select (MSQ toggle on/off)
+      let optIdx = -1;
+      if (['1', '2', '3', '4', '5'].includes(key)) {
+        optIdx = parseInt(key, 10) - 1;
+      } else {
+        const lower = key.toLowerCase();
+        if (['a', 'b', 'c', 'd', 'e'].includes(lower)) {
+          optIdx = lower.charCodeAt(0) - 97; // 'a' -> 0, 'b' -> 1, 'c' -> 2...
+        }
+      }
+
+      if (optIdx >= 0 && currentQuestion?.options && optIdx < currentQuestion.options.length) {
+        e.preventDefault();
+        const selectedOpt = currentQuestion.options[optIdx];
+        if (selectedOpt && selectedOpt.id) {
+          handleSelectOption(selectedOpt.id);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleExamKeyDown);
+    return () => window.removeEventListener('keydown', handleExamKeyDown);
+  }, [
+    showSubmitModal,
+    showMobilePalette,
+    handleNextQuestion,
+    handlePrevQuestion,
+    handleToggleMarkForReview,
+    handleClearChoice,
+    handleSelectOption,
+    currentQuestion
+  ]);
 
   const calculateResults = useCallback((): QuizAttemptResult => {
     let score = 0;
@@ -653,8 +766,8 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
             {/* Bottom Navigation Buttons */}
             <div className="flex items-center justify-between pt-4 border-t border-slate-100">
               <button
-                onClick={() => setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))}
-                disabled={currentQuestionIndex === 0 || quiz.preventPreviousQuestionReturn === true}
+                onClick={handlePrevQuestion}
+                disabled={!canGoPrev}
                 className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40 text-xs font-bold flex items-center space-x-1.5 transition-all"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -664,20 +777,8 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
               <div className="flex items-center space-x-3">
                 {currentQuestionIndex < activeQuestions.length - 1 ? (
                   <button
-                    onClick={() => {
-                      // Section boundary navigation: at last Q of section, jump to next section start
-                      if (isLastQuestionOfSection && !isLastSection && quiz.timingMode === 'sectional') {
-                        if (isBlockedBySectionLock) return;
-                        const nextBoundary = sectionBoundaries[currentSectionIdx + 1];
-                        if (nextBoundary) setCurrentQuestionIndex(nextBoundary.start);
-                      } else {
-                        setCurrentQuestionIndex((prev) => Math.min(activeQuestions.length - 1, prev + 1));
-                      }
-                    }}
-                    disabled={
-                      (quiz.timingMode === 'question' && quiz.preventEarlyNextQuestion === true && questionTimeRemainingSeconds > 0) ||
-                      isBlockedBySectionLock
-                    }
+                    onClick={handleNextQuestion}
+                    disabled={!canGoNext}
                     title={isBlockedBySectionLock ? `Cannot advance — wait for section timer to expire (${sectionTimeRemainingSeconds}s remaining)` : undefined}
                     className={`px-5 py-2 rounded-lg font-bold text-xs shadow-xs flex items-center space-x-1.5 transition-all ${
                       isBlockedBySectionLock
