@@ -5,6 +5,7 @@ import { translateToHindi } from '../../utils/translator';
 import { getItemPrefix, cleanItemText } from '../../utils/parsers';
 import { Trophy, AlertCircle, RotateCcw, Home, HelpCircle, BookOpen, Languages, Target, UserCheck, Clock, CheckCircle2, XCircle, Award } from 'lucide-react';
 import { AudioPlayerButton } from '../common/AudioPlayerButton';
+import { FormattedQuestionStem } from '../common/FormattedQuestionStem';
 import { CertificateModal } from './CertificateModal';
 import { QuestionDiscussion } from '../exam/QuestionDiscussion';
 
@@ -223,31 +224,42 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
     const englishQ = q.questionEnglish || q.questionText;
 
     if (languageMode === 'en') {
-      return <h4 className="text-sm sm:text-base font-semibold text-slate-900 leading-relaxed">{englishQ}</h4>;
+      return (
+        <FormattedQuestionStem
+          text={englishQ}
+          className="text-sm sm:text-base font-semibold text-slate-900 leading-relaxed"
+        />
+      );
     }
     if (languageMode === 'hi') {
       return (
-        <h4 className="text-sm sm:text-base font-semibold text-slate-900 leading-relaxed">
-          {hindiQ || englishQ}
-        </h4>
+        <FormattedQuestionStem
+          text={hindiQ || englishQ}
+          className="text-sm sm:text-base font-semibold text-slate-900 leading-relaxed"
+        />
       );
     }
     if (languageMode === 'dual') {
       return (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="text-sm sm:text-base font-semibold text-slate-900 leading-relaxed">
             <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded mr-2">EN</span>
-            {englishQ}
+            <FormattedQuestionStem text={englishQ} />
           </div>
-          <div className="text-sm sm:text-base font-medium text-slate-800 leading-relaxed pt-1.5 border-t border-slate-100">
+          <div className="text-sm sm:text-base font-medium text-slate-800 leading-relaxed pt-2 border-t border-slate-100">
             <span className="text-[10px] font-mono font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded mr-2">HI</span>
-            {hindiQ || 'हिन्दी रूपान्तरण उपलब्ध हो रहा है...'}
+            <FormattedQuestionStem text={hindiQ || 'हिन्दी रूपान्तरण उपलब्ध हो रहा है...'} />
           </div>
         </div>
       );
     }
 
-    return <h4 className="text-sm sm:text-base font-semibold text-slate-900 whitespace-pre-line leading-relaxed">{englishQ}</h4>;
+    return (
+      <FormattedQuestionStem
+        text={englishQ}
+        className="text-sm sm:text-base font-semibold text-slate-900 leading-relaxed"
+      />
+    );
   };
 
   const timeMinutes = Math.floor(result.timeSpentSeconds / 60);

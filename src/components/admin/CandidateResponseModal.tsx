@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Check, XCircle, MinusCircle, AlertCircle, BookOpen } from 'lucide-react';
 import type { Quiz, QuizAttemptResult } from '../../types/quiz';
 import { getItemPrefix, cleanItemText } from '../../utils/parsers';
+import { FormattedQuestionStem } from '../common/FormattedQuestionStem';
 
 interface CandidateResponseModalProps {
   attemptResult: QuizAttemptResult;
@@ -127,7 +128,7 @@ export const CandidateResponseModal: React.FC<CandidateResponseModalProps> = ({ 
                     </div>
                   </div>
                 )}
-                <p className="text-sm font-semibold text-slate-800 whitespace-pre-wrap">{q.questionText}</p>
+                <FormattedQuestionStem text={q.questionText} className="text-sm font-semibold text-slate-800" />
                 {q.imageUrl && <img src={q.imageUrl} alt="Question Graphic" className="max-h-48 rounded-lg border border-slate-200" />}
 
                 {/* Match the Following List I vs List II Box */}

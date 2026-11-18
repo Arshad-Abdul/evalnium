@@ -212,6 +212,138 @@ export function detectAndExtractMatchFollowing(rawText: string): MatchFollowingE
   return null;
 }
 
+export interface ExtractedStatementItem {
+  label: string; // 'A', 'B', 'Statement I', 'Assertion (A)'
+  text: string;
+}
+
+export interface MultiStatementStructure {
+  lead: string;
+  items: ExtractedStatementItem[];
+  closing?: string;
+}
+
+/**
+ * Automatically parses Multi-Premise / Statement questions (e.g., A. ... B. ... C. ... D. ... Choose the correct answer:).
+ * Supports UGC-NET, NTA, and State PSC multi-statement formats.
+ */
+export function extractStatementsStructure(text: string): MultiStatementStructure | null {
+  if (!text) return null;
+
+  // If question is a Match the Following question with List I and List II, let Match Following take precedence
+  if (/(?:List\s*I|सूची\s*I|Column\s*A|खण्ड\s*A)/i.test(text) && /(?:List\s*II|सूची\s*II|Column\s*B|खण्ड\s*B)/i.test(text)) {
+    return null;
+  }
+
+  // 1. Statements I / II / III / IV (and Statement 1 / 2)
+  const stmtRegex = /(?:^|\s+)(Statement\s*(?:I|1)|कथन\s*(?:I|1))\s*:?\s*([\s\S]+?)(?:\s+(Statement\s*(?:II|2)|कथन\s*(?:II|2))\s*:?\s*)([\s\S]+?)(?:(?:\s+(Statement\s*(?:III|3)|कथन\s*(?:III|3))\s*:?\s*)([\s\S]+?))?(?:(?:\s+(Statement\s*(?:IV|4)|कथन\s*(?:IV|4))\s*:?\s*)([\s\S]+?))?(?=(?:\s*(?:In\s+light|Choose|Select|From\s+the|Codes?|Options?|उपरोक्त|नीचे|सही)|$))/i;
+  let m = text.match(stmtRegex);
+  if (m && m.index !== undefined) {
+    const items = [
+      { label: m[1].trim(), text: m[2].trim() },
+      { label: m[3].trim(), text: m[4].trim() },
+    ];
+    if (m[5] && m[6]) items.push({ label: m[5].trim(), text: m[6].trim() });
+    if (m[7] && m[8]) items.push({ label: m[7].trim(), text: m[8].trim() });
+    return {
+      lead: text.substring(0, m.index).trim(),
+      items,
+      closing: text.substring(m.index + m[0].length).trim() || undefined
+    };
+  }
+
+  // 2. Assertion (A) / Reason (R)
+  const arRegex = /(?:^|\s+)(Assertion\s*\(?A\)?|अभिकथन\s*\(?A\)?)\s*:?\s*([\s\S]+?)(?:\s+(Reason\s*\(?R\)?|कारण\s*\(?R\)?)\s*:?\s*)([\s\S]+?)(?=(?:\s*(?:In\s+light|Choose|Select|From\s+the|Codes?|Options?|उपरोक्त|नीचे|सही)|$))/i;
+  m = text.match(arRegex);
+  if (m && m.index !== undefined) {
+    return {
+      lead: text.substring(0, m.index).trim(),
+      items: [
+        { label: m[1].trim(), text: m[2].trim() },
+        { label: m[3].trim(), text: m[4].trim() },
+      ],
+      closing: text.substring(m.index + m[0].length).trim() || undefined
+    };
+  }
+
+  // 3. Sequential lettered statements: A -> B -> C (and optional D, E, F)
+  // Supports A. ... B. ... C. ... OR (A) ... (B) ... (C) ... OR A) ... B) ...
+  const lettersRegex = /(?:^|\s+)(?:A[\.\)]|\(A\))\s+([\s\S]+?)(?:\s+(?:B[\.\)]|\(B\))\s+)([\s\S]+?)(?:\s+(?:C[\.\)]|\(C\))\s+)([\s\S]+?)(?:(?:\s+(?:D[\.\)]|\(D\))\s+)([\s\S]+?))?(?:(?:\s+(?:E[\.\)]|\(E\))\s+)([\s\S]+?))?(?:(?:\s+(?:F[\.\)]|\(F\))\s+)([\s\S]+?))?(?=(?:\s*(?:Choose|Select|From\s+the|In\s+light|Codes?|Options?|नीचे|सही|उपरोक्त)|$))/i;
+  m = text.match(lettersRegex);
+  if (m && m.index !== undefined) {
+    const items = [
+      { label: 'A', text: m[1].trim() },
+      { label: 'B', text: m[2].trim() },
+      { label: 'C', text: m[3].trim() },
+    ];
+    if (m[4]) items.push({ label: 'D', text: m[4].trim() });
+    if (m[5]) items.push({ label: 'E', text: m[5].trim() });
+    if (m[6]) items.push({ label: 'F', text: m[6].trim() });
+    return {
+      lead: text.substring(0, m.index).trim(),
+      items,
+      closing: text.substring(m.index + m[0].length).trim() || undefined
+    };
+  }
+
+  // 4. Roman numerals: I -> II -> III -> IV (and optional V)
+  const romanRegex = /(?:^|\s+)(?:I[\.\)]|\(I\)|\(i\))\s+([\s\S]+?)(?:\s+(?:II[\.\)]|\(II\)|\(ii\))\s+)([\s\S]+?)(?:\s+(?:III[\.\)]|\(III\)|\(iii\))\s+)([\s\S]+?)(?:\s+(?:IV[\.\)]|\(IV\)|\(iv\))\s+)([\s\S]+?)(?:(?:\s+(?:V[\.\)]|\(V\)|\(v\))\s+)([\s\S]+?))?(?=(?:\s*(?:Choose|Select|From\s+the|In\s+light|Codes?|Options?|नीचे|सही|उपरोक्त)|$))/i;
+  m = text.match(romanRegex);
+  if (m && m.index !== undefined) {
+    const items = [
+      { label: 'I', text: m[1].trim() },
+      { label: 'II', text: m[2].trim() },
+      { label: 'III', text: m[3].trim() },
+      { label: 'IV', text: m[4].trim() },
+    ];
+    if (m[5]) items.push({ label: 'V', text: m[5].trim() });
+    return {
+      lead: text.substring(0, m.index).trim(),
+      items,
+      closing: text.substring(m.index + m[0].length).trim() || undefined
+    };
+  }
+
+  // 5. Hindi Devanagari letters: क -> ख -> ग -> घ (and optional ङ)
+  const hindiLettersRegex = /(?:^|\s+)(?:क[\.\)]|\(क\))\s+([\s\S]+?)(?:\s+(?:ख[\.\)]|\(ख\))\s+)([\s\S]+?)(?:\s+(?:ग[\.\)]|\(ग\))\s+)([\s\S]+?)(?:(?:\s+(?:घ[\.\)]|\(घ\))\s+)([\s\S]+?))?(?:(?:\s+(?:ङ[\.\)]|\(ङ\))\s+)([\s\S]+?))?(?=(?:\s*(?:Choose|Select|From\s+the|In\s+light|Codes?|Options?|नीचे|सही|उपरोक्त)|$))/i;
+  m = text.match(hindiLettersRegex);
+  if (m && m.index !== undefined) {
+    const items = [
+      { label: 'क', text: m[1].trim() },
+      { label: 'ख', text: m[2].trim() },
+      { label: 'ग', text: m[3].trim() },
+    ];
+    if (m[4]) items.push({ label: 'घ', text: m[4].trim() });
+    if (m[5]) items.push({ label: 'ङ', text: m[5].trim() });
+    return {
+      lead: text.substring(0, m.index).trim(),
+      items,
+      closing: text.substring(m.index + m[0].length).trim() || undefined
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Automatically formats multi-statement questions with clean paragraph breaks between premises
+ */
+export function formatPremiseStatements(text: string): string {
+  if (!text) return text;
+  const struct = extractStatementsStructure(text);
+  if (!struct || struct.items.length === 0) return text;
+
+  let res = struct.lead ? (struct.lead + '\n\n') : '';
+  for (const item of struct.items) {
+    const sep = (item.label.length > 2 || item.label.includes('(')) ? ': ' : '. ';
+    res += `${item.label}${sep}${item.text}\n`;
+  }
+  if (struct.closing) {
+    res += '\n' + struct.closing;
+  }
+  return res.trim();
+}
+
 export interface ComprehensionPassageExtraction {
   passage: string;
   question: string;
@@ -352,7 +484,8 @@ export function parsePlainText(text: string): ParseResult {
     let inlineAnswer = '';
     let inlineExplanation = '';
 
-    const ansMatch = remainingBlock.match(/(?:Answer|Ans|Correct Answer|Correct Option|Correct_Answer|Key|उत्तर)\s*:?\s*[\(\[]?\s*([A-D1-4])\s*[\)\]]?(?:\n|$)/i);
+    const ansMatch = remainingBlock.match(/(?:^|\n)\s*(?:Answer|Ans|Correct Answer|Correct Option|Correct_Answer|Key|उत्तर)\s*:?\s*[\(\[]?\s*([A-D1-4])(?:\.|\:|\)|\]|\b).*$/im) ||
+                     remainingBlock.match(/(?:Answer|Ans|Correct Answer|Correct Option|Correct_Answer|Key|उत्तर)\s*:?\s*[\(\[]?\s*([A-D1-4])\s*[\)\]]?(?:\n|$)/i);
     if (ansMatch) {
       let val = ansMatch[1].toUpperCase();
       if (val === '1') val = 'A';
@@ -369,20 +502,37 @@ export function parsePlainText(text: string): ParseResult {
       remainingBlock = remainingBlock.replace(expMatch[0], '');
     }
 
-    // Extract options: A), A., (A), [A], A-, a), a., 1), 1.
-    let optionMatches = [...remainingBlock.matchAll(/(?:^|\n)\s*[\*\-]?\s*[\(\[]?\s*([A-D1-4])[\.\:\)\-]\s*([\s\S]+?)(?=(?:\n\s*[\*\-]?\s*[\(\[]?\s*[A-D1-4][\.\:\)\-]|\n*$))/gi)];
+    // Directive check for Multi-Premise / Statement questions (e.g. "Choose the correct answer from the options given below:")
+    // When a question contains statements (A., B., C., D., etc.) followed by a directive and then options (1, 2, 3, 4),
+    // we must extract options strictly from after the directive, preventing statement items from being mistaken as options!
+    const directiveRegex = /(?:\n|^)\s*((?:(?:Choose|Select)\s+(?:the\s+)?(?:correct|most\s+appropriate|appropriate)\s+(?:answer|code|combination)(?:\s+from\s+the\s+options?\s+given\s+below)?|(?:From\s+the\s+options?\s+given\s+below,?\s*)?(?:choose|select)\s+the\s+correct\s+answer|Codes?|Options?|नीचे\s*दिए\s*गए\s*विकल्पों|सही\s*उत्तर\s*(?:का\s*चयन\s*कीजिए|चुनिए))\s*:?)\s*(?=\n|\s*(?:[1-4A-D][\.\:\)\-]|\([1-4A-D]\)))/i;
 
-    if (optionMatches.length < 2) {
-      optionMatches = [...remainingBlock.matchAll(/[\(\[]?\s*([A-D])[\.\:\)\-]\s*([^\n\(\)A-D]+?)(?=(?:[\(\[]?\s*[A-D][\.\:\)\-]|$))/gi)];
+    const dirMatch = remainingBlock.match(directiveRegex);
+    let targetForOptions = remainingBlock;
+    let explicitQuestionStem: string | null = null;
+
+    if (dirMatch && dirMatch.index !== undefined) {
+      const dirEndIndex = dirMatch.index + dirMatch[0].length;
+      explicitQuestionStem = remainingBlock.substring(0, dirEndIndex).trim();
+      targetForOptions = remainingBlock.substring(dirEndIndex).trim();
     }
 
-    let questionText = remainingBlock;
+    // Extract options: A), A., (A), [A], A-, a), a., 1), 1.
+    let optionMatches = [...targetForOptions.matchAll(/(?:^|\n)\s*[\*\-]?\s*[\(\[]?\s*([A-D1-4])[\.\:\)\-]?\s*([\s\S]+?)(?=(?:\n\s*[\*\-]?\s*[\(\[]?\s*[A-D1-4][\.\:\)\-]|\n*$))/gi)];
+
+    if (optionMatches.length < 2) {
+      optionMatches = [...targetForOptions.matchAll(/[\(\[]?\s*([A-D1-4])[\.\:\)\-]\s*([^\n\(\)A-D]+?)(?=(?:[\(\[]?\s*[A-D1-4][\.\:\)\-]|$))/gi)];
+    }
+
+    let questionText = explicitQuestionStem || remainingBlock;
     const options: { id: string; text: string }[] = [];
 
     if (optionMatches.length >= 2) {
-      const firstOptIndex = optionMatches[0].index || 0;
-      questionText = remainingBlock.substring(0, firstOptIndex).trim();
-      questionText = questionText.replace(/(?:\n|^)\s*(?:Options\s*\/?\s*विकल्प|Options|विकल्प)\s*:?\s*$/i, '').trim();
+      if (!explicitQuestionStem) {
+        const firstOptIndex = optionMatches[0].index || 0;
+        questionText = remainingBlock.substring(0, firstOptIndex).trim();
+        questionText = questionText.replace(/(?:\n|^)\s*(?:Options\s*\/?\s*विकल्प|Options|विकल्प)\s*:?\s*$/i, '').trim();
+      }
 
       for (const optMatch of optionMatches) {
         let optId = optMatch[1].toUpperCase();
@@ -408,6 +558,7 @@ export function parsePlainText(text: string): ParseResult {
     }
 
     questionText = fixMojibake(questionText.replace(/^[\#\*\s\d\.\:\)]+/, '').trim());
+    questionText = formatPremiseStatements(questionText);
     
     // Extract English & Hindi blocks if present in questionText
     let questionEnglish: string | undefined;
@@ -541,8 +692,8 @@ export function parseCSV(csvContent: string): ParseResult {
 
   if (parsedHeader.data && parsedHeader.data.length > 0) {
     parsedHeader.data.forEach((row: any, idx: number) => {
-      const questionEnglish = getValueByHeader(row, ['question_english', 'questionenglish', 'english_question', 'english', 'eng_question', 'q_english']);
-      const questionHindi = getValueByHeader(row, ['question_hindi', 'questionhindi', 'hindi_question', 'hindi', 'hin_question', 'q_hindi']);
+      let questionEnglish = getValueByHeader(row, ['question_english', 'questionenglish', 'english_question', 'english', 'eng_question', 'q_english']);
+      let questionHindi = getValueByHeader(row, ['question_hindi', 'questionhindi', 'hindi_question', 'hindi', 'hin_question', 'q_hindi']);
       let questionText = getValueByHeader(row, [
         'question', 'question_text', 'questiontext', 'prompt', 'question_statement', 'questionstatement', 'statement', 'question_title', 'questiontitle', 'q_text', 'qtext', 'stem', 'problem', 'questions', 'mcq', 'item', 'query'
       ]);
@@ -654,6 +805,11 @@ export function parseCSV(csvContent: string): ParseResult {
         if (effectiveQuestionEnglish) effectiveQuestionEnglish = compData.question;
       }
 
+      // Smart Auto-Formatting for Multi-Statement / Premise questions (A. ... B. ... C. ... D. ...)
+      effectiveQuestionText = formatPremiseStatements(effectiveQuestionText);
+      if (effectiveQuestionEnglish) effectiveQuestionEnglish = formatPremiseStatements(effectiveQuestionEnglish);
+      if (questionHindi) questionHindi = formatPremiseStatements(questionHindi);
+
       if (effectiveQuestionText || safeOptions.length >= 1) {
         questions.push({
           tempId: `csv_${idx}_${Date.now()}`,
@@ -758,6 +914,9 @@ export function parseCSV(csvContent: string): ParseResult {
           passage = compData.passage;
           effectiveQText = compData.question;
         }
+
+        // Smart Auto-Formatting for Multi-Statement / Premise questions (A. ... B. ... C. ... D. ...)
+        effectiveQText = formatPremiseStatements(effectiveQText);
 
         if (effectiveQText && opts.length >= 2) {
           questions.push({

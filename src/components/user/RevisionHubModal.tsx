@@ -3,6 +3,7 @@ import type { Question } from '../../types/quiz';
 import { Bookmark, X, BookOpen, Trash2, HelpCircle } from 'lucide-react';
 import { AudioPlayerButton } from '../common/AudioPlayerButton';
 import { getItemPrefix, cleanItemText } from '../../utils/parsers';
+import { FormattedQuestionStem } from '../common/FormattedQuestionStem';
 import { useAuth } from '../../context/AuthContext';
 
 interface RevisionHubModalProps {
@@ -157,7 +158,7 @@ export const RevisionHubModal: React.FC<RevisionHubModalProps> = ({ isOpen, onCl
                   </div>
                 )}
 
-                <h4 className="font-bold text-slate-900 text-sm leading-snug whitespace-pre-line">{q.questionText}</h4>
+                <FormattedQuestionStem text={q.questionText} className="font-bold text-slate-900 text-sm leading-snug" />
 
                 {/* Question Image / Diagram */}
                 {q.imageUrl && (

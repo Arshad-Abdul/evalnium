@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import type { ParsedQuestion, ParseResult, Quiz, DifficultyLevel, ListOrderStyle } from '../../types/quiz';
 import { translateToHindi } from '../../utils/translator';
 import { getStoredQuizzes } from '../../utils/storage';
-import { detectAndExtractMatchFollowing, healMatchOption, extractComprehensionPassage, getItemPrefix, cleanItemText } from '../../utils/parsers';
+import { detectAndExtractMatchFollowing, healMatchOption, extractComprehensionPassage, getItemPrefix, cleanItemText, formatPremiseStatements } from '../../utils/parsers';
 import { Mail, Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages, Eye, EyeOff, BookOpen, Lock } from 'lucide-react';
 
 
@@ -156,6 +156,11 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
           qText = extracted.cleanStem || qText;
           if (qEng) qEng = extracted.cleanStem || qEng;
         }
+      }
+
+      if (qType !== 'match_following') {
+        if (qText) qText = formatPremiseStatements(qText);
+        if (qEng) qEng = formatPremiseStatements(qEng);
       }
 
       return {

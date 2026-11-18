@@ -4,6 +4,7 @@ import { translateToHindi } from '../../utils/translator';
 import { getItemPrefix, cleanItemText } from '../../utils/parsers';
 import { Bookmark, Clock, CheckCircle2, XCircle, BookOpen } from 'lucide-react';
 import { AudioPlayerButton } from '../common/AudioPlayerButton';
+import { FormattedQuestionStem } from '../common/FormattedQuestionStem';
 
 interface QuestionCardProps {
   question: Question;
@@ -92,38 +93,45 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
     if (languageMode === 'en') {
       return (
-        <div className="text-sm sm:text-base font-semibold text-slate-900 leading-relaxed whitespace-pre-line">
-          {englishQ}
-        </div>
+        <FormattedQuestionStem
+          text={englishQ}
+          className="text-sm sm:text-base font-semibold text-slate-900 leading-relaxed"
+        />
       );
     }
     if (languageMode === 'hi') {
       return (
-        <div className="text-sm sm:text-base font-semibold text-slate-900 leading-relaxed whitespace-pre-line">
-          {hindiQ || englishQ}
-        </div>
+        <FormattedQuestionStem
+          text={hindiQ || englishQ}
+          className="text-sm sm:text-base font-semibold text-slate-900 leading-relaxed"
+        />
       );
     }
     if (languageMode === 'dual') {
       return (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="text-sm sm:text-base font-semibold text-slate-900 leading-relaxed">
             <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded mr-2 align-middle">
               ENGLISH
             </span>
-            <span>{englishQ}</span>
+            <FormattedQuestionStem text={englishQ} />
           </div>
-          <div className="text-sm sm:text-base font-medium text-slate-800 leading-relaxed pt-2 border-t border-slate-100">
+          <div className="text-sm sm:text-base font-medium text-slate-800 leading-relaxed pt-3 border-t border-slate-100">
             <span className="text-[10px] font-mono font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded mr-2 align-middle">
               हिन्दी
             </span>
-            <span>{hindiQ || 'हिन्दी रूपान्तरण लोड हो रहा है...'}</span>
+            <FormattedQuestionStem text={hindiQ || 'हिन्दी रूपान्तरण लोड हो रहा है...'} />
           </div>
         </div>
       );
     }
 
-    return <div className="text-sm sm:text-base font-semibold text-slate-900 leading-relaxed">{englishQ}</div>;
+    return (
+      <FormattedQuestionStem
+        text={englishQ}
+        className="text-sm sm:text-base font-semibold text-slate-900 leading-relaxed"
+      />
+    );
   };
 
   return (
