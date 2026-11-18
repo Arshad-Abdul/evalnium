@@ -501,6 +501,8 @@ async function initDatabase() {
 
     // Auto-migrate columns if missing
     const columnsToAdd = [
+      `ALTER TABLE quizzes ADD COLUMN scheduled_start_datetime VARCHAR(100);`,
+      `ALTER TABLE quizzes ADD COLUMN scheduled_end_datetime VARCHAR(100);`,
       `ALTER TABLE quizzes ADD COLUMN enable_certificate TINYINT(1) DEFAULT 1;`,
       `ALTER TABLE quizzes ADD COLUMN enable_anti_cheating TINYINT(1) DEFAULT 0;`,
       `ALTER TABLE quizzes ADD COLUMN timing_mode VARCHAR(50) DEFAULT 'quiz';`,
@@ -514,11 +516,16 @@ async function initDatabase() {
       `ALTER TABLE quizzes ADD COLUMN shuffle_options TINYINT(1) DEFAULT 1;`,
       `ALTER TABLE quizzes ADD COLUMN enable_practice_mode TINYINT(1) DEFAULT 0;`,
       `ALTER TABLE quizzes ADD COLUMN default_language_mode VARCHAR(20) DEFAULT 'en';`,
+      `ALTER TABLE questions ADD COLUMN question_english TEXT;`,
+      `ALTER TABLE questions ADD COLUMN question_hindi TEXT;`,
+      `ALTER TABLE questions ADD COLUMN explanation_english TEXT;`,
+      `ALTER TABLE questions ADD COLUMN explanation_hindi TEXT;`,
       `ALTER TABLE questions ADD COLUMN question_type VARCHAR(50) DEFAULT 'mcq';`,
       `ALTER TABLE questions ADD COLUMN image_url LONGTEXT;`,
       `ALTER TABLE questions ADD COLUMN list_i_json LONGTEXT;`,
       `ALTER TABLE questions ADD COLUMN list_ii_json LONGTEXT;`,
       `ALTER TABLE questions ADD COLUMN correct_option_ids_json LONGTEXT;`,
+      `ALTER TABLE options ADD COLUMN image_url LONGTEXT;`,
       `ALTER TABLE quizzes ADD COLUMN access_code VARCHAR(100) DEFAULT NULL;`,
       `ALTER TABLE quizzes ADD COLUMN allowed_emails LONGTEXT DEFAULT NULL;`,
       `ALTER TABLE quizzes ADD COLUMN question_view_mode VARCHAR(50) DEFAULT 'both';`,
@@ -584,6 +591,7 @@ async function initDatabase() {
         question_id VARCHAR(100),
         option_letter VARCHAR(10),
         option_text TEXT,
+        image_url LONGTEXT,
         FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
@@ -594,6 +602,7 @@ async function initDatabase() {
         quiz_id VARCHAR(100),
         quiz_title VARCHAR(255),
         candidate_name VARCHAR(150),
+        candidate_email VARCHAR(150),
         topic VARCHAR(150),
         score DOUBLE,
         max_score DOUBLE,
@@ -613,6 +622,10 @@ async function initDatabase() {
         id VARCHAR(100) PRIMARY KEY,
         title VARCHAR(255),
         message TEXT,
+        category VARCHAR(50) DEFAULT 'bulletin',
+        show_timer TINYINT(1) DEFAULT 1,
+        show_date TINYINT(1) DEFAULT 1,
+        show_time TINYINT(1) DEFAULT 1,
         scheduled_datetime VARCHAR(100),
         target_quiz_id VARCHAR(100),
         is_active TINYINT(1) DEFAULT 1,
@@ -638,7 +651,9 @@ async function initDatabase() {
         password_hash VARCHAR(255),
         auth_provider VARCHAR(50) DEFAULT 'local',
         is_verified TINYINT(1) DEFAULT 1,
-        created_at VARCHAR(100)
+        created_at VARCHAR(100),
+        avatar LONGTEXT DEFAULT NULL,
+        terms_accepted_at VARCHAR(100) DEFAULT NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
@@ -734,6 +749,8 @@ async function initDatabase() {
         cta_link TEXT,
         quiz_id VARCHAR(100) DEFAULT NULL,
         slot_type VARCHAR(50) DEFAULT 'hero',
+        allow_dismiss TINYINT(1) DEFAULT 1,
+        image_only TINYINT(1) DEFAULT 0,
         is_active TINYINT(1) DEFAULT 1,
         display_order INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -1983,7 +2000,7 @@ app.get('/api/quizzes', async (req, res) => {
       const questions = [];
       if (canExposeQuestions) {
         for (const quest of qRows) {
-          const [optRows] = await pool.query('SELECT option_letter as id, option_text as text FROM options WHERE question_id = ? ORDER BY option_letter ASC', [quest.id]);
+          const [optRows] = await pool.query('SELECT option_letter as id, option_text as text, image_url as imageUrl FROM options WHERE question_id = ? ORDER BY option_letter ASC', [quest.id]);
           questions.push({
             id: quest.id,
             questionText: quest.question_text,
@@ -2005,7 +2022,7 @@ app.get('/api/quizzes', async (req, res) => {
             listIOrder: quest.list_i_order || undefined,
             listIIOrder: quest.list_ii_order || undefined,
             correctOptionIds: canExposeSolutions ? JSON.parse(quest.correct_option_ids_json || '[]') : undefined,
-            options: optRows,
+            options: optRows.map(o => ({ id: o.id, text: o.text, imageUrl: o.imageUrl || undefined })),
           });
         }
       }
@@ -2134,20 +2151,20 @@ app.post('/api/quizzes', authenticateAdmin, async (req, res) => {
     // Insert or update quiz
     await connection.query(
       `INSERT INTO quizzes (
-        id, title, description, topic, category, difficulty, time_limit_minutes, passing_percentage, negative_marks, quiz_type, is_published, created_at, updated_at, author,
+        id, title, description, topic, category, difficulty, time_limit_minutes, passing_percentage, negative_marks, quiz_type, scheduled_start_datetime, scheduled_end_datetime, is_published, created_at, updated_at, author,
         enable_certificate, enable_anti_cheating, timing_mode, sectional_config_json, question_time_limit_seconds, prevent_prev_section, prevent_early_next_section, prevent_prev_question, prevent_early_next_question,
         shuffle_questions, shuffle_options, enable_practice_mode, default_language_mode, access_code, allowed_emails, question_view_mode, max_attempts, allow_manual_early_move, result_announcement_datetime, auto_email_results, max_tab_switches, prevent_question_copy
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE 
-        title=?, description=?, topic=?, category=?, difficulty=?, time_limit_minutes=?, passing_percentage=?, negative_marks=?, quiz_type=?, is_published=?, updated_at=?,
+        title=?, description=?, topic=?, category=?, difficulty=?, time_limit_minutes=?, passing_percentage=?, negative_marks=?, quiz_type=?, scheduled_start_datetime=?, scheduled_end_datetime=?, is_published=?, updated_at=?,
         enable_certificate=?, enable_anti_cheating=?, timing_mode=?, sectional_config_json=?, question_time_limit_seconds=?, prevent_prev_section=?, prevent_early_next_section=?, prevent_prev_question=?, prevent_early_next_question=?,
         shuffle_questions=?, shuffle_options=?, enable_practice_mode=?, default_language_mode=?, access_code=?, allowed_emails=?, question_view_mode=?, max_attempts=?, allow_manual_early_move=?, result_announcement_datetime=?, auto_email_results=?, max_tab_switches=?, prevent_question_copy=?`,
       [
-        q.id, q.title, q.description, normalizedTopic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.isPublished ? 1 : 0, q.createdAt, q.updatedAt, q.author || 'Admin',
+        q.id, q.title, q.description, normalizedTopic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.scheduledStartDateTime || null, q.scheduledEndDateTime || null, q.isPublished ? 1 : 0, q.createdAt, q.updatedAt, q.author || 'Admin',
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
         q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3, q.preventQuestionCopy !== false ? 1 : 0,
 
-        q.title, q.description, normalizedTopic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.isPublished ? 1 : 0, q.updatedAt,
+        q.title, q.description, normalizedTopic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.scheduledStartDateTime || null, q.scheduledEndDateTime || null, q.isPublished ? 1 : 0, q.updatedAt,
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
         q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3, q.preventQuestionCopy !== false ? 1 : 0
       ]
@@ -2175,8 +2192,8 @@ app.post('/api/quizzes', authenticateAdmin, async (req, res) => {
 
       for (const opt of quest.options) {
         await connection.query(
-          `INSERT INTO options (question_id, option_letter, option_text) VALUES (?, ?, ?)`,
-          [quest.id, opt.id, opt.text]
+          `INSERT INTO options (question_id, option_letter, option_text, image_url) VALUES (?, ?, ?, ?)`,
+          [quest.id, opt.id, opt.text, opt.imageUrl || null]
         );
       }
     }
@@ -2904,6 +2921,8 @@ app.get('/api/results', async (req, res) => {
         correctAnswers: r.correct_answers,
         wrongAnswers: r.wrong_answers,
         skippedQuestions: r.skipped_questions,
+        totalQuestions: (r.correct_answers || 0) + (r.wrong_answers || 0) + (r.skipped_questions || 0),
+        attemptedQuestions: (r.correct_answers || 0) + (r.wrong_answers || 0),
         userAnswers: (isAdmin || isRowOwner) ? (r.user_answers_json ? JSON.parse(r.user_answers_json) : {}) : undefined,
         attemptedAt: r.attempted_at,
       };
