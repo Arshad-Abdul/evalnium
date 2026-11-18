@@ -136,3 +136,10 @@
   }
 }
 
+/* Mobile Anti-Piracy: Block Long-Press Magnifier, Copy Callouts, and Image Save */
+.select-none {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
