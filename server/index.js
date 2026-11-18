@@ -494,7 +494,8 @@ async function initDatabase() {
         prevent_prev_question TINYINT(1) DEFAULT 0,
         prevent_early_next_question TINYINT(1) DEFAULT 0,
         question_view_mode VARCHAR(50) DEFAULT 'both',
-        allow_manual_early_move TINYINT(1) DEFAULT 0
+        allow_manual_early_move TINYINT(1) DEFAULT 0,
+        prevent_question_copy TINYINT(1) DEFAULT 1
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
@@ -534,6 +535,12 @@ async function initDatabase() {
       `ALTER TABLE announcements ADD COLUMN show_timer TINYINT(1) DEFAULT 1;`,
       `ALTER TABLE announcements ADD COLUMN show_date TINYINT(1) DEFAULT 1;`,
       `ALTER TABLE announcements ADD COLUMN show_time TINYINT(1) DEFAULT 1;`,
+      `ALTER TABLE quizzes ADD COLUMN prevent_question_copy TINYINT(1) DEFAULT 1;`,
+      `ALTER TABLE questions ADD COLUMN passage LONGTEXT DEFAULT NULL;`,
+      `ALTER TABLE questions ADD COLUMN list_i_title VARCHAR(255) DEFAULT NULL;`,
+      `ALTER TABLE questions ADD COLUMN list_ii_title VARCHAR(255) DEFAULT NULL;`,
+      `ALTER TABLE questions ADD COLUMN list_i_order VARCHAR(50) DEFAULT 'alpha_upper';`,
+      `ALTER TABLE questions ADD COLUMN list_ii_order VARCHAR(50) DEFAULT 'roman_upper';`,
     ];
 
     for (const alterSql of columnsToAdd) {
@@ -561,6 +568,11 @@ async function initDatabase() {
         image_url LONGTEXT,
         list_i_json LONGTEXT,
         list_ii_json LONGTEXT,
+        list_i_title VARCHAR(255) DEFAULT NULL,
+        list_ii_title VARCHAR(255) DEFAULT NULL,
+        list_i_order VARCHAR(50) DEFAULT 'alpha_upper',
+        list_ii_order VARCHAR(50) DEFAULT 'roman_upper',
+        passage LONGTEXT DEFAULT NULL,
         correct_option_ids_json LONGTEXT,
         FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -1975,6 +1987,7 @@ app.get('/api/quizzes', async (req, res) => {
           questions.push({
             id: quest.id,
             questionText: quest.question_text,
+            passage: quest.passage || undefined,
             questionEnglish: quest.question_english,
             questionHindi: quest.question_hindi,
             correctOptionId: canExposeSolutions ? quest.correct_option_id : undefined,
@@ -1987,6 +2000,10 @@ app.get('/api/quizzes', async (req, res) => {
             imageUrl: quest.image_url || undefined,
             listI: JSON.parse(quest.list_i_json || '[]'),
             listII: JSON.parse(quest.list_ii_json || '[]'),
+            listITitle: quest.list_i_title || undefined,
+            listIITitle: quest.list_ii_title || undefined,
+            listIOrder: quest.list_i_order || undefined,
+            listIIOrder: quest.list_ii_order || undefined,
             correctOptionIds: canExposeSolutions ? JSON.parse(quest.correct_option_ids_json || '[]') : undefined,
             options: optRows,
           });
@@ -2019,6 +2036,7 @@ app.get('/api/quizzes', async (req, res) => {
         preventEarlyNextSection: Boolean(q.prevent_early_next_section),
         preventPreviousQuestionReturn: Boolean(q.prevent_prev_question),
         preventEarlyNextQuestion: Boolean(q.prevent_early_next_question),
+        preventQuestionCopy: q.prevent_question_copy !== undefined && q.prevent_question_copy !== null ? Boolean(q.prevent_question_copy) : true,
         shuffleQuestions: q.shuffle_questions !== undefined ? Boolean(q.shuffle_questions) : true,
         shuffleOptions: q.shuffle_options !== undefined ? Boolean(q.shuffle_options) : true,
         enablePracticeMode: Boolean(q.enable_practice_mode),
@@ -2118,20 +2136,20 @@ app.post('/api/quizzes', authenticateAdmin, async (req, res) => {
       `INSERT INTO quizzes (
         id, title, description, topic, category, difficulty, time_limit_minutes, passing_percentage, negative_marks, quiz_type, is_published, created_at, updated_at, author,
         enable_certificate, enable_anti_cheating, timing_mode, sectional_config_json, question_time_limit_seconds, prevent_prev_section, prevent_early_next_section, prevent_prev_question, prevent_early_next_question,
-        shuffle_questions, shuffle_options, enable_practice_mode, default_language_mode, access_code, allowed_emails, question_view_mode, max_attempts, allow_manual_early_move, result_announcement_datetime, auto_email_results, max_tab_switches
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        shuffle_questions, shuffle_options, enable_practice_mode, default_language_mode, access_code, allowed_emails, question_view_mode, max_attempts, allow_manual_early_move, result_announcement_datetime, auto_email_results, max_tab_switches, prevent_question_copy
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE 
         title=?, description=?, topic=?, category=?, difficulty=?, time_limit_minutes=?, passing_percentage=?, negative_marks=?, quiz_type=?, is_published=?, updated_at=?,
         enable_certificate=?, enable_anti_cheating=?, timing_mode=?, sectional_config_json=?, question_time_limit_seconds=?, prevent_prev_section=?, prevent_early_next_section=?, prevent_prev_question=?, prevent_early_next_question=?,
-        shuffle_questions=?, shuffle_options=?, enable_practice_mode=?, default_language_mode=?, access_code=?, allowed_emails=?, question_view_mode=?, max_attempts=?, allow_manual_early_move=?, result_announcement_datetime=?, auto_email_results=?, max_tab_switches=?`,
+        shuffle_questions=?, shuffle_options=?, enable_practice_mode=?, default_language_mode=?, access_code=?, allowed_emails=?, question_view_mode=?, max_attempts=?, allow_manual_early_move=?, result_announcement_datetime=?, auto_email_results=?, max_tab_switches=?, prevent_question_copy=?`,
       [
         q.id, q.title, q.description, normalizedTopic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.isPublished ? 1 : 0, q.createdAt, q.updatedAt, q.author || 'Admin',
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
-        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3,
+        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3, q.preventQuestionCopy !== false ? 1 : 0,
 
         q.title, q.description, normalizedTopic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.isPublished ? 1 : 0, q.updatedAt,
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
-        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3
+        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3, q.preventQuestionCopy !== false ? 1 : 0
       ]
     );
 
@@ -2146,12 +2164,12 @@ app.post('/api/quizzes', authenticateAdmin, async (req, res) => {
     for (const quest of q.questions) {
       await connection.query(
         `INSERT INTO questions (
-          id, quiz_id, question_text, question_english, question_hindi, correct_option_id, explanation, explanation_english, explanation_hindi, topic, marks,
-          question_type, image_url, list_i_json, list_ii_json, correct_option_ids_json
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, quiz_id, question_text, passage, question_english, question_hindi, correct_option_id, explanation, explanation_english, explanation_hindi, topic, marks,
+          question_type, image_url, list_i_json, list_ii_json, list_i_title, list_ii_title, list_i_order, list_ii_order, correct_option_ids_json
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          quest.id, q.id, quest.questionText, quest.questionEnglish, quest.questionHindi, quest.correctOptionId, quest.explanation, quest.explanationEnglish, quest.explanationHindi, quest.topic || q.topic, quest.marks || 1,
-          quest.questionType || 'mcq', quest.imageUrl || null, JSON.stringify(quest.listI || []), JSON.stringify(quest.listII || []), JSON.stringify(quest.correctOptionIds || [quest.correctOptionId || 'A'])
+          quest.id, q.id, quest.questionText, quest.passage || null, quest.questionEnglish || null, quest.questionHindi || null, quest.correctOptionId || null, quest.explanation || null, quest.explanationEnglish || null, quest.explanationHindi || null, quest.topic || q.topic, quest.marks || 1,
+          quest.questionType || 'mcq', quest.imageUrl || null, JSON.stringify(quest.listI || []), JSON.stringify(quest.listII || []), quest.listITitle || null, quest.listIITitle || null, quest.listIOrder || 'alpha_upper', quest.listIIOrder || 'roman_upper', JSON.stringify(quest.correctOptionIds || [quest.correctOptionId || 'A'])
         ]
       );
 
