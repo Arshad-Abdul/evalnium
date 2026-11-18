@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Quiz, UserAnswer, QuizAttemptResult } from '../../types/quiz';
-import { ChevronLeft, ChevronRight, AlertTriangle, Send, Clock, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, Send, Clock, X, ShieldAlert } from 'lucide-react';
 import { saveBookmarkedQuestion } from './RevisionHubModal';
 import { ExamHeader } from '../exam/ExamHeader';
 import { QuestionPalette } from '../exam/QuestionPalette';
@@ -122,6 +122,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [showAntiCheatWarning, setShowAntiCheatWarning] = useState(false);
+  const [isWindowBlurred, setIsWindowBlurred] = useState(false);
 
   const currentQuestion = activeQuestions[currentQuestionIndex] || activeQuestions[0];
   const currentAnswer = userAnswers[currentQuestion?.id] || {
@@ -218,7 +219,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     };
   }, [quiz.enableAntiCheating, quiz.maxTabSwitches, handleForceSubmit]);
 
-  // Anti-Piracy Content Protection Guard: block text copying, right-click, cut, and key shortcuts
+  // Anti-Piracy Content Protection Guard: block text copying, right-click, cut, PrintScreen, and screen snip
   useEffect(() => {
     if (quiz.preventQuestionCopy === false) return;
 
@@ -233,6 +234,17 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // 1. Intercept PrintScreen key and wipe clipboard
+      if (e.key === 'PrintScreen') {
+        e.preventDefault();
+        try {
+          navigator.clipboard.writeText('⚠️ Screen capture and question copying are strictly prohibited on Evalnium CBT.');
+        } catch {}
+        setShowAntiCheatWarning(true);
+        return false;
+      }
+
+      // 2. Block DevTools (F12), Print, View Source, Select All, Copy, Cut
       const isModifier = e.ctrlKey || e.metaKey;
       if (
         (isModifier && ['c', 'x', 'u', 's', 'p', 'a'].includes(e.key.toLowerCase())) ||
@@ -247,16 +259,38 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
       }
     };
 
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'PrintScreen') {
+        try {
+          navigator.clipboard.writeText('⚠️ Screen capture and question copying are strictly prohibited on Evalnium CBT.');
+        } catch {}
+      }
+    };
+
+    const handleWindowBlur = () => {
+      setIsWindowBlurred(true);
+    };
+
+    const handleWindowFocus = () => {
+      setIsWindowBlurred(false);
+    };
+
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('copy', handleCopyCut);
     document.addEventListener('cut', handleCopyCut);
     document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
 
     return () => {
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('copy', handleCopyCut);
       document.removeEventListener('cut', handleCopyCut);
       document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
     };
   }, [quiz.preventQuestionCopy]);
 
@@ -749,19 +783,48 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
       {examViewMode === 'single' ? (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1">
           {/* Question Box */}
-          <div className="lg:col-span-3 bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-6">
-            <QuestionCard
-              key={currentQuestion.id}
-              question={currentQuestion}
-              questionIndex={currentQuestionIndex}
-              totalQuestions={activeQuestions.length}
-              userAnswer={currentAnswer}
-              languageMode={languageMode}
-              enablePracticeMode={quiz.enablePracticeMode}
-              onSelectOption={handleSelectOption}
-              onClearChoice={() => handleClearChoice(currentQuestion.id)}
-              onToggleBookmark={() => handleToggleMarkForReview(currentQuestion.id)}
-            />
+          <div className="lg:col-span-3 bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-6 relative overflow-hidden">
+            {/* Dynamic Anti-Leak Security Watermark */}
+            {quiz.preventQuestionCopy !== false && (
+              <div
+                className="absolute inset-0 pointer-events-none select-none overflow-hidden z-0 flex flex-wrap items-center justify-around opacity-[0.035] rotate-[-22deg] scale-125"
+                aria-hidden="true"
+              >
+                {Array.from({ length: 16 }).map((_, i) => (
+                  <div key={i} className="p-8 text-xs font-mono font-bold text-slate-900 tracking-wider">
+                    {candidateName || 'Candidate'} • {currentUser?.email || 'Evalnium'} • UID:{currentUser?.uid ? currentUser.uid.slice(-6) : 'CBT'}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Snipping Tool / Window Blur Privacy Shield */}
+            {isWindowBlurred && quiz.preventQuestionCopy !== false && (
+              <div className="absolute inset-0 z-40 bg-slate-950/80 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center text-white space-y-3">
+                <div className="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-400/40 flex items-center justify-center">
+                  <ShieldAlert className="w-6 h-6 text-amber-400 animate-pulse" />
+                </div>
+                <div className="text-base font-extrabold tracking-tight">Window Inactive / Capture Shield Active</div>
+                <p className="text-xs text-slate-300 max-w-sm leading-relaxed">
+                  Screen capture or window switching is prevented. Click inside this examination window to resume your test.
+                </p>
+              </div>
+            )}
+
+            <div className="relative z-10">
+              <QuestionCard
+                key={currentQuestion.id}
+                question={currentQuestion}
+                questionIndex={currentQuestionIndex}
+                totalQuestions={activeQuestions.length}
+                userAnswer={currentAnswer}
+                languageMode={languageMode}
+                enablePracticeMode={quiz.enablePracticeMode}
+                onSelectOption={handleSelectOption}
+                onClearChoice={() => handleClearChoice(currentQuestion.id)}
+                onToggleBookmark={() => handleToggleMarkForReview(currentQuestion.id)}
+              />
+            </div>
 
             {/* Bottom Navigation Buttons */}
             <div className="flex items-center justify-between pt-4 border-t border-slate-100">

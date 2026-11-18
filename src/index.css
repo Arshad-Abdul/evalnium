@@ -127,3 +127,12 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #98a2b3;
 }
+
+/* Institutional CBT Print & PDF Capture Protection */
+@media print {
+  html, body, #root {
+    display: none !important;
+    visibility: hidden !important;
+  }
+}
+
