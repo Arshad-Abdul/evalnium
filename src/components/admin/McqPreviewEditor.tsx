@@ -3,7 +3,7 @@ import type { ParsedQuestion, ParseResult, Quiz, DifficultyLevel, ListOrderStyle
 import { translateToHindi } from '../../utils/translator';
 import { getStoredQuizzes } from '../../utils/storage';
 import { detectAndExtractMatchFollowing, healMatchOption, extractComprehensionPassage, getItemPrefix, cleanItemText, formatPremiseStatements } from '../../utils/parsers';
-import { calculateTimeRemaining } from '../../utils/countdown';
+import { calculateTimeRemaining, addMinutesToDateTimeLocal } from '../../utils/countdown';
 import { Mail, Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages, Eye, EyeOff, BookOpen, Lock, Fingerprint } from 'lucide-react';
 
 
@@ -368,7 +368,9 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
     setQuestions([...questions, newQ]);
   };
 
-  const handlePublish = (targetPublished: boolean = isPublished) => {
+  const handleSaveForm = (overrideMode?: 'immediate' | 'scheduled' | 'draft') => {
+    const activeMode = overrideMode || publishMode;
+
     if (questions.length === 0) {
       alert('Quiz must have at least 1 question before saving.');
       return;
@@ -392,12 +394,20 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       }
     }
 
-    if (publishMode === 'scheduled' && !publishAt) {
-      alert('Validation Error: Please select the Auto-Publish Date & Time.');
-      return;
+    if (activeMode === 'scheduled') {
+      if (!publishAt) {
+        alert('Validation Error: Please select the Auto-Publish Date & Time.');
+        return;
+      }
+      if ((quizType === 'scheduled_unlock' || quizType === 'live_contest') && scheduledStartDateTime) {
+        if (new Date(publishAt).getTime() > new Date(scheduledStartDateTime).getTime()) {
+          alert('Timing Conflict Error: Auto-Publish date cannot be AFTER the Exam Start/Unlock date! Students would not be able to see the exam until after it starts.');
+          return;
+        }
+      }
     }
 
-    const effectivePublished = publishMode === 'draft' ? false : targetPublished;
+    const effectivePublished = activeMode !== 'draft';
 
     const finalQuiz: Quiz = {
       id: parseResult.existingQuizId || `quiz_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
@@ -415,7 +425,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       quizType,
       scheduledStartDateTime: quizType === 'practice' ? undefined : (scheduledStartDateTime || undefined),
       scheduledEndDateTime: quizType === 'live_contest' ? (scheduledEndDateTime || undefined) : undefined,
-      publishAt: publishMode === 'scheduled' ? (publishAt || undefined) : undefined,
+      publishAt: activeMode === 'scheduled' ? (publishAt || undefined) : undefined,
       defaultLanguageMode,
       isPublished: effectivePublished,
       createdAt: parseResult.createdAt || new Date().toISOString(),
@@ -544,6 +554,63 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
     }
   };
 
+  const renderSaveActionButtons = () => (
+    <div className="flex items-center space-x-2.5">
+      {publishMode !== 'draft' ? (
+        <button
+          type="button"
+          onClick={() => handleSaveForm('draft')}
+          className="px-3.5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer"
+          title="Save as Draft: hidden from candidates"
+        >
+          <EyeOff className="w-3.5 h-3.5 text-slate-500" />
+          <span>Save as Draft</span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => handleSaveForm('immediate')}
+          className="px-3.5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer"
+          title="Make live immediately in student catalog"
+        >
+          <Eye className="w-3.5 h-3.5 text-slate-500" />
+          <span>Make Live Now</span>
+        </button>
+      )}
+
+      <button
+        type="button"
+        onClick={() => handleSaveForm()}
+        className={`px-5 py-2.5 rounded-xl text-white text-xs font-bold shadow-md flex items-center space-x-2 transition-all cursor-pointer ${
+          publishMode === 'immediate'
+            ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+            : publishMode === 'scheduled'
+              ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'
+              : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'
+        }`}
+      >
+        {publishMode === 'immediate' && (
+          <>
+            <Eye className="w-4 h-4" />
+            <span>Save & Publish Live</span>
+          </>
+        )}
+        {publishMode === 'scheduled' && (
+          <>
+            <Clock className="w-4 h-4" />
+            <span>Save & Schedule Auto-Publish</span>
+          </>
+        )}
+        {publishMode === 'draft' && (
+          <>
+            <Save className="w-4 h-4" />
+            <span>Save as Draft</span>
+          </>
+        )}
+      </button>
+    </div>
+  );
+
   return (
     <div className="space-y-8">
       {/* Top Header & Actions */}
@@ -577,25 +644,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
             <span>Add Question</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => handlePublish(false)}
-            className="px-4 py-2 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold flex items-center space-x-1.5 transition-all shadow-xs cursor-pointer"
-            title="Save as Draft: hidden from students in candidate catalog"
-          >
-            <EyeOff className="w-4 h-4 text-amber-600" />
-            <span>Save as Draft (Unpublished)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handlePublish(true)}
-            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center space-x-1.5 transition-all cursor-pointer"
-            title="Publish: make live immediately in student catalog"
-          >
-            <Eye className="w-4 h-4" />
-            <span>Publish to Portal (Live)</span>
-          </button>
+          {renderSaveActionButtons()}
         </div>
       </div>
 
@@ -704,17 +753,28 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               <div className="flex-1 text-xs">
                 {publishAt ? (
                   <div className="p-2.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-900 font-mono text-[11px] space-y-0.5">
-                    <p className="font-sans font-semibold text-indigo-700">Scheduled Go-Live Time:</p>
+                    <p className="font-sans font-semibold text-indigo-700 flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-indigo-600" />
+                      Admin Scheduling Status (Hidden from Candidates):
+                    </p>
                     <p className="font-bold">
                       {calculateTimeRemaining(publishAt).isExpired
-                        ? 'Passed (Will be live immediately)'
-                        : `Will automatically appear on portal in ${calculateTimeRemaining(publishAt).formatted}`}
+                        ? 'Passed (Will be live immediately upon save)'
+                        : `Will automatically appear on candidate portal in ${calculateTimeRemaining(publishAt).formatted}`}
                     </p>
                   </div>
                 ) : (
                   <p className="text-[11px] text-amber-700 font-medium bg-amber-50 p-2 rounded-lg border border-amber-200">
-                    ⚠️ Select date & time above. This quiz will remain hidden until that moment.
+                    ⚠️ Select date & time above. This quiz will remain 100% hidden from candidates until that moment.
                   </p>
+                )}
+
+                {/* Timing conflict warning if publishAt > scheduledStartDateTime */}
+                {publishAt && (quizType === 'scheduled_unlock' || quizType === 'live_contest') && scheduledStartDateTime && new Date(publishAt).getTime() > new Date(scheduledStartDateTime).getTime() && (
+                  <div className="mt-2 p-2.5 rounded-lg bg-rose-50 border border-rose-300 text-rose-900 text-[11px] font-bold flex items-center gap-2 shadow-2xs">
+                    <ShieldAlert className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                    <span>Timing Conflict: Auto-Publish date cannot be AFTER the Exam Start Time! Candidates would miss the start of the test.</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -863,7 +923,14 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                   type="datetime-local"
                   required
                   value={scheduledStartDateTime}
-                  onChange={(e) => setScheduledStartDateTime(e.target.value)}
+                  onChange={(e) => {
+                    const newStart = e.target.value;
+                    setScheduledStartDateTime(newStart);
+                    if (newStart && timeLimitMinutes > 0) {
+                      const autoEnd = addMinutesToDateTimeLocal(newStart, timeLimitMinutes);
+                      if (autoEnd) setScheduledEndDateTime(autoEnd);
+                    }
+                  }}
                   className={`w-full p-2 rounded-lg border bg-white font-mono text-xs font-bold text-slate-900 focus:outline-none ${
                     !scheduledStartDateTime ? 'border-amber-400 focus:border-amber-600' : 'border-amber-300 focus:border-amber-600'
                   }`}
@@ -889,10 +956,25 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center space-x-1">
-                  <Clock className="w-3.5 h-3.5 text-rose-600" />
-                  <span>Contest Official Closing Date & Time (IST)</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-800 flex items-center space-x-1">
+                    <Clock className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Contest Official Closing Date & Time (IST)</span>
+                  </label>
+                  {scheduledStartDateTime && timeLimitMinutes > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const auto = addMinutesToDateTimeLocal(scheduledStartDateTime, timeLimitMinutes);
+                        if (auto) setScheduledEndDateTime(auto);
+                      }}
+                      className="text-[10px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2 py-0.5 rounded transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                      title="Auto-calculate: Start Time + Exam Duration"
+                    >
+                      <span>⚡ Auto-fill: +{timeLimitMinutes}m</span>
+                    </button>
+                  )}
+                </div>
                 <input
                   type="datetime-local"
                   required
@@ -954,6 +1036,10 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               onChange={(e) => {
                 const val = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0);
                 setTimeLimitMinutes(val);
+                if (quizType === 'live_contest' && scheduledStartDateTime && val > 0) {
+                  const autoEnd = addMinutesToDateTimeLocal(scheduledStartDateTime, val);
+                  if (autoEnd) setScheduledEndDateTime(autoEnd);
+                }
                 if (timingMode === 'question' && questions.length > 0 && val > 0) {
                   setQuestionTimeLimitSeconds(Math.round((val * 60) / questions.length));
                 }
@@ -2291,32 +2377,14 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       </div>
 
       {/* Bottom Action Footer */}
-      <div className="flex justify-end space-x-4 pt-4 border-t border-slate-200">
+      <div className="flex justify-end space-x-3 pt-4 border-t border-slate-200">
         <button
           onClick={onBack}
           className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-bold"
         >
           Cancel & Back
         </button>
-        <button
-          type="button"
-          onClick={() => handlePublish(false)}
-          className="px-4 py-2.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold flex items-center space-x-1.5 transition-all shadow-xs cursor-pointer"
-          title="Save as Draft: hidden from students in candidate catalog"
-        >
-          <EyeOff className="w-4 h-4 text-amber-600" />
-          <span>Save as Draft (Unpublished)</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handlePublish(true)}
-          className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center space-x-2 transition-all cursor-pointer"
-          title="Publish: make live immediately in student catalog"
-        >
-          <Eye className="w-4 h-4" />
-          <span>Publish to Portal (Live)</span>
-        </button>
+        {renderSaveActionButtons()}
       </div>
     </div>
   );

@@ -178,3 +178,22 @@ export function useExamCountdown(
   return remaining;
 }
 
+/**
+ * Adds minutes to an HTML datetime-local string (YYYY-MM-DDTHH:mm)
+ * and returns the calculated datetime-local string in local time.
+ */
+export function addMinutesToDateTimeLocal(dateTimeStr: string, minutesToAdd: number): string {
+  if (!dateTimeStr || isNaN(minutesToAdd) || minutesToAdd <= 0) return '';
+  const d = new Date(dateTimeStr);
+  if (isNaN(d.getTime())) return '';
+
+  const newDate = new Date(d.getTime() + minutesToAdd * 60 * 1000);
+  const year = newDate.getFullYear();
+  const month = String(newDate.getMonth() + 1).padStart(2, '0');
+  const day = String(newDate.getDate()).padStart(2, '0');
+  const hours = String(newDate.getHours()).padStart(2, '0');
+  const mins = String(newDate.getMinutes()).padStart(2, '0');
+
+  return `${year}-${month}-${day}T${hours}:${mins}`;
+}
+
