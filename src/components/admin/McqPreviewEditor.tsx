@@ -4,7 +4,7 @@ import { translateToHindi } from '../../utils/translator';
 import { getStoredQuizzes } from '../../utils/storage';
 import { detectAndExtractMatchFollowing, healMatchOption, extractComprehensionPassage, getItemPrefix, cleanItemText, formatPremiseStatements } from '../../utils/parsers';
 import { calculateTimeRemaining, addMinutesToDateTimeLocal } from '../../utils/countdown';
-import { resolveSmartBadge } from '../../utils/badgeHelper';
+import { resolveSmartBadge, getQuizCardAccent } from '../../utils/badgeHelper';
 import { Mail, Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages, Eye, EyeOff, BookOpen, Lock, Fingerprint, Tag } from 'lucide-react';
 
 
@@ -210,6 +210,16 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       questionCount: questions.length,
     });
   }, [title, quizType, customBadge, badgeExpiresAt, showBadge, questions.length]);
+
+  // Real-time Card Accent Strip Preview Resolver
+  const previewAccent = useMemo(() => {
+    return getQuizCardAccent({
+      title,
+      quizType,
+      customBadge,
+      questionCount: questions.length,
+    });
+  }, [title, quizType, customBadge, questions.length]);
 
   const handleAutoExtractPassage = (qId?: string) => {
     if (!qId) return;
@@ -910,12 +920,12 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                   value={scheduledStartDateTime}
                   onChange={(e) => setScheduledStartDateTime(e.target.value)}
                   className={`w-full p-2 rounded-lg border bg-white font-mono text-xs font-bold text-slate-900 focus:outline-none ${
-                    !scheduledStartDateTime ? 'border-amber-400 focus:border-amber-600' : 'border-indigo-300 focus:border-indigo-600'
+                    !scheduledStartDateTime ? 'border-indigo-400 focus:border-indigo-600' : 'border-indigo-300 focus:border-indigo-600'
                   }`}
                 />
                 {!scheduledStartDateTime ? (
-                  <p className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded mt-1.5 flex items-center gap-1.5 shadow-2xs">
-                    <span>⚠️ Required: Select the unlock date & time for this Daily Quiz.</span>
+                  <p className="text-[11px] font-semibold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded mt-1.5 flex items-center gap-1.5 shadow-2xs">
+                    <span>⏰ Required: Select the unlock date & time for this Daily Quiz.</span>
                   </p>
                 ) : (
                   <div className="text-[11px] text-indigo-800 bg-indigo-50 border border-indigo-200/80 rounded px-2.5 py-1 mt-1.5 font-mono flex items-center justify-between shadow-2xs">
@@ -1148,16 +1158,22 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               </div>
             </div>
 
-            {/* Real-time Badge Preview Pill */}
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
+            {/* Real-time Top Strip & Badge Preview */}
+            <div className="flex items-center gap-2.5 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
               <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Card Preview:</span>
-              {showBadge && previewBadge ? (
-                <span className={`inline-flex items-center font-mono font-bold tracking-wider uppercase border text-[10.5px] px-2 py-0.5 rounded-md shadow-2xs ${previewBadge.colorClass}`}>
-                  {previewBadge.text}
-                </span>
-              ) : (
-                <span className="text-[11px] text-slate-400 font-mono italic">No badge (Hidden)</span>
-              )}
+              <div className="flex items-center gap-2">
+                <span
+                  className={`w-6 h-1.5 rounded-full ${previewAccent.topStripClass} shadow-2xs`}
+                  title={`Top Accent Strip: ${previewAccent.topStripClass}`}
+                />
+                {showBadge && previewBadge ? (
+                  <span className={`inline-flex items-center font-mono font-bold tracking-wider uppercase border text-[10.5px] px-2 py-0.5 rounded-md shadow-2xs ${previewBadge.colorClass}`}>
+                    {previewBadge.text}
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-slate-400 font-mono italic">No badge</span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1179,11 +1195,11 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               {[
                 { label: '🔥 NEW', val: 'NEW' },
                 { label: '📚 PYQ ARCHIVE', val: 'PYQ ARCHIVE' },
-                { label: '⏰ DAILY QUIZ', val: 'DAILY QUIZ' },
-                { label: '🏆 LIVE CONTEST', val: 'LIVE CONTEST' },
                 { label: '⚡ FULL MOCK', val: 'FULL MOCK' },
-                { label: '⭐ SCHOLARSHIP', val: 'SCHOLARSHIP' },
                 { label: '🎯 TOPIC TEST', val: 'TOPIC TEST' },
+                { label: '⭐ SCHOLARSHIP', val: 'SCHOLARSHIP' },
+                { label: '📝 CHAPTER TEST', val: 'CHAPTER TEST' },
+                { label: '🏅 SPECIAL', val: 'SPECIAL' },
               ].map((preset) => {
                 const isSelected = customBadge.trim().toUpperCase() === preset.val;
                 return (
@@ -1204,8 +1220,8 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
             </div>
             <p className="text-[10px] text-slate-500 font-medium mt-1">
               {!customBadge
-                ? `Auto-detect mode is active. Inspects your quiz title and exam mode. Currently resolving to: "${previewBadge?.text || 'Standard Paper'}"`
-                : `Custom override active ("${customBadge}"). Click "Auto-Detect" anytime to restore automatic title categorization.`}
+                ? `Auto-detect active: Mode "${quizType === 'live_contest' ? 'Strict Live Contest' : quizType === 'scheduled_unlock' ? 'Daily Quiz' : '24/7 Practice'}" currently resolves to: "${previewBadge?.text || 'Standard Paper'}"`
+                : `Custom override active ("${customBadge}"). Click "Auto-Detect" anytime to restore automatic categorization.`}
             </p>
           </div>
 
@@ -1269,26 +1285,35 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                 <span>Show Badge on Card</span>
               </label>
 
-              <label className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 cursor-pointer hover:border-slate-300 text-xs font-medium text-slate-800 shadow-2xs">
-                <input
-                  type="checkbox"
-                  checked={showCountdown}
-                  onChange={(e) => setShowCountdown(e.target.checked)}
-                  className="w-3.5 h-3.5 text-indigo-600 rounded focus:ring-indigo-500"
-                />
-                <span>Show Countdown Timer</span>
-              </label>
+              {(quizType === 'scheduled_unlock' || quizType === 'live_contest' || publishMode === 'scheduled') && (
+                <>
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 cursor-pointer hover:border-slate-300 text-xs font-medium text-slate-800 shadow-2xs">
+                    <input
+                      type="checkbox"
+                      checked={showCountdown}
+                      onChange={(e) => setShowCountdown(e.target.checked)}
+                      className="w-3.5 h-3.5 text-indigo-600 rounded focus:ring-indigo-500"
+                    />
+                    <span>Show Countdown Timer</span>
+                  </label>
 
-              <label className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 cursor-pointer hover:border-slate-300 text-xs font-medium text-slate-800 shadow-2xs">
-                <input
-                  type="checkbox"
-                  checked={showDates}
-                  onChange={(e) => setShowDates(e.target.checked)}
-                  className="w-3.5 h-3.5 text-indigo-600 rounded focus:ring-indigo-500"
-                />
-                <span>Show Scheduled Dates</span>
-              </label>
+                  <label className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 cursor-pointer hover:border-slate-300 text-xs font-medium text-slate-800 shadow-2xs">
+                    <input
+                      type="checkbox"
+                      checked={showDates}
+                      onChange={(e) => setShowDates(e.target.checked)}
+                      className="w-3.5 h-3.5 text-indigo-600 rounded focus:ring-indigo-500"
+                    />
+                    <span>Show Scheduled Dates</span>
+                  </label>
+                </>
+              )}
             </div>
+            {quizType === 'practice' && publishMode !== 'scheduled' && (
+              <p className="text-[10px] text-slate-400 font-medium italic mt-1.5">
+                ⚡ 24/7 Practice Exams are permanently available — countdown timer & scheduled dates only apply to Scheduled Daily Quizzes & Live Contests.
+              </p>
+            )}
           </div>
         </div>
 

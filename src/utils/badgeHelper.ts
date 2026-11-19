@@ -42,10 +42,12 @@ export function resolveSmartBadge(quiz?: Partial<Quiz> | null): SmartBadgeResult
       colorClass = 'bg-emerald-50 text-emerald-800 border-emerald-200/90';
     } else if (upper.includes('CONTEST') || upper.includes('LIVE') || upper.includes('CHAMPION') || upper.includes('SCHOLARSHIP')) {
       colorClass = 'bg-amber-50 text-amber-800 border-amber-200/90';
-    } else if (upper.includes('DAILY') || upper.includes('DAY') || upper.includes('SERIES') || upper.includes('TOPIC')) {
+    } else if (upper.includes('DAILY') || upper.includes('DAY') || upper.includes('SERIES')) {
       colorClass = 'bg-indigo-50 text-indigo-800 border-indigo-200/90';
     } else if (upper.includes('MOCK') || upper.includes('MEGA') || upper.includes('GRAND') || upper.includes('FULL')) {
       colorClass = 'bg-blue-50 text-blue-800 border-blue-200/90';
+    } else if (upper.includes('TOPIC') || upper.includes('CHAPTER') || upper.includes('UNIT')) {
+      colorClass = 'bg-teal-50 text-teal-800 border-teal-200/90';
     }
 
     return {
@@ -95,12 +97,20 @@ export function resolveSmartBadge(quiz?: Partial<Quiz> | null): SmartBadgeResult
     };
   }
 
-  // Detection E: Full Mock / Grand Test
-  const qCount = quiz.questionCount ?? (quiz.questions ? quiz.questions.length : 0);
-  if (/full\s*mock|grand\s*mock|mega\s*mock|full\s*length/i.test(title) || qCount >= 90) {
+  // Detection E: Full Mock / Grand Test (Strictly title-based)
+  if (/\bfull\s*mock\b|\bgrand\s*mock\b|\bmock\s*test\b|\bmega\s*mock\b|\bfull\s*length\b/i.test(title)) {
     return {
       text: 'FULL MOCK',
       colorClass: 'bg-blue-50 text-blue-800 border-blue-200/90',
+      isAutoDetected: true,
+    };
+  }
+
+  // Detection F: Topic / Chapter Test
+  if (/topic\s*test|chapter\s*test|unit\s*test/i.test(title)) {
+    return {
+      text: 'TOPIC TEST',
+      colorClass: 'bg-teal-50 text-teal-800 border-teal-200/90',
       isAutoDetected: true,
     };
   }
@@ -169,6 +179,9 @@ export function getQuizCardAccent(quiz?: Partial<Quiz> | null): CardAccentResult
     if (upper.includes('MOCK') || upper.includes('GRAND')) {
       return { topStripClass: 'bg-blue-600', leftStripClass: 'border-l-blue-600' };
     }
+    if (upper.includes('TOPIC') || upper.includes('CHAPTER')) {
+      return { topStripClass: 'bg-teal-600', leftStripClass: 'border-l-teal-600' };
+    }
     if (upper.includes('CONTEST')) {
       return { topStripClass: 'bg-amber-500', leftStripClass: 'border-l-amber-500' };
     }
@@ -182,16 +195,23 @@ export function getQuizCardAccent(quiz?: Partial<Quiz> | null): CardAccentResult
     };
   }
 
-  // 5. Full Mock / Grand Test (Blue)
-  const qCount = quiz.questionCount ?? (quiz.questions ? quiz.questions.length : 0);
-  if (/full\s*mock|grand\s*mock|mega\s*mock|full\s*length/i.test(title) || qCount >= 90) {
+  // 5. Full Mock / Grand Test (Strictly title-based)
+  if (/\bfull\s*mock\b|\bgrand\s*mock\b|\bmock\s*test\b|\bmega\s*mock\b|\bfull\s*length\b/i.test(title)) {
     return {
       topStripClass: 'bg-blue-600',
       leftStripClass: 'border-l-blue-600',
     };
   }
 
-  // 6. Standard Practice Paper (Subtle Slate Bar)
+  // 6. Topic / Chapter Test (Teal)
+  if (/topic\s*test|chapter\s*test|unit\s*test/i.test(title)) {
+    return {
+      topStripClass: 'bg-teal-600',
+      leftStripClass: 'border-l-teal-600',
+    };
+  }
+
+  // 7. Standard Practice Paper (Subtle Slate Bar)
   return {
     topStripClass: 'bg-slate-300',
     leftStripClass: 'border-l-slate-300',
