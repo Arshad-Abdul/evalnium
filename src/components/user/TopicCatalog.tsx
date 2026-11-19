@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { HeroBannerCarousel } from '../home/HeroBannerCarousel';
 import { CatalogAdCard } from './CatalogAdCard';
 import { SubjectFilterBar } from '../common/SubjectFilterBar';
+import { ExamCountdownBadge, ExamCountdownAction } from '../common/ExamCountdownBadge';
 
 const CertificateModal = lazy(() => import('./CertificateModal').then(m => ({ default: m.CertificateModal })));
 
@@ -38,85 +39,16 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
   };
 
   const renderQuizAction = (quiz: Quiz, quizAttempts: QuizAttemptResult[], compact = false) => {
-    const isContest = quiz.quizType === 'live_contest';
-    const hasAttempted = quizAttempts.length > 0;
-    const widthClass = compact ? 'px-3.5 py-2 shrink-0 whitespace-nowrap' : 'w-full py-2.5';
-
-    if (isContest) {
-      const now = new Date();
-      const startDate = quiz.scheduledStartDateTime ? new Date(quiz.scheduledStartDateTime) : null;
-      const endDate = quiz.scheduledEndDateTime ? new Date(quiz.scheduledEndDateTime) : null;
-
-      if (hasAttempted) {
-        return (
-          <button
-            type="button"
-            onClick={() => setShowHistoryModal(true)}
-            className={`${compact ? 'px-3 py-2 shrink-0 whitespace-nowrap' : 'w-full py-2'} rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer`}
-          >
-            <Lock className="w-3.5 h-3.5 text-slate-500" />
-            <span>{compact ? 'Scorecard' : 'Submitted · View Scorecard'}</span>
-          </button>
-        );
-      }
-
-      if (startDate && now < startDate) {
-        return (
-          <div className={`${compact ? 'px-3 py-2 shrink-0 max-w-[190px]' : 'w-full py-2 px-2'} rounded-lg bg-amber-50 text-amber-800 font-semibold text-xs border border-amber-200 flex items-center justify-center gap-1.5 text-center`}>
-            <Clock className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">
-              Starts {startDate.toLocaleDateString()} {startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          </div>
-        );
-      }
-
-      if (endDate && now > endDate) {
-        return (
-          <div className={`${compact ? 'px-3 py-2 shrink-0 whitespace-nowrap' : 'w-full py-2'} rounded-lg bg-slate-100 text-slate-500 font-semibold text-xs border border-slate-200 flex items-center justify-center gap-1.5 text-center`}>
-            <AlertCircle className="w-3.5 h-3.5" />
-            <span>Contest Ended</span>
-          </div>
-        );
-      }
-
-      return (
-        <button
-          type="button"
-          onClick={() => handleStartExamAttempt(quiz)}
-          className={`${widthClass} rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer`}
-        >
-          <Play className="w-3.5 h-3.5 fill-white" />
-          <span>Enter Contest</span>
-        </button>
-      );
-    }
-
-    const attemptsExhausted = Boolean(quiz.maxAttempts && quiz.maxAttempts > 0 && quizAttempts.length >= quiz.maxAttempts);
-
     return (
-      <button
-        type="button"
-        onClick={() => handleStartExamAttempt(quiz)}
-        disabled={attemptsExhausted}
-        className={`${widthClass} rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
-          currentUser
-            ? 'bg-blue-600 hover:bg-blue-700 text-white'
-            : 'bg-slate-900 hover:bg-slate-800 text-white'
-        }`}
-      >
-        {currentUser ? (
-          <>
-            <Play className="w-3.5 h-3.5 fill-white" />
-            <span>{attemptsExhausted ? 'Attempt Limit Reached' : hasAttempted ? 'Retake Test' : 'Start Test'}</span>
-          </>
-        ) : (
-          <>
-            <Lock className="w-3.5 h-3.5" />
-            <span>Sign In to Start</span>
-          </>
-        )}
-      </button>
+      <ExamCountdownAction
+        quiz={quiz}
+        quizAttempts={quizAttempts}
+        compact={compact}
+        currentUser={currentUser}
+        onStartExam={handleStartExamAttempt}
+        onViewHistory={() => setShowHistoryModal(true)}
+        onRequireAuth={onRequireAuth}
+      />
     );
   };
 
@@ -327,6 +259,8 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                     {quiz.title}
                   </h3>
 
+                  <ExamCountdownBadge quiz={quiz} compact />
+
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 font-mono tabular-nums">
                     <span>{quiz.questionCount ?? quiz.questions.length} Qs</span>
                     <span>·</span>
@@ -401,6 +335,9 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                         </span>
                       </div>
                     </div>
+
+                    {/* Live Ticking Countdown Badge (Scheduled Contests & Tests) */}
+                    <ExamCountdownBadge quiz={quiz} />
 
                     {/* Paper Title & Summary */}
                     <div>

@@ -3,6 +3,7 @@ import type { ParsedQuestion, ParseResult, Quiz, DifficultyLevel, ListOrderStyle
 import { translateToHindi } from '../../utils/translator';
 import { getStoredQuizzes } from '../../utils/storage';
 import { detectAndExtractMatchFollowing, healMatchOption, extractComprehensionPassage, getItemPrefix, cleanItemText, formatPremiseStatements } from '../../utils/parsers';
+import { calculateTimeRemaining } from '../../utils/countdown';
 import { Mail, Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages, Eye, EyeOff, BookOpen, Lock, Fingerprint } from 'lucide-react';
 
 
@@ -704,6 +705,19 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                   className="w-full p-2 rounded-lg border border-amber-300 bg-white font-mono text-xs font-bold text-slate-900 focus:outline-none focus:border-amber-600"
                 />
                 <p className="text-[10px] text-slate-500 mt-1 font-medium">Candidates CANNOT start test before this exact time.</p>
+                {scheduledStartDateTime && (
+                  <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200/80 rounded px-2.5 py-1 mt-1.5 font-mono flex items-center justify-between shadow-2xs">
+                    <span className="font-sans font-semibold text-[10px] text-amber-700 flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-amber-600" />
+                      Card Countdown Preview:
+                    </span>
+                    <span className="font-bold tabular-nums">
+                      {calculateTimeRemaining(scheduledStartDateTime).isExpired
+                        ? 'Passed (Unlocked)'
+                        : `Starts in ${calculateTimeRemaining(scheduledStartDateTime).formatted}`}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -719,6 +733,19 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                   className="w-full p-2 rounded-lg border border-rose-300 bg-white font-mono text-xs font-bold text-slate-900 focus:outline-none focus:border-rose-600"
                 />
                 <p className="text-[10px] text-slate-500 mt-1 font-medium">Exam portal locks permanently for new submissions after this time.</p>
+                {scheduledEndDateTime && (
+                  <div className="text-[11px] text-rose-800 bg-rose-50 border border-rose-200/80 rounded px-2.5 py-1 mt-1.5 font-mono flex items-center justify-between shadow-2xs">
+                    <span className="font-sans font-semibold text-[10px] text-rose-700 flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-rose-600" />
+                      Closes in:
+                    </span>
+                    <span className="font-bold tabular-nums">
+                      {calculateTimeRemaining(scheduledEndDateTime).isExpired
+                        ? 'Closed (Ended)'
+                        : calculateTimeRemaining(scheduledEndDateTime).formatted}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           )}

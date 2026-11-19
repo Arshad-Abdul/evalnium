@@ -27,6 +27,12 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
   const isUntimed = !quiz.timeLimitMinutes || quiz.timeLimitMinutes <= 0;
   const hasPassingCutoff = Boolean(quiz.passingPercentage && quiz.passingPercentage > 0);
 
+  const now = Date.now();
+  const startMs = quiz.scheduledStartDateTime ? new Date(quiz.scheduledStartDateTime).getTime() : 0;
+  const endMs = quiz.scheduledEndDateTime ? new Date(quiz.scheduledEndDateTime).getTime() : 0;
+  const isLockedBeforeStart = startMs > 0 && now < startMs;
+  const isContestEnded = quiz.quizType === 'live_contest' && endMs > 0 && now >= endMs;
+
   const sessionKey = `evalnium_live_exam_${currentUser?.email || candidateName || 'guest'}_${quiz.id}`;
   const [isResuming] = useState(() => {
     try {
@@ -354,11 +360,21 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
           </button>
           <button
             type="button"
-            disabled={!currentUser}
+            disabled={!currentUser || isLockedBeforeStart || isContestEnded}
             onClick={() => onStartExam(currentUser?.name || candidateName || 'Candidate')}
             className="flex-[2] py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
           >
-            {isResuming ? (
+            {isLockedBeforeStart ? (
+              <>
+                <Lock className="w-4 h-4" />
+                <span>Starts {new Date(quiz.scheduledStartDateTime!).toLocaleDateString([], { day: 'numeric', month: 'short' })} at {new Date(quiz.scheduledStartDateTime!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </>
+            ) : isContestEnded ? (
+              <>
+                <Lock className="w-4 h-4" />
+                <span>Contest Closed</span>
+              </>
+            ) : isResuming ? (
               <>
                 <RefreshCw className="w-4 h-4 animate-spin" />
                 <span>Resume Saved Assessment</span>
