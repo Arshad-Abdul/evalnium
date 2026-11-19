@@ -16,8 +16,8 @@ export const ExamCountdownBadge: React.FC<ExamCountdownBadgeProps> = ({ quiz, co
   const isContest = quiz.quizType === 'live_contest';
   const hasScheduledStart = Boolean(quiz.scheduledStartDateTime);
 
-  // If regular practice with no scheduled start, don't show any badge (zero clutter)
-  if (!isContest && !hasScheduledStart) {
+  // If regular practice with no scheduled start, or admin turned off timer, don't show any badge (zero clutter)
+  if (quiz.showCountdown === false || (!isContest && !hasScheduledStart)) {
     return null;
   }
 

@@ -1,11 +1,12 @@
 import React, { useState, lazy, Suspense } from 'react';
 import type { Quiz, QuizAttemptResult } from '../../types/quiz';
-import { Search, BookOpen, Clock, Play, History, X, Lock, Award, AlertCircle, LayoutGrid, List } from 'lucide-react';
+import { Search, BookOpen, Clock, Play, History, X, Lock, Award, AlertCircle, LayoutGrid, List, Calendar } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { HeroBannerCarousel } from '../home/HeroBannerCarousel';
 import { CatalogAdCard } from './CatalogAdCard';
 import { SubjectFilterBar } from '../common/SubjectFilterBar';
 import { ExamCountdownBadge, ExamCountdownAction } from '../common/ExamCountdownBadge';
+import { SmartQuizBadge } from '../common/SmartQuizBadge';
 
 const CertificateModal = lazy(() => import('./CertificateModal').then(m => ({ default: m.CertificateModal })));
 
@@ -233,8 +234,19 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
               null
             );
 
+            const isContest = quiz.quizType === 'live_contest';
+            const isDaily = quiz.quizType === 'scheduled_unlock';
+            const isPyq = /\bpyq\b|previous\s*year|solved\s*paper/i.test(quiz.title || '');
+            const listAccent = isContest
+              ? 'border-l-3 border-l-amber-500 bg-amber-50/15'
+              : isDaily
+                ? 'border-l-3 border-l-indigo-500 bg-indigo-50/15'
+                : isPyq
+                  ? 'border-l-3 border-l-emerald-500 bg-emerald-50/10'
+                  : 'border-l-3 border-l-transparent';
+
             return (
-              <div key={quiz.id} className="p-4 sm:px-5 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors">
+              <div key={quiz.id} className={`p-4 sm:px-5 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors ${listAccent}`}>
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-2 text-[11px]">
                     <span className="font-medium text-slate-500">{quiz.topic}</span>
@@ -243,16 +255,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                       <span className={`w-1.5 h-1.5 rounded-full ${difficultyDot}`} />
                       {difficulty}
                     </span>
-                    {quiz.quizType === 'live_contest' && (
-                      <span className="font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
-                        Contest
-                      </span>
-                    )}
-                    {quiz.quizType === 'scheduled_unlock' && (
-                      <span className="font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.2 rounded">
-                        Daily Quiz
-                      </span>
-                    )}
+                    <SmartQuizBadge quiz={quiz} compact />
                     {bestAttempt && (
                       <span className={`font-mono font-semibold px-1.5 py-0.2 rounded border ${
                         bestAttempt.passed
@@ -269,6 +272,23 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                   </h3>
 
                   <ExamCountdownBadge quiz={quiz} compact />
+
+                  {quiz.showDates !== false && quiz.scheduledStartDateTime && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-mono">
+                      <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span>
+                        {new Date(quiz.scheduledStartDateTime).toLocaleDateString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                        {isContest && quiz.scheduledEndDateTime && (
+                          <> - {new Date(quiz.scheduledEndDateTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</>
+                        )}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 font-mono tabular-nums">
                     <span>{quiz.questionCount ?? quiz.questions.length} Qs</span>
@@ -307,6 +327,17 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
               null
             );
 
+            const isContest = quiz.quizType === 'live_contest';
+            const isDaily = quiz.quizType === 'scheduled_unlock';
+            const isPyq = /\bpyq\b|previous\s*year|solved\s*paper/i.test(quiz.title || '');
+            const cardAccentBorder = isContest
+              ? 'border-t-2 border-t-amber-500'
+              : isDaily
+                ? 'border-t-2 border-t-indigo-500'
+                : isPyq
+                  ? 'border-t-2 border-t-emerald-500'
+                  : 'border-t-2 border-t-transparent hover:border-t-slate-300';
+
             return (
               <React.Fragment key={quiz.id}>
                 {index === adInsertIndex && (
@@ -315,7 +346,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                     onSelectQuiz={onSelectQuiz}
                   />
                 )}
-                <div className="portal-card-interactive p-5 flex flex-col justify-between gap-4">
+                <div className={`portal-card-interactive p-5 flex flex-col justify-between gap-4 ${cardAccentBorder}`}>
                   <div className="space-y-2.5">
                     {/* Clean Metadata Line */}
                     <div className="flex items-center justify-between gap-2 text-xs">
@@ -333,16 +364,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                             Best: {bestAttempt.percentage}%
                           </span>
                         )}
-                        {quiz.quizType === 'live_contest' && (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
-                            Contest
-                          </span>
-                        )}
-                        {quiz.quizType === 'scheduled_unlock' && (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
-                            Daily Quiz
-                          </span>
-                        )}
+                        <SmartQuizBadge quiz={quiz} />
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-600">
                           <span className={`w-1.5 h-1.5 rounded-full ${difficultyDot}`} />
                           {difficulty}
@@ -352,6 +374,24 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
 
                     {/* Live Ticking Countdown Badge (Scheduled Contests & Tests) */}
                     <ExamCountdownBadge quiz={quiz} />
+
+                    {/* Scheduled Date & Window (If enabled by admin) */}
+                    {quiz.showDates !== false && quiz.scheduledStartDateTime && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-mono">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>
+                          {new Date(quiz.scheduledStartDateTime).toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                          {isContest && quiz.scheduledEndDateTime && (
+                            <> - {new Date(quiz.scheduledEndDateTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</>
+                          )}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Paper Title & Summary */}
                     <div>

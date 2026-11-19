@@ -4,7 +4,8 @@ import { translateToHindi } from '../../utils/translator';
 import { getStoredQuizzes } from '../../utils/storage';
 import { detectAndExtractMatchFollowing, healMatchOption, extractComprehensionPassage, getItemPrefix, cleanItemText, formatPremiseStatements } from '../../utils/parsers';
 import { calculateTimeRemaining, addMinutesToDateTimeLocal } from '../../utils/countdown';
-import { Mail, Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages, Eye, EyeOff, BookOpen, Lock, Fingerprint } from 'lucide-react';
+import { resolveSmartBadge } from '../../utils/badgeHelper';
+import { Mail, Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages, Eye, EyeOff, BookOpen, Lock, Fingerprint, Tag } from 'lucide-react';
 
 
 interface McqPreviewEditorProps {
@@ -56,6 +57,13 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
     return parseResult.isPublished === false ? 'draft' : 'immediate';
   });
   const [isPublished, setIsPublished] = useState<boolean>(parseResult.isPublished ?? true);
+
+  // --- Smart Badges & Card Presentation (Items 12 & 13) ---
+  const [customBadge, setCustomBadge] = useState<string>(parseResult.customBadge || '');
+  const [badgeExpiresAt, setBadgeExpiresAt] = useState<string>(parseResult.badgeExpiresAt || '');
+  const [showBadge, setShowBadge] = useState<boolean>(parseResult.showBadge !== false);
+  const [showCountdown, setShowCountdown] = useState<boolean>(parseResult.showCountdown !== false);
+  const [showDates, setShowDates] = useState<boolean>(parseResult.showDates !== false);
 
   // --- Privacy & Access Controls ---
   const [accessCode, setAccessCode] = useState<string>(parseResult.accessCode || '');
@@ -190,6 +198,18 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       };
     });
   });
+
+  // Real-time Badge Preview Resolver
+  const previewBadge = useMemo(() => {
+    return resolveSmartBadge({
+      title,
+      quizType,
+      customBadge,
+      badgeExpiresAt,
+      showBadge,
+      questionCount: questions.length,
+    });
+  }, [title, quizType, customBadge, badgeExpiresAt, showBadge, questions.length]);
 
   const handleAutoExtractPassage = (qId?: string) => {
     if (!qId) return;
@@ -426,6 +446,11 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       scheduledStartDateTime: quizType === 'practice' ? undefined : (scheduledStartDateTime || undefined),
       scheduledEndDateTime: quizType === 'live_contest' ? (scheduledEndDateTime || undefined) : undefined,
       publishAt: activeMode === 'scheduled' ? (publishAt || undefined) : undefined,
+      customBadge: customBadge.trim() || undefined,
+      badgeExpiresAt: badgeExpiresAt || undefined,
+      showBadge,
+      showCountdown,
+      showDates,
       defaultLanguageMode,
       isPublished: effectivePublished,
       createdAt: parseResult.createdAt || new Date().toISOString(),
@@ -1107,6 +1132,163 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               <option value="Medium">Medium</option>
               <option value="Hard">Hard</option>
             </select>
+          </div>
+        </div>
+
+        {/* --- Smart Badge & Candidate Card Presentation (Items 12 & 13) --- */}
+        <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center space-x-2.5">
+              <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
+                🏷️
+              </span>
+              <div>
+                <h4 className="text-xs font-bold text-slate-900">Card Badge & Visual Presentation</h4>
+                <p className="text-[11px] text-slate-500 font-medium">Auto-detection from title/mode, custom label overrides, auto-expiry, and student card toggles.</p>
+              </div>
+            </div>
+
+            {/* Real-time Badge Preview Pill */}
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
+              <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Card Preview:</span>
+              {showBadge && previewBadge ? (
+                <span className={`inline-flex items-center font-mono font-bold tracking-wider uppercase border text-[10.5px] px-2 py-0.5 rounded-md shadow-2xs ${previewBadge.colorClass}`}>
+                  {previewBadge.text}
+                </span>
+              ) : (
+                <span className="text-[11px] text-slate-400 font-mono italic">No badge (Hidden)</span>
+              )}
+            </div>
+          </div>
+
+          {/* Quick-Preset Pills */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1.5">Quick Badge Presets:</label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setCustomBadge('')}
+                className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold border transition-all cursor-pointer ${
+                  !customBadge
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                ⚡ Auto-Detect (Recommended)
+              </button>
+              {[
+                { label: '🔥 NEW', val: 'NEW' },
+                { label: '📚 PYQ ARCHIVE', val: 'PYQ ARCHIVE' },
+                { label: '⏰ DAILY QUIZ', val: 'DAILY QUIZ' },
+                { label: '🏆 LIVE CONTEST', val: 'LIVE CONTEST' },
+                { label: '⚡ FULL MOCK', val: 'FULL MOCK' },
+                { label: '⭐ SCHOLARSHIP', val: 'SCHOLARSHIP' },
+                { label: '🎯 TOPIC TEST', val: 'TOPIC TEST' },
+              ].map((preset) => {
+                const isSelected = customBadge.trim().toUpperCase() === preset.val;
+                return (
+                  <button
+                    key={preset.val}
+                    type="button"
+                    onClick={() => setCustomBadge(isSelected ? '' : preset.val)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-slate-500 font-medium mt-1">
+              {!customBadge
+                ? `Auto-detect mode is active. Inspects your quiz title and exam mode. Currently resolving to: "${previewBadge?.text || 'Standard Paper'}"`
+                : `Custom override active ("${customBadge}"). Click "Auto-Detect" anytime to restore automatic title categorization.`}
+            </p>
+          </div>
+
+          {/* Custom Badge Text & Expiry Inputs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-slate-200/80">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Custom Badge Text (Optional Override)
+              </label>
+              <input
+                type="text"
+                value={customBadge}
+                onChange={(e) => setCustomBadge(e.target.value)}
+                placeholder="e.g. DAY 2 SPECIAL, UGC NET 2024, FINAL MOCK"
+                maxLength={30}
+                className="w-full p-2 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-600"
+              />
+              <p className="text-[10px] text-slate-400 mt-0.5">Leave blank to use automatic smart title detection.</p>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-bold text-slate-700">
+                  Badge Auto-Expiry Date & Time (Optional)
+                </label>
+                {badgeExpiresAt && (
+                  <button
+                    type="button"
+                    onClick={() => setBadgeExpiresAt('')}
+                    className="text-[10px] text-rose-600 hover:underline font-bold cursor-pointer"
+                  >
+                    Clear Expiry
+                  </button>
+                )}
+              </div>
+              <input
+                type="datetime-local"
+                value={badgeExpiresAt}
+                onChange={(e) => setBadgeExpiresAt(e.target.value)}
+                className="w-full p-2 rounded-lg border border-slate-300 bg-white font-mono text-xs font-bold text-slate-900 focus:outline-none focus:border-indigo-600"
+              />
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                {badgeExpiresAt
+                  ? `Badge will automatically disappear on candidate portal on ${new Date(badgeExpiresAt).toLocaleString()}.`
+                  : 'Never expires. Set a date if you want e.g. "NEW" badge to disappear after 3 days.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Card Display Controls (Item 13) */}
+          <div className="pt-2 border-t border-slate-200/80">
+            <label className="block text-[11px] font-bold text-slate-700 mb-1.5">Candidate Portal Display Toggles:</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <label className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 cursor-pointer hover:border-slate-300 text-xs font-medium text-slate-800 shadow-2xs">
+                <input
+                  type="checkbox"
+                  checked={showBadge}
+                  onChange={(e) => setShowBadge(e.target.checked)}
+                  className="w-3.5 h-3.5 text-indigo-600 rounded focus:ring-indigo-500"
+                />
+                <span>Show Badge on Card</span>
+              </label>
+
+              <label className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 cursor-pointer hover:border-slate-300 text-xs font-medium text-slate-800 shadow-2xs">
+                <input
+                  type="checkbox"
+                  checked={showCountdown}
+                  onChange={(e) => setShowCountdown(e.target.checked)}
+                  className="w-3.5 h-3.5 text-indigo-600 rounded focus:ring-indigo-500"
+                />
+                <span>Show Countdown Timer</span>
+              </label>
+
+              <label className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 cursor-pointer hover:border-slate-300 text-xs font-medium text-slate-800 shadow-2xs">
+                <input
+                  type="checkbox"
+                  checked={showDates}
+                  onChange={(e) => setShowDates(e.target.checked)}
+                  className="w-3.5 h-3.5 text-indigo-600 rounded focus:ring-indigo-500"
+                />
+                <span>Show Scheduled Dates</span>
+              </label>
+            </div>
           </div>
         </div>
 
