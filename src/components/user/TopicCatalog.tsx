@@ -7,6 +7,7 @@ import { CatalogAdCard } from './CatalogAdCard';
 import { SubjectFilterBar } from '../common/SubjectFilterBar';
 import { ExamCountdownBadge, ExamCountdownAction } from '../common/ExamCountdownBadge';
 import { SmartQuizBadge } from '../common/SmartQuizBadge';
+import { getQuizCardAccent } from '../../utils/badgeHelper';
 
 const CertificateModal = lazy(() => import('./CertificateModal').then(m => ({ default: m.CertificateModal })));
 
@@ -234,19 +235,10 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
               null
             );
 
-            const isContest = quiz.quizType === 'live_contest';
-            const isDaily = quiz.quizType === 'scheduled_unlock';
-            const isPyq = /\bpyq\b|previous\s*year|solved\s*paper/i.test(quiz.title || '');
-            const listAccent = isContest
-              ? 'border-l-3 border-l-amber-500 bg-amber-50/15'
-              : isDaily
-                ? 'border-l-3 border-l-indigo-500 bg-indigo-50/15'
-                : isPyq
-                  ? 'border-l-3 border-l-emerald-500 bg-emerald-50/10'
-                  : 'border-l-3 border-l-transparent';
+            const accent = getQuizCardAccent(quiz);
 
             return (
-              <div key={quiz.id} className={`p-4 sm:px-5 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors ${listAccent}`}>
+              <div key={quiz.id} className={`p-4 sm:px-5 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors border-l-4 ${accent.leftStripClass}`}>
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-2 text-[11px]">
                     <span className="font-medium text-slate-500">{quiz.topic}</span>
@@ -283,7 +275,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                           hour: '2-digit',
                           minute: '2-digit',
                         })}
-                        {isContest && quiz.scheduledEndDateTime && (
+                        {quiz.quizType === 'live_contest' && quiz.scheduledEndDateTime && (
                           <> - {new Date(quiz.scheduledEndDateTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</>
                         )}
                       </span>
@@ -327,16 +319,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
               null
             );
 
-            const isContest = quiz.quizType === 'live_contest';
-            const isDaily = quiz.quizType === 'scheduled_unlock';
-            const isPyq = /\bpyq\b|previous\s*year|solved\s*paper/i.test(quiz.title || '');
-            const cardAccentBorder = isContest
-              ? 'border-t-2 border-t-amber-500'
-              : isDaily
-                ? 'border-t-2 border-t-indigo-500'
-                : isPyq
-                  ? 'border-t-2 border-t-emerald-500'
-                  : 'border-t-2 border-t-transparent hover:border-t-slate-300';
+            const accent = getQuizCardAccent(quiz);
 
             return (
               <React.Fragment key={quiz.id}>
@@ -346,7 +329,10 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                     onSelectQuiz={onSelectQuiz}
                   />
                 )}
-                <div className={`portal-card-interactive p-5 flex flex-col justify-between gap-4 ${cardAccentBorder}`}>
+                <div className="portal-card-interactive relative overflow-hidden p-5 flex flex-col justify-between gap-4">
+                  {/* Option A: Solid 4px Top Accent Strip */}
+                  <div className={`absolute top-0 left-0 right-0 h-1 ${accent.topStripClass}`} />
+
                   <div className="space-y-2.5">
                     {/* Clean Metadata Line */}
                     <div className="flex items-center justify-between gap-2 text-xs">
@@ -386,7 +372,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                             hour: '2-digit',
                             minute: '2-digit',
                           })}
-                          {isContest && quiz.scheduledEndDateTime && (
+                          {quiz.quizType === 'live_contest' && quiz.scheduledEndDateTime && (
                             <> - {new Date(quiz.scheduledEndDateTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</>
                           )}
                         </span>

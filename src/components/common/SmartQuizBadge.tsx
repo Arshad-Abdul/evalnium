@@ -32,3 +32,4 @@ export const SmartQuizBadge: React.FC<SmartQuizBadgeProps> = ({
     </span>
   );
 };
+

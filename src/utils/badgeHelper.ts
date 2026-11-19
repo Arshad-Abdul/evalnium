@@ -77,20 +77,20 @@ export function resolveSmartBadge(quiz?: Partial<Quiz> | null): SmartBadgeResult
     };
   }
 
-  // Detection C: PYQ Papers (Matches: pyq, previous year, 2024 pyq, solved paper)
-  if (/\bpyq\b|previous\s*year|solved\s*paper|\b20\d\d\s*pyq\b/i.test(title)) {
-    return {
-      text: 'PYQ ARCHIVE',
-      colorClass: 'bg-emerald-50 text-emerald-800 border-emerald-200/90',
-      isAutoDetected: true,
-    };
-  }
-
-  // Detection D: Daily Quiz by Title (Matches: daily quiz, day 1, day-2, etc.)
+  // Detection C: Daily Quiz by Title (Matches: daily quiz, day 1, day-2, etc.)
   if (/daily\s*quiz|\bday[\s-]*\d+/i.test(title)) {
     return {
       text: 'DAILY QUIZ',
       colorClass: 'bg-indigo-50 text-indigo-800 border-indigo-200/90',
+      isAutoDetected: true,
+    };
+  }
+
+  // Detection D: PYQ Papers (Matches: pyq, previous year, 2024 pyq, solved paper)
+  if (/\bpyq\b|previous\s*year|solved\s*paper|\b20\d\d\s*pyq\b/i.test(title)) {
+    return {
+      text: 'PYQ ARCHIVE',
+      colorClass: 'bg-emerald-50 text-emerald-800 border-emerald-200/90',
       isAutoDetected: true,
     };
   }
@@ -120,3 +120,81 @@ export function resolveSmartBadge(quiz?: Partial<Quiz> | null): SmartBadgeResult
 
   return null;
 }
+
+export interface CardAccentResult {
+  topStripClass: string;
+  leftStripClass: string;
+}
+
+/**
+ * Resolves the top accent strip color for cards (Option A)
+ * based on exam mode, title tags, and custom badge.
+ */
+export function getQuizCardAccent(quiz?: Partial<Quiz> | null): CardAccentResult {
+  if (!quiz) {
+    return {
+      topStripClass: 'bg-slate-300',
+      leftStripClass: 'border-l-slate-300',
+    };
+  }
+
+  const quizType = quiz.quizType || 'practice';
+
+  // 1. Strict Live Contest (Amber)
+  if (quizType === 'live_contest') {
+    return {
+      topStripClass: 'bg-amber-500',
+      leftStripClass: 'border-l-amber-500',
+    };
+  }
+
+  // 2. Scheduled Unlock or Daily Quiz series (Indigo)
+  const title = (quiz.title || '').toLowerCase();
+  if (quizType === 'scheduled_unlock' || /daily\s*quiz|\bday[\s-]*\d+/i.test(title)) {
+    return {
+      topStripClass: 'bg-indigo-600',
+      leftStripClass: 'border-l-indigo-600',
+    };
+  }
+
+  // 3. Custom Badge Override Check
+  if (quiz.customBadge && quiz.customBadge.trim() !== '') {
+    const upper = quiz.customBadge.toUpperCase();
+    if (upper.includes('NEW') || upper.includes('HOT') || upper.includes('ALERT')) {
+      return { topStripClass: 'bg-rose-500', leftStripClass: 'border-l-rose-500' };
+    }
+    if (upper.includes('PYQ') || upper.includes('PREVIOUS')) {
+      return { topStripClass: 'bg-emerald-600', leftStripClass: 'border-l-emerald-600' };
+    }
+    if (upper.includes('MOCK') || upper.includes('GRAND')) {
+      return { topStripClass: 'bg-blue-600', leftStripClass: 'border-l-blue-600' };
+    }
+    if (upper.includes('CONTEST')) {
+      return { topStripClass: 'bg-amber-500', leftStripClass: 'border-l-amber-500' };
+    }
+  }
+
+  // 4. PYQ Archive (Emerald)
+  if (/\bpyq\b|previous\s*year|solved\s*paper|\b20\d\d\s*pyq\b/i.test(title)) {
+    return {
+      topStripClass: 'bg-emerald-600',
+      leftStripClass: 'border-l-emerald-600',
+    };
+  }
+
+  // 5. Full Mock / Grand Test (Blue)
+  const qCount = quiz.questionCount ?? (quiz.questions ? quiz.questions.length : 0);
+  if (/full\s*mock|grand\s*mock|mega\s*mock|full\s*length/i.test(title) || qCount >= 90) {
+    return {
+      topStripClass: 'bg-blue-600',
+      leftStripClass: 'border-l-blue-600',
+    };
+  }
+
+  // 6. Standard Practice Paper (Subtle Slate Bar)
+  return {
+    topStripClass: 'bg-slate-300',
+    leftStripClass: 'border-l-slate-300',
+  };
+}
+
