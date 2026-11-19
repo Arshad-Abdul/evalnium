@@ -87,6 +87,14 @@ export interface Quiz {
 
   notifyCandidates?: boolean; // If true, triggers new_exam_alert email broadcast to all candidates upon publishing
 
+  // --- Auto-Publishing & Card Display Engine ---
+  publishAt?: string; // ISO string; stays hidden from candidates until this datetime
+  customBadge?: string; // Custom badge text override (e.g. "Day 2 Special", "Mega Mock")
+  badgeExpiresAt?: string; // ISO string when badge auto-expires and disappears
+  showBadge?: boolean; // Card toggle: show/hide badge (default true)
+  showCountdown?: boolean; // Card toggle: show/hide countdown timer (default true)
+  showDates?: boolean; // Card toggle: show/hide dates on card (default true)
+
 }
 export interface UserAnswer {
   questionId: string;
@@ -165,6 +173,13 @@ export interface ParseResult {
   preventQuestionCopy?: boolean;
   preventScreenshot?: boolean;
   enableWatermark?: boolean;
+
+  publishAt?: string;
+  customBadge?: string;
+  badgeExpiresAt?: string;
+  showBadge?: boolean;
+  showCountdown?: boolean;
+  showDates?: boolean;
 
   questions: ParsedQuestion[];
   errors: string[];

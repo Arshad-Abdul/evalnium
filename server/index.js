@@ -552,6 +552,12 @@ async function initDatabase() {
       `ALTER TABLE questions ADD COLUMN list_ii_title VARCHAR(255) DEFAULT NULL;`,
       `ALTER TABLE questions ADD COLUMN list_i_order VARCHAR(50) DEFAULT 'alpha_upper';`,
       `ALTER TABLE questions ADD COLUMN list_ii_order VARCHAR(50) DEFAULT 'roman_upper';`,
+      `ALTER TABLE quizzes ADD COLUMN publish_at VARCHAR(100) DEFAULT NULL;`,
+      `ALTER TABLE quizzes ADD COLUMN custom_badge VARCHAR(100) DEFAULT NULL;`,
+      `ALTER TABLE quizzes ADD COLUMN badge_expires_at VARCHAR(100) DEFAULT NULL;`,
+      `ALTER TABLE quizzes ADD COLUMN show_badge TINYINT(1) DEFAULT 1;`,
+      `ALTER TABLE quizzes ADD COLUMN show_timer TINYINT(1) DEFAULT 1;`,
+      `ALTER TABLE quizzes ADD COLUMN show_dates TINYINT(1) DEFAULT 1;`,
     ];
 
     for (const alterSql of columnsToAdd) {
@@ -1988,6 +1994,14 @@ app.get('/api/quizzes', async (req, res) => {
         }
       }
 
+      // Enforce scheduled auto-publishing so candidates cannot see future drafts before publish_at
+      if (!isAdmin && q.publish_at) {
+        const pubMs = new Date(q.publish_at).getTime();
+        if (!isNaN(pubMs) && Date.now() < pubMs) {
+          continue;
+        }
+      }
+
       // Solutions & answer rationales are provided for candidate scorecards & educational review.
       // Only withheld if the quiz has a scheduled future result announcement date and caller is not an admin.
       const isResultGated = q.result_announcement_datetime && Date.now() < new Date(q.result_announcement_datetime).getTime();
@@ -2073,6 +2087,12 @@ app.get('/api/quizzes', async (req, res) => {
         maxTabSwitches: q.max_tab_switches || 3,
         resultAnnouncementDateTime: q.result_announcement_datetime || undefined,
         autoEmailResults: q.auto_email_results !== 0 && q.auto_email_results !== false,
+        publishAt: q.publish_at || undefined,
+        customBadge: q.custom_badge || undefined,
+        badgeExpiresAt: q.badge_expires_at || undefined,
+        showBadge: q.show_badge !== 0,
+        showCountdown: q.show_timer !== 0,
+        showDates: q.show_dates !== 0,
         questionCount,
         questions,
       });
@@ -2159,20 +2179,24 @@ app.post('/api/quizzes', authenticateAdmin, async (req, res) => {
       `INSERT INTO quizzes (
         id, title, description, topic, category, difficulty, time_limit_minutes, passing_percentage, negative_marks, quiz_type, scheduled_start_datetime, scheduled_end_datetime, is_published, created_at, updated_at, author,
         enable_certificate, enable_anti_cheating, timing_mode, sectional_config_json, question_time_limit_seconds, prevent_prev_section, prevent_early_next_section, prevent_prev_question, prevent_early_next_question,
-        shuffle_questions, shuffle_options, enable_practice_mode, default_language_mode, access_code, allowed_emails, question_view_mode, max_attempts, allow_manual_early_move, result_announcement_datetime, auto_email_results, max_tab_switches, prevent_question_copy, prevent_screenshot, enable_watermark
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        shuffle_questions, shuffle_options, enable_practice_mode, default_language_mode, access_code, allowed_emails, question_view_mode, max_attempts, allow_manual_early_move, result_announcement_datetime, auto_email_results, max_tab_switches, prevent_question_copy, prevent_screenshot, enable_watermark,
+        publish_at, custom_badge, badge_expires_at, show_badge, show_timer, show_dates
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE 
         title=?, description=?, topic=?, category=?, difficulty=?, time_limit_minutes=?, passing_percentage=?, negative_marks=?, quiz_type=?, scheduled_start_datetime=?, scheduled_end_datetime=?, is_published=?, updated_at=?,
         enable_certificate=?, enable_anti_cheating=?, timing_mode=?, sectional_config_json=?, question_time_limit_seconds=?, prevent_prev_section=?, prevent_early_next_section=?, prevent_prev_question=?, prevent_early_next_question=?,
-        shuffle_questions=?, shuffle_options=?, enable_practice_mode=?, default_language_mode=?, access_code=?, allowed_emails=?, question_view_mode=?, max_attempts=?, allow_manual_early_move=?, result_announcement_datetime=?, auto_email_results=?, max_tab_switches=?, prevent_question_copy=?, prevent_screenshot=?, enable_watermark=?`,
+        shuffle_questions=?, shuffle_options=?, enable_practice_mode=?, default_language_mode=?, access_code=?, allowed_emails=?, question_view_mode=?, max_attempts=?, allow_manual_early_move=?, result_announcement_datetime=?, auto_email_results=?, max_tab_switches=?, prevent_question_copy=?, prevent_screenshot=?, enable_watermark=?,
+        publish_at=?, custom_badge=?, badge_expires_at=?, show_badge=?, show_timer=?, show_dates=?`,
       [
         q.id, q.title, q.description, normalizedTopic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.scheduledStartDateTime || null, q.scheduledEndDateTime || null, q.isPublished ? 1 : 0, q.createdAt, q.updatedAt, q.author || 'Admin',
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
         q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3, q.preventQuestionCopy !== false ? 1 : 0, q.preventScreenshot !== false ? 1 : 0, q.enableWatermark !== false ? 1 : 0,
+        q.publishAt || null, q.customBadge || null, q.badgeExpiresAt || null, q.showBadge !== false ? 1 : 0, q.showCountdown !== false ? 1 : 0, q.showDates !== false ? 1 : 0,
 
         q.title, q.description, normalizedTopic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.scheduledStartDateTime || null, q.scheduledEndDateTime || null, q.isPublished ? 1 : 0, q.updatedAt,
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
-        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3, q.preventQuestionCopy !== false ? 1 : 0, q.preventScreenshot !== false ? 1 : 0, q.enableWatermark !== false ? 1 : 0
+        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3, q.preventQuestionCopy !== false ? 1 : 0, q.preventScreenshot !== false ? 1 : 0, q.enableWatermark !== false ? 1 : 0,
+        q.publishAt || null, q.customBadge || null, q.badgeExpiresAt || null, q.showBadge !== false ? 1 : 0, q.showCountdown !== false ? 1 : 0, q.showDates !== false ? 1 : 0
       ]
     );
 

@@ -48,6 +48,13 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [scheduledStartDateTime, setScheduledStartDateTime] = useState<string>(parseResult.scheduledStartDateTime || '');
   const [scheduledEndDateTime, setScheduledEndDateTime] = useState<string>(parseResult.scheduledEndDateTime || '');
   const [defaultLanguageMode, setDefaultLanguageMode] = useState<'en' | 'hi' | 'dual'>(parseResult.defaultLanguageMode || 'en');
+  const [publishAt, setPublishAt] = useState<string>(parseResult.publishAt || '');
+  const [publishMode, setPublishMode] = useState<'immediate' | 'scheduled' | 'draft'>(() => {
+    if (parseResult.publishAt && new Date(parseResult.publishAt).getTime() > Date.now()) {
+      return 'scheduled';
+    }
+    return parseResult.isPublished === false ? 'draft' : 'immediate';
+  });
   const [isPublished, setIsPublished] = useState<boolean>(parseResult.isPublished ?? true);
 
   // --- Privacy & Access Controls ---
@@ -367,6 +374,31 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       return;
     }
 
+    if (quizType === 'live_contest') {
+      if (!scheduledStartDateTime || !scheduledEndDateTime) {
+        alert('Validation Error: Strict Live Contest requires both Official Start Date & Time and Official Closing Date & Time.');
+        return;
+      }
+      if (new Date(scheduledEndDateTime).getTime() <= new Date(scheduledStartDateTime).getTime()) {
+        alert('Validation Error: Official Closing Date & Time must be strictly after the Start Date & Time.');
+        return;
+      }
+    }
+
+    if (quizType === 'scheduled_unlock') {
+      if (!scheduledStartDateTime) {
+        alert('Validation Error: Scheduled Unlock (Daily Quiz) requires an Unlock Date & Time.');
+        return;
+      }
+    }
+
+    if (publishMode === 'scheduled' && !publishAt) {
+      alert('Validation Error: Please select the Auto-Publish Date & Time.');
+      return;
+    }
+
+    const effectivePublished = publishMode === 'draft' ? false : targetPublished;
+
     const finalQuiz: Quiz = {
       id: parseResult.existingQuizId || `quiz_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       title: title.trim() || 'Untitled Quiz',
@@ -383,8 +415,9 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       quizType,
       scheduledStartDateTime: quizType === 'practice' ? undefined : (scheduledStartDateTime || undefined),
       scheduledEndDateTime: quizType === 'live_contest' ? (scheduledEndDateTime || undefined) : undefined,
+      publishAt: publishMode === 'scheduled' ? (publishAt || undefined) : undefined,
       defaultLanguageMode,
-      isPublished: targetPublished,
+      isPublished: effectivePublished,
       createdAt: parseResult.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       author: 'Admin Importer',
@@ -573,45 +606,119 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
           <span>Quiz Information & Advanced Controls</span>
         </h3>
 
-        {/* Publication Status Control */}
-        <div className="flex flex-wrap items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200 gap-3">
-          <div className="flex items-center space-x-2.5">
-            <span className="text-xs font-bold text-slate-700">Exam Visibility:</span>
-            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
-              isPublished 
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                : 'bg-amber-50 text-amber-700 border-amber-200'
-            }`}>
-              <span className={`w-2 h-2 rounded-full ${isPublished ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`}></span>
-              {isPublished ? 'Published (Live for Students)' : 'Draft (Hidden from Students)'}
-            </span>
+        {/* Publication Status & Auto-Publishing Engine */}
+        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center space-x-2.5">
+              <span className="text-xs font-bold text-slate-700">Exam Visibility:</span>
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
+                publishMode === 'immediate'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : publishMode === 'scheduled'
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                    : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${
+                  publishMode === 'immediate'
+                    ? 'bg-emerald-500 animate-pulse'
+                    : publishMode === 'scheduled'
+                      ? 'bg-indigo-500 animate-pulse'
+                      : 'bg-amber-400'
+                }`}></span>
+                {publishMode === 'immediate'
+                  ? 'Published (Live Now)'
+                  : publishMode === 'scheduled'
+                    ? 'Auto-Publish Scheduled'
+                    : 'Draft (Hidden from Candidates)'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 bg-slate-200/70 p-1 rounded-lg">
+              <button
+                type="button"
+                onClick={() => {
+                  setPublishMode('immediate');
+                  setIsPublished(true);
+                }}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer ${
+                  publishMode === 'immediate'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>Live Now</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPublishMode('scheduled');
+                  setIsPublished(true);
+                }}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer ${
+                  publishMode === 'scheduled'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>Auto-Publish</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPublishMode('draft');
+                  setIsPublished(false);
+                }}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer ${
+                  publishMode === 'draft'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <EyeOff className="w-3.5 h-3.5" />
+                <span>Draft</span>
+              </button>
+            </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              onClick={() => setIsPublished(true)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer ${
-                isPublished
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-              }`}
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>Published</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsPublished(false)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer ${
-                !isPublished
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-              }`}
-            >
-              <EyeOff className="w-3.5 h-3.5" />
-              <span>Draft (Unpublished)</span>
-            </button>
-          </div>
+
+          {/* Auto-Publish Schedule Input Strip */}
+          {publishMode === 'scheduled' && (
+            <div className="pt-3 border-t border-slate-200/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="flex-1 max-w-sm">
+                <label className="block text-[11px] font-bold text-indigo-900 mb-1 flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-indigo-600" />
+                  <span>Auto-Publish Go-Live Date & Time (IST)</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  required
+                  value={publishAt}
+                  onChange={(e) => setPublishAt(e.target.value)}
+                  className="w-full p-2 rounded-lg border border-indigo-300 bg-white font-mono text-xs font-bold text-slate-900 focus:outline-none focus:border-indigo-600"
+                />
+              </div>
+
+              <div className="flex-1 text-xs">
+                {publishAt ? (
+                  <div className="p-2.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-900 font-mono text-[11px] space-y-0.5">
+                    <p className="font-sans font-semibold text-indigo-700">Scheduled Go-Live Time:</p>
+                    <p className="font-bold">
+                      {calculateTimeRemaining(publishAt).isExpired
+                        ? 'Passed (Will be live immediately)'
+                        : `Will automatically appear on portal in ${calculateTimeRemaining(publishAt).formatted}`}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-amber-700 font-medium bg-amber-50 p-2 rounded-lg border border-amber-200">
+                    ⚠️ Select date & time above. This quiz will remain hidden until that moment.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -717,12 +824,15 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                   required
                   value={scheduledStartDateTime}
                   onChange={(e) => setScheduledStartDateTime(e.target.value)}
-                  className="w-full p-2 rounded-lg border border-indigo-300 bg-white font-mono text-xs font-bold text-slate-900 focus:outline-none focus:border-indigo-600"
+                  className={`w-full p-2 rounded-lg border bg-white font-mono text-xs font-bold text-slate-900 focus:outline-none ${
+                    !scheduledStartDateTime ? 'border-amber-400 focus:border-amber-600' : 'border-indigo-300 focus:border-indigo-600'
+                  }`}
                 />
-                <p className="text-[10px] text-slate-500 mt-1 font-medium">
-                  Paper will display a ticking countdown until this exact time, then automatically unlock permanently for 24/7 practice (no closing time needed).
-                </p>
-                {scheduledStartDateTime && (
+                {!scheduledStartDateTime ? (
+                  <p className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded mt-1.5 flex items-center gap-1.5 shadow-2xs">
+                    <span>⚠️ Required: Select the unlock date & time for this Daily Quiz.</span>
+                  </p>
+                ) : (
                   <div className="text-[11px] text-indigo-800 bg-indigo-50 border border-indigo-200/80 rounded px-2.5 py-1 mt-1.5 font-mono flex items-center justify-between shadow-2xs">
                     <span className="font-sans font-semibold text-[10px] text-indigo-700 flex items-center gap-1">
                       <Clock className="w-3 h-3 text-indigo-600" />
@@ -735,6 +845,9 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                     </span>
                   </div>
                 )}
+                <p className="text-[10px] text-slate-500 mt-1 font-medium">
+                  Paper will display a ticking countdown until this exact time, then automatically unlock permanently for 24/7 practice (no closing time needed).
+                </p>
               </div>
             </div>
           )}
@@ -744,17 +857,22 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center space-x-1">
                   <Clock className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Contest Official Start Date & Time</span>
+                  <span>Contest Official Start Date & Time (IST)</span>
                 </label>
                 <input
                   type="datetime-local"
                   required
                   value={scheduledStartDateTime}
                   onChange={(e) => setScheduledStartDateTime(e.target.value)}
-                  className="w-full p-2 rounded-lg border border-amber-300 bg-white font-mono text-xs font-bold text-slate-900 focus:outline-none focus:border-amber-600"
+                  className={`w-full p-2 rounded-lg border bg-white font-mono text-xs font-bold text-slate-900 focus:outline-none ${
+                    !scheduledStartDateTime ? 'border-amber-400 focus:border-amber-600' : 'border-amber-300 focus:border-amber-600'
+                  }`}
                 />
-                <p className="text-[10px] text-slate-500 mt-1 font-medium">Candidates CANNOT start test before this exact time.</p>
-                {scheduledStartDateTime && (
+                {!scheduledStartDateTime ? (
+                  <p className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded mt-1.5 flex items-center gap-1.5 shadow-2xs">
+                    <span>⚠️ Required: Set contest official start date & time.</span>
+                  </p>
+                ) : (
                   <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200/80 rounded px-2.5 py-1 mt-1.5 font-mono flex items-center justify-between shadow-2xs">
                     <span className="font-sans font-semibold text-[10px] text-amber-700 flex items-center gap-1">
                       <Clock className="w-3 h-3 text-amber-600" />
@@ -767,22 +885,28 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                     </span>
                   </div>
                 )}
+                <p className="text-[10px] text-slate-500 mt-1 font-medium">Candidates CANNOT start test before this exact time.</p>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center space-x-1">
                   <Clock className="w-3.5 h-3.5 text-rose-600" />
-                  <span>Contest Official Closing Date & Time</span>
+                  <span>Contest Official Closing Date & Time (IST)</span>
                 </label>
                 <input
                   type="datetime-local"
                   required
                   value={scheduledEndDateTime}
                   onChange={(e) => setScheduledEndDateTime(e.target.value)}
-                  className="w-full p-2 rounded-lg border border-rose-300 bg-white font-mono text-xs font-bold text-slate-900 focus:outline-none focus:border-rose-600"
+                  className={`w-full p-2 rounded-lg border bg-white font-mono text-xs font-bold text-slate-900 focus:outline-none ${
+                    !scheduledEndDateTime ? 'border-rose-400 focus:border-rose-600' : 'border-rose-300 focus:border-rose-600'
+                  }`}
                 />
-                <p className="text-[10px] text-slate-500 mt-1 font-medium">Exam portal locks permanently for new submissions after this time.</p>
-                {scheduledEndDateTime && (
+                {!scheduledEndDateTime ? (
+                  <p className="text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded mt-1.5 flex items-center gap-1.5 shadow-2xs">
+                    <span>⚠️ Required: Set contest official closing date & time.</span>
+                  </p>
+                ) : (
                   <div className="text-[11px] text-rose-800 bg-rose-50 border border-rose-200/80 rounded px-2.5 py-1 mt-1.5 font-mono flex items-center justify-between shadow-2xs">
                     <span className="font-sans font-semibold text-[10px] text-rose-700 flex items-center gap-1">
                       <Clock className="w-3 h-3 text-rose-600" />
@@ -795,7 +919,16 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                     </span>
                   </div>
                 )}
+                <p className="text-[10px] text-slate-500 mt-1 font-medium">Exam portal locks permanently for new submissions after this time.</p>
               </div>
+
+              {/* Date Conflict Alert Banner */}
+              {scheduledStartDateTime && scheduledEndDateTime && new Date(scheduledEndDateTime).getTime() <= new Date(scheduledStartDateTime).getTime() && (
+                <div className="md:col-span-2 p-2.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-bold flex items-center gap-2 shadow-2xs">
+                  <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Date Conflict Error: Closing Date & Time must be strictly AFTER the Start Date & Time!</span>
+                </div>
+              )}
             </div>
           )}
         </div>

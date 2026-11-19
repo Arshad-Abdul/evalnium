@@ -62,6 +62,10 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
   const normalizeTopic = (value?: string) => (value || '').replace(/\s+/g, ' ').trim();
   const publishedQuizzes = quizzes.filter(q => {
     if (!q.isPublished) return false;
+    if (q.publishAt) {
+      const pubMs = new Date(q.publishAt).getTime();
+      if (!isNaN(pubMs) && Date.now() < pubMs) return false;
+    }
     if (q.allowedEmails && q.allowedEmails.length > 0) {
       if (!currentUser || !currentUser.email) return false;
       const lowerEmails = q.allowedEmails.map(e => e.toLowerCase());
