@@ -45,14 +45,13 @@ const ExamCountdownBadgeInner: React.FC<{ quiz: Quiz; compact?: boolean }> = ({ 
   if (startMs > 0 && now < startMs && !startCountdown.isExpired) {
     return (
       <div
-        className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-amber-50/90 border border-amber-200/80 text-amber-900 font-mono text-xs select-none shadow-2xs ${
-          compact ? 'text-[11px] py-1' : ''
-        }`}
+        className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-amber-50/90 border border-amber-200/80 text-amber-900 font-mono text-xs select-none shadow-2xs ${compact ? 'text-[11px] py-1' : ''
+          }`}
         title={`Scheduled Start: ${new Date(quiz.scheduledStartDateTime!).toLocaleString()}`}
       >
         <div className="flex items-center gap-1.5 font-sans font-semibold text-amber-800 text-[11px] truncate">
           <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-          <span>Starts in:</span>
+          <span>{quiz.quizType === 'scheduled_unlock' ? 'Unlocks in:' : 'Starts in:'}</span>
         </div>
         <span className="font-bold tracking-tight tabular-nums text-amber-950 bg-amber-100/80 px-1.5 py-0.5 rounded border border-amber-300/60 shrink-0">
           {startCountdown.formatted}
@@ -65,9 +64,8 @@ const ExamCountdownBadgeInner: React.FC<{ quiz: Quiz; compact?: boolean }> = ({ 
   if (endMs > 0 && now >= startMs && now < endMs && !endCountdown.isExpired) {
     return (
       <div
-        className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-rose-50/90 border border-rose-200/80 text-rose-900 font-mono text-xs select-none shadow-2xs ${
-          compact ? 'text-[11px] py-1' : ''
-        }`}
+        className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-rose-50/90 border border-rose-200/80 text-rose-900 font-mono text-xs select-none shadow-2xs ${compact ? 'text-[11px] py-1' : ''
+          }`}
         title={`Contest Closes: ${new Date(quiz.scheduledEndDateTime!).toLocaleString()}`}
       >
         <div className="flex items-center gap-1.5 font-sans font-bold text-rose-700 text-[11px] truncate">
@@ -158,17 +156,16 @@ export const ExamCountdownAction: React.FC<ExamCountdownActionProps> = ({
     const startDate = new Date(quiz.scheduledStartDateTime!);
     return (
       <div
-        className={`${
-          compact ? 'px-3 py-2 shrink-0 max-w-[240px]' : 'w-full py-2.5 px-3'
-        } rounded-lg bg-amber-50/90 text-amber-900 border border-amber-200/90 flex items-center justify-between gap-2 text-xs font-mono select-none shadow-2xs`}
+        className={`${compact ? 'px-3 py-2 shrink-0 max-w-[240px]' : 'w-full py-2.5 px-3'
+          } rounded-lg bg-amber-50/90 text-amber-900 border border-amber-200/90 flex items-center justify-between gap-2 text-xs font-mono select-none shadow-2xs`}
         title={`Test unlocks on ${startDate.toLocaleString()}`}
       >
         <div className="flex items-center gap-1.5 font-sans font-semibold text-amber-800 text-[11px] truncate">
           <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
           <span>
             {compact
-              ? 'Starts'
-              : `Starts ${startDate.toLocaleDateString([], { day: 'numeric', month: 'short' })}`}
+              ? (quiz.quizType === 'scheduled_unlock' ? 'Unlocks' : 'Starts')
+              : `${quiz.quizType === 'scheduled_unlock' ? 'Unlocks' : 'Starts'} ${startDate.toLocaleDateString([], { day: 'numeric', month: 'short' })}`}
           </span>
         </div>
         <span className="font-bold tracking-tight tabular-nums text-amber-950 bg-amber-100/90 px-1.5 py-0.5 rounded border border-amber-300/60 shrink-0">
@@ -182,9 +179,8 @@ export const ExamCountdownAction: React.FC<ExamCountdownActionProps> = ({
   if (isContest && endMs > 0 && now >= endMs) {
     return (
       <div
-        className={`${
-          compact ? 'px-3 py-2 shrink-0 whitespace-nowrap' : 'w-full py-2'
-        } rounded-lg bg-slate-100 text-slate-500 font-semibold text-xs border border-slate-200 flex items-center justify-center gap-1.5 text-center`}
+        className={`${compact ? 'px-3 py-2 shrink-0 whitespace-nowrap' : 'w-full py-2'
+          } rounded-lg bg-slate-100 text-slate-500 font-semibold text-xs border border-slate-200 flex items-center justify-center gap-1.5 text-center`}
       >
         <AlertCircle className="w-3.5 h-3.5" />
         <span>Contest Ended</span>
@@ -228,11 +224,10 @@ export const ExamCountdownAction: React.FC<ExamCountdownActionProps> = ({
         onStartExam(quiz);
       }}
       disabled={attemptsExhausted}
-      className={`${widthClass} rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
-        currentUser
+      className={`${widthClass} rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${currentUser
           ? 'bg-blue-600 hover:bg-blue-700 text-white'
           : 'bg-slate-900 hover:bg-slate-800 text-white'
-      }`}
+        }`}
     >
       {currentUser ? (
         <>

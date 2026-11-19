@@ -195,9 +195,11 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
                   <span className="text-slate-600 text-[11px] leading-relaxed">
                     {quiz.quizType === 'live_contest' 
                       ? 'Strict Live Contest (Strict 1-time scheduled contest)' 
-                      : quiz.scheduledStartDateTime 
-                        ? `Scheduled Window: ${new Date(quiz.scheduledStartDateTime).toLocaleString()}` 
-                        : '24/7 Open On-Demand Access (Attempt anytime)'}
+                      : quiz.quizType === 'scheduled_unlock' && quiz.scheduledStartDateTime
+                        ? `Scheduled Daily Quiz (Unlocks on ${new Date(quiz.scheduledStartDateTime).toLocaleString()}, then open 24/7 for practice)`
+                        : quiz.scheduledStartDateTime 
+                          ? `Scheduled Window: ${new Date(quiz.scheduledStartDateTime).toLocaleString()}` 
+                          : '24/7 Open On-Demand Access (Attempt anytime)'}
                   </span>
                 </div>
               </div>

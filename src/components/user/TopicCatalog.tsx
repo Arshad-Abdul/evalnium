@@ -244,6 +244,11 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                         Contest
                       </span>
                     )}
+                    {quiz.quizType === 'scheduled_unlock' && (
+                      <span className="font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.2 rounded">
+                        Daily Quiz
+                      </span>
+                    )}
                     {bestAttempt && (
                       <span className={`font-mono font-semibold px-1.5 py-0.2 rounded border ${
                         bestAttempt.passed
@@ -327,6 +332,11 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                         {quiz.quizType === 'live_contest' && (
                           <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
                             Contest
+                          </span>
+                        )}
+                        {quiz.quizType === 'scheduled_unlock' && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
+                            Daily Quiz
                           </span>
                         )}
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-600">
