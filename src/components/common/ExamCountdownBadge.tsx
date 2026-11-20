@@ -42,22 +42,10 @@ const ExamCountdownBadgeInner: React.FC<{ quiz: Quiz; compact?: boolean }> = ({ 
   const endMs = quiz.scheduledEndDateTime ? new Date(quiz.scheduledEndDateTime).getTime() : 0;
 
   // Phase 1: Upcoming Test (Start date is in the future)
+  // The bottom action button (ExamCountdownAction) ALREADY displays the live countdown lock.
+  // Returning null here eliminates duplicate countdown boxes on the same card!
   if (startMs > 0 && now < startMs && !startCountdown.isExpired) {
-    return (
-      <div
-        className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-amber-50/90 border border-amber-200/80 text-amber-900 font-mono text-xs select-none shadow-2xs ${compact ? 'text-[11px] py-1' : ''
-          }`}
-        title={`Scheduled Start: ${new Date(quiz.scheduledStartDateTime!).toLocaleString()}`}
-      >
-        <div className="flex items-center gap-1.5 font-sans font-semibold text-amber-800 text-[11px] truncate">
-          <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-          <span>{quiz.quizType === 'scheduled_unlock' ? 'Unlocks in:' : 'Starts in:'}</span>
-        </div>
-        <span className="font-bold tracking-tight tabular-nums text-amber-950 bg-amber-100/80 px-1.5 py-0.5 rounded border border-amber-300/60 shrink-0">
-          {startCountdown.formatted}
-        </span>
-      </div>
-    );
+    return null;
   }
 
   // Phase 2: Live Active Contest (Between start time and end time)
@@ -153,22 +141,30 @@ export const ExamCountdownAction: React.FC<ExamCountdownActionProps> = ({
 
   // 2. Upcoming test locked state (Start time is in the future)
   if (startMs > 0 && now < startMs && !startCountdown.isExpired) {
+    const isDaily = quiz.quizType === 'scheduled_unlock';
     const startDate = new Date(quiz.scheduledStartDateTime!);
+
+    const containerStyle = isDaily
+      ? 'bg-indigo-50/90 text-indigo-950 border-indigo-200/90'
+      : 'bg-amber-50/90 text-amber-950 border-amber-200/90';
+
+    const labelStyle = isDaily ? 'text-indigo-800' : 'text-amber-800';
+    const lockIcon = isDaily ? 'text-indigo-600' : 'text-amber-600';
+    const pillStyle = isDaily
+      ? 'bg-indigo-100/90 text-indigo-950 border-indigo-300/60'
+      : 'bg-amber-100/90 text-amber-950 border-amber-300/60';
+
     return (
       <div
         className={`${compact ? 'px-3 py-2 shrink-0 max-w-[240px]' : 'w-full py-2.5 px-3'
-          } rounded-lg bg-amber-50/90 text-amber-900 border border-amber-200/90 flex items-center justify-between gap-2 text-xs font-mono select-none shadow-2xs`}
-        title={`Test unlocks on ${startDate.toLocaleString()}`}
+          } rounded-lg border flex items-center justify-between gap-2 text-xs font-mono select-none shadow-2xs ${containerStyle}`}
+        title={`Unlocks on ${startDate.toLocaleString()}`}
       >
-        <div className="flex items-center gap-1.5 font-sans font-semibold text-amber-800 text-[11px] truncate">
-          <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-          <span>
-            {compact
-              ? (quiz.quizType === 'scheduled_unlock' ? 'Unlocks' : 'Starts')
-              : `${quiz.quizType === 'scheduled_unlock' ? 'Unlocks' : 'Starts'} ${startDate.toLocaleDateString([], { day: 'numeric', month: 'short' })}`}
-          </span>
+        <div className={`flex items-center gap-1.5 font-sans font-semibold text-[11px] truncate ${labelStyle}`}>
+          <Lock className={`w-3.5 h-3.5 shrink-0 ${lockIcon}`} />
+          <span>{isDaily ? 'Unlocks in:' : 'Starts in:'}</span>
         </div>
-        <span className="font-bold tracking-tight tabular-nums text-amber-950 bg-amber-100/90 px-1.5 py-0.5 rounded border border-amber-300/60 shrink-0">
+        <span className={`font-bold tracking-tight tabular-nums px-1.5 py-0.5 rounded border shrink-0 ${pillStyle}`}>
           {startCountdown.formatted}
         </span>
       </div>
