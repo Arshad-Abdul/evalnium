@@ -400,7 +400,7 @@ async function sendTemplatedEmail({
 
     // 4. Send via Nodemailer Transporter
     const transporter = createMailTransporter();
-    const senderEmail = process.env.SMTP_USER || 'arsnaz1234@gmail.com';
+    const senderEmail = process.env.SMTP_USER || 'evalniumlis@gmail.com';
     const isUrgentOtp = templateId === 'otp_verification';
 
     const info = await transporter.sendMail({

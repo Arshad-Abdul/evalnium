@@ -855,7 +855,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                   <p className="text-[11px] text-slate-500">
                     Still haven't received your verification email?{' '}
                     <a
-                      href={`mailto:arsnaz1234@gmail.com?subject=${encodeURIComponent('Assistance Required: OTP Verification for ' + email)}&body=${encodeURIComponent('Hello Evalnium Support,\n\nI am unable to receive the verification OTP on my email address: ' + email + '.\n\nPlease provide my verification code or assist with account activation.\n\nThank you.')}`}
+                      href={`mailto:evalniumlis@gmail.com?subject=${encodeURIComponent('Assistance Required: OTP Verification for ' + email)}&body=${encodeURIComponent('Hello Evalnium Support,\n\nI am unable to receive the verification OTP on my email address: ' + email + '.\n\nPlease provide my verification code or assist with account activation.\n\nThank you.')}`}
                       className="font-semibold text-indigo-600 hover:text-indigo-800 underline inline-flex items-center gap-1"
                     >
                       <Mail className="w-3 h-3 inline" />
