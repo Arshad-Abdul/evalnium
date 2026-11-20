@@ -9,7 +9,7 @@ import { AuditLogsManager } from './AuditLogsManager';
 import { CandidateResponseModal } from './CandidateResponseModal';
 import { EmailManager } from './EmailManager';
 import { ConfirmModal } from '../common/ConfirmModal';
-import { Plus, Trash2, FileDown, Layers, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, EyeOff, Trophy, LogOut, Globe, Radio, Laptop, Smartphone, Monitor, ShieldCheck, UserCheck, Search, Filter, RefreshCw, Compass, MapPin, Download, Image as ImageIcon, BarChart2, Calendar, TrendingUp, History, Terminal, Mail, Phone, Briefcase, Building2, GraduationCap } from 'lucide-react';
+import { Plus, Trash2, FileDown, Layers, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, EyeOff, Trophy, LogOut, Globe, Radio, Laptop, Smartphone, Monitor, ShieldCheck, UserCheck, Search, Filter, RefreshCw, Compass, MapPin, Download, Image as ImageIcon, BarChart2, Calendar, TrendingUp, History, Terminal, Mail, Phone, Briefcase, Building2, GraduationCap, KeyRound, Copy, ExternalLink, ShieldAlert } from 'lucide-react';
 import { getStoredResults, fetchResultsFromServer } from '../../utils/storage';
 
 interface AdminDashboardProps {
@@ -94,6 +94,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Executive Dashboard Stats State
   const [stats, setStats] = useState<any | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
+
+  // Active OTP Emergency Support State
+  const [activeOtps, setActiveOtps] = useState<Array<{
+    email: string;
+    otp: string;
+    expiresAt: number;
+    expiresInSeconds: number;
+    attempts: number;
+  }>>([]);
+  const [loadingActiveOtps, setLoadingActiveOtps] = useState(false);
+  const [copiedOtpEmail, setCopiedOtpEmail] = useState<string | null>(null);
+  const [otpSearchQuery, setOtpSearchQuery] = useState('');
 
   const getApiBaseUrl = () => {
     if (typeof window !== 'undefined') {
@@ -201,8 +213,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return () => clearInterval(interval);
     } else if (activeSubTab === 'users') {
       fetchUsers();
+      fetchActiveOtps();
+      const interval = setInterval(fetchActiveOtps, 5000);
+      return () => clearInterval(interval);
     }
   }, [activeSubTab, visitorTimeRange, trendTimeRange]);
+
+  const fetchActiveOtps = async () => {
+    try {
+      setLoadingActiveOtps(true);
+      const res = await fetch(`${getApiBaseUrl()}/admin/active-otps`, {
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setActiveOtps(data.activeOtps || []);
+      }
+    } catch (e) {
+      console.error('Error fetching active OTPs:', e);
+    } finally {
+      setLoadingActiveOtps(false);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -1116,6 +1148,125 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <span className="text-[11px] text-slate-400">Fellows</span>
               </div>
             </div>
+          </div>
+
+          {/* Emergency Live OTP Support Panel */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 space-y-3 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 shrink-0">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-900">Emergency Student OTP Support</h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                      {activeOtps.length} Active {activeOtps.length === 1 ? 'Code' : 'Codes'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Live unexpired verification codes in memory. If a student contacts you saying their code is delayed in email, locate their email and share their code.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search candidate email..."
+                    value={otpSearchQuery}
+                    onChange={(e) => setOtpSearchQuery(e.target.value)}
+                    className="pl-8 pr-2.5 py-1 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none w-48 font-medium"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchActiveOtps}
+                  disabled={loadingActiveOtps}
+                  className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                  title="Refresh Active OTPs"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingActiveOtps ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">Refresh</span>
+                </button>
+              </div>
+            </div>
+
+            {/* OTP Content List / Empty State */}
+            {activeOtps.length === 0 ? (
+              <div className="py-5 text-center text-xs text-slate-400 bg-slate-50/60 rounded-lg border border-dashed border-slate-200">
+                No pending student OTP requests right now. Active verification requests will appear here in real-time.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {activeOtps
+                  .filter((item) => !otpSearchQuery || item.email.toLowerCase().includes(otpSearchQuery.toLowerCase()))
+                  .map((item) => {
+                    const isCopied = copiedOtpEmail === item.email;
+                    const mins = Math.floor(item.expiresInSeconds / 60);
+                    const secs = item.expiresInSeconds % 60;
+                    return (
+                      <div
+                        key={item.email}
+                        className="p-3 rounded-lg border border-amber-200 bg-amber-50/30 flex flex-col justify-between gap-2 transition-all hover:border-amber-300 shadow-2xs"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Candidate Email</span>
+                            <span className="text-xs font-semibold text-slate-900 truncate block" title={item.email}>
+                              {item.email}
+                            </span>
+                          </div>
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200 shrink-0">
+                            <Clock className="w-3 h-3 text-amber-700" />
+                            {mins}m {secs < 10 ? `0${secs}` : secs}s
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 pt-1 border-t border-amber-200/50">
+                          <div>
+                            <span className="text-[10px] text-slate-500 block">Verification Code:</span>
+                            <span className="font-mono text-base font-extrabold tracking-widest text-slate-900 bg-white px-2 py-0.5 rounded border border-amber-200 shadow-2xs">
+                              {item.otp}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(item.otp);
+                                setCopiedOtpEmail(item.email);
+                                setTimeout(() => setCopiedOtpEmail(null), 2000);
+                              }}
+                              className={`px-2 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
+                                isCopied
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-2xs'
+                              }`}
+                              title="Copy 6-digit OTP code"
+                            >
+                              {isCopied ? <CheckCircle className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                              <span>{isCopied ? 'Copied' : 'Copy'}</span>
+                            </button>
+
+                            <a
+                              href={`mailto:${item.email}?subject=${encodeURIComponent('Your Evalnium Verification Code')}&body=${encodeURIComponent(`Dear Candidate,\n\nYour active verification code for Evalnium is: ${item.otp}\n\nThis code will expire in ${Math.max(1, mins)} minute(s).\n\nPlease enter it on the portal to complete your verification.\n\nBest regards,\nEvalnium Support Team`)}`}
+                              className="px-2 py-1 rounded text-xs font-semibold flex items-center gap-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-2xs transition-colors cursor-pointer"
+                              title="Send Email to Candidate"
+                            >
+                              <Mail className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Email</span>
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
           </div>
 
           {/* Filter Toolbar & Actions */}

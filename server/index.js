@@ -401,12 +401,19 @@ async function sendTemplatedEmail({
     // 4. Send via Nodemailer Transporter
     const transporter = createMailTransporter();
     const senderEmail = process.env.SMTP_USER || 'arsnaz1234@gmail.com';
+    const isUrgentOtp = templateId === 'otp_verification';
 
     const info = await transporter.sendMail({
       from: `"Evalnium Assessment Portal" <${senderEmail}>`,
       to: to,
       subject: finalSubject,
       html: htmlEmail,
+      priority: isUrgentOtp ? 'high' : 'normal',
+      headers: isUrgentOtp ? {
+        'X-Priority': '1',
+        'X-MSMail-Priority': 'High',
+        'Importance': 'high',
+      } : undefined,
     });
 
     console.log(`[TEMPLATED EMAIL DELIVERED] ✅ Sent "${templateId}" to ${to}. MessageID: ${info.messageId}`);
@@ -928,9 +935,9 @@ async function initDatabase() {
       (
         'otp_verification',
         'OTP Verification Code',
-        '🔑 Your Verification Code: {{otp}} - Evalnium Portal',
+        'Your Evalnium Verification Code',
         'Confirm Your Account',
-        'Dear Candidate,\n\nYour one-time security code to verify your Evalnium account is:\n\n{{otp}}\n\nThis code will expire in 10 minutes. If you did not initiate this request, please ignore this email.',
+        'Dear Candidate,\n\nYour one-time security code to verify your Evalnium account is:\n\n{{otp}}\n\nThis code will expire in 5 minutes. If you did not initiate this request, please ignore this email.',
         'Verify Now',
         '/login'
       ),
@@ -944,6 +951,15 @@ async function initDatabase() {
         '/dashboard'
       );
     `);
+
+    // Clean up any historical template subject that contained spam-triggering emojis
+    try {
+      await pool.query(`
+        UPDATE email_templates 
+        SET subject = 'Your Evalnium Verification Code' 
+        WHERE id = 'otp_verification' AND (subject LIKE '%🔑%' OR subject LIKE '%{{otp}}%')
+      `);
+    } catch { }
 
 
     // Seed initial audit log if empty
@@ -1154,7 +1170,7 @@ app.post('/api/auth/send-otp', otpIpLimiter, async (req, res) => {
       templateData: {
         otp: otp
       },
-      fallbackSubject: `🔑 Your Verification Code: ${otp} - Evalnium Portal`,
+      fallbackSubject: 'Your Evalnium Verification Code',
       fallbackHeading: 'Confirm Your Candidate Account',
       fallbackBody: `Dear Candidate,\n\nYour one-time security code to verify your Evalnium account is:\n\n{{otp}}\n\nThis code will expire in 5 minutes. If you did not initiate this request, please ignore this email.`
     });
@@ -1658,6 +1674,29 @@ app.post('/api/admin/login', adminLoginLimiter, (req, res) => {
 // Universal Administrative Route Perimeter Guard
 // Protects all subsequent /api/admin/* endpoints while keeping /api/admin/login public
 app.use('/api/admin', authenticateAdmin);
+
+// Emergency Active OTP Lookup for Direct Student Assistance
+app.get('/api/admin/active-otps', (req, res) => {
+  try {
+    const now = Date.now();
+    const active = [];
+    for (const [email, record] of otpStore.entries()) {
+      if (record && record.expiresAt > now) {
+        active.push({
+          email,
+          otp: record.otp,
+          expiresAt: record.expiresAt,
+          expiresInSeconds: Math.max(0, Math.round((record.expiresAt - now) / 1000)),
+          attempts: record.attempts || 0,
+        });
+      }
+    }
+    active.sort((a, b) => b.expiresAt - a.expiresAt);
+    res.json({ activeOtps: active });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // RESTORE session details from browser HTTP cookies
 app.get('/api/users/me', async (req, res) => {

@@ -221,8 +221,8 @@ export const ExamCountdownAction: React.FC<ExamCountdownActionProps> = ({
       }}
       disabled={attemptsExhausted}
       className={`${widthClass} rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${currentUser
-          ? 'bg-blue-600 hover:bg-blue-700 text-white'
-          : 'bg-slate-900 hover:bg-slate-800 text-white'
+        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+        : 'bg-slate-900 hover:bg-slate-800 text-white'
         }`}
     >
       {currentUser ? (
