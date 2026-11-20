@@ -1139,6 +1139,26 @@ app.post('/api/auth/send-otp', otpIpLimiter, async (req, res) => {
     if (!email) return res.status(400).json({ error: 'Email address is required' });
 
     const key = email.toLowerCase().trim();
+
+    // Strict email domain validation & typo rejection
+    const atIdx = key.lastIndexOf('@');
+    if (atIdx <= 0 || atIdx === key.length - 1) {
+      return res.status(400).json({ error: 'Please enter a valid email address.' });
+    }
+    const domain = key.slice(atIdx + 1);
+    const knownTypoDomains = [
+      'gma.com', 'gmai.com', 'gmal.com', 'gamil.com', 'gmaill.com', 'gmial.com', 'gmil.com',
+      'gimail.com', 'gmeil.com', 'gmali.com', 'gamail.com', 'gnail.com', 'gemail.com',
+      'gmail.co', 'gmail.cm', 'gmail.con', 'gmail.cpm', 'gmail.om', 'gmailcom',
+      'yaho.com', 'yahooo.com', 'ymail.com', 'yhaoo.com', 'hotmial.com', 'hotmaill.com',
+      'outlok.com', 'outloo.com', 'redifmail.com'
+    ];
+    if (knownTypoDomains.includes(domain) || ((domain.startsWith('gm') || domain.startsWith('g-m')) && domain.endsWith('.com') && domain !== 'gmail.com' && domain !== 'gmx.com')) {
+      return res.status(400).json({
+        error: `The email domain "@${domain}" appears to be a typo. Did you mean @gmail.com? Please correct your email address.`
+      });
+    }
+
     const now = Date.now();
     const rateData = otpRateLimitStore.get(key) || { count: 0, windowStart: now };
 

@@ -6,31 +6,109 @@ import { TargetExamSelector, DEFAULT_LIS_EXAM } from './TargetExamSelector';
 import { COUNTRY_CODES } from '../../utils/countryCodes';
 
 const COMMON_DOMAIN_TYPOS: Record<string, string> = {
-  'gamil.com': 'gmail.com',
-  'gmaill.com': 'gmail.com',
-  'gmial.com': 'gmail.com',
+  // Gmail typos
+  'gma.com': 'gmail.com',
   'gmai.com': 'gmail.com',
+  'gmal.com': 'gmail.com',
+  'gamil.com': 'gmail.com',
+  'gmial.com': 'gmail.com',
+  'gmaill.com': 'gmail.com',
   'gmil.com': 'gmail.com',
   'gimail.com': 'gmail.com',
+  'gmeil.com': 'gmail.com',
+  'gmali.com': 'gmail.com',
+  'gamail.com': 'gmail.com',
+  'gnail.com': 'gmail.com',
+  'gemail.com': 'gmail.com',
+  'gmaik.com': 'gmail.com',
+  'gmailc.om': 'gmail.com',
+  'gmail.co': 'gmail.com',
+  'gmail.cm': 'gmail.com',
+  'gmail.con': 'gmail.com',
+  'gmail.cpm': 'gmail.com',
+  'gmail.om': 'gmail.com',
+  'gmai.in': 'gmail.com',
+  'gmail.in': 'gmail.com',
+  'g.mail.com': 'gmail.com',
+  'gmailcom': 'gmail.com',
+  'gmial.co': 'gmail.com',
+  'gma.co': 'gmail.com',
+  'gmal.co': 'gmail.com',
+  'gamil.co': 'gmail.com',
+
+  // Yahoo typos
   'yaho.com': 'yahoo.com',
   'yahooo.com': 'yahoo.com',
   'ymail.com': 'yahoo.com',
+  'yhaoo.com': 'yahoo.com',
+  'yaho.co.in': 'yahoo.com',
+  'yahoo.co': 'yahoo.com',
+  'yaho.co': 'yahoo.com',
+
+  // Hotmail / Outlook typos
   'hotmial.com': 'hotmail.com',
   'hotmaill.com': 'hotmail.com',
+  'hotmai.com': 'hotmail.com',
+  'hotmali.com': 'hotmail.com',
+  'hotamil.com': 'hotmail.com',
   'outlok.com': 'outlook.com',
   'outloo.com': 'outlook.com',
+  'outllok.com': 'outlook.com',
+  'outluk.com': 'outlook.com',
+
+  // Rediffmail typos
   'redifmail.com': 'rediffmail.com',
   'rediffmial.com': 'rediffmail.com',
+  'redifmial.com': 'rediffmail.com',
 };
 
 const getEmailSuggestion = (emailStr: string): string | null => {
-  const atIndex = emailStr.lastIndexOf('@');
+  if (!emailStr) return null;
+  const clean = emailStr.trim().toLowerCase();
+  const atIndex = clean.lastIndexOf('@');
   if (atIndex === -1) return null;
-  const domain = emailStr.slice(atIndex + 1).toLowerCase().trim();
-  const correctedDomain = COMMON_DOMAIN_TYPOS[domain];
-  if (correctedDomain) {
-    return emailStr.slice(0, atIndex + 1) + correctedDomain;
+  const userPart = clean.slice(0, atIndex);
+  const domain = clean.slice(atIndex + 1);
+  if (!domain || !userPart) return null;
+
+  // 1. Direct dictionary match
+  if (COMMON_DOMAIN_TYPOS[domain]) {
+    return `${userPart}@${COMMON_DOMAIN_TYPOS[domain]}`;
   }
+
+  // 2. Missing top-level domain e.g. "gmail", "gma", "yahoo"
+  if (['gmail', 'gma', 'gmai', 'gamil', 'gmial', 'gmal'].includes(domain)) {
+    return `${userPart}@gmail.com`;
+  }
+  if (['yahoo', 'yaho', 'ymail'].includes(domain)) {
+    return `${userPart}@yahoo.com`;
+  }
+  if (['hotmail', 'hotmial'].includes(domain)) {
+    return `${userPart}@hotmail.com`;
+  }
+  if (['outlook', 'outlok'].includes(domain)) {
+    return `${userPart}@outlook.com`;
+  }
+
+  // 3. Typo TLD endings (.cmo, .con, .cpm, .comm -> .com)
+  if (domain.endsWith('.cmo') || domain.endsWith('.con') || domain.endsWith('.cpm') || domain.endsWith('.comm')) {
+    const base = domain.split('.')[0];
+    const targetBase = COMMON_DOMAIN_TYPOS[`${base}.com`] || (base === 'gmail' || base.startsWith('gm') ? 'gmail.com' : `${base}.com`);
+    return `${userPart}@${targetBase}`;
+  }
+
+  // 4. Fuzzy match for common gmail typos (starts with gm, ends with .com or .co, but not gmx)
+  if (
+    (domain.startsWith('gm') || domain.startsWith('g-m')) &&
+    (domain.endsWith('.com') || domain.endsWith('.co')) &&
+    domain !== 'gmail.com' &&
+    domain !== 'gmx.com' &&
+    domain !== 'gmx.net' &&
+    domain.length <= 11
+  ) {
+    return `${userPart}@gmail.com`;
+  }
+
   return null;
 };
 
@@ -93,6 +171,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
+
+    const cleanEmail = email.trim().toLowerCase();
+    setEmail(cleanEmail);
+
+    // Hard-block obvious typo domains so OTP is NEVER dispatched into void
+    const typo = getEmailSuggestion(cleanEmail);
+    if (typo) {
+      setOtpError(`Your email domain "@${cleanEmail.split('@')[1]}" looks incorrect. Did you mean "${typo}"? Please click "Fix Email" below.`);
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleanEmail)) {
+      setOtpError('Please enter a valid email address with a valid domain (e.g. name@gmail.com).');
+      return;
+    }
 
     if (tab === 'register') {
       const cleanName = name.trim();
@@ -603,28 +696,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                     required
                     value={email}
                     onChange={(e) => {
-                      setEmail(e.target.value);
+                      setEmail(e.target.value.toLowerCase().replace(/\s+/g, ''));
                       setOtpError(null);
                     }}
-                    placeholder="name@example.com"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    onBlur={() => {
+                      setEmail((prev) => prev.toLowerCase().trim());
+                    }}
+                    placeholder="name@gmail.com"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 lowercase"
                   />
                 </div>
                 {getEmailSuggestion(email) && (
-                  <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-2">
+                  <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-300 text-amber-950 text-xs flex items-center justify-between gap-2 shadow-2xs">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
                       <span className="truncate">
-                        Did you mean <strong className="font-semibold text-amber-950">{getEmailSuggestion(email)}</strong>?
+                        Did you mean <strong className="font-bold text-amber-950 underline">{getEmailSuggestion(email)}</strong>?
                       </span>
                     </div>
                     <button
                       type="button"
                       onClick={() => {
                         const suggestion = getEmailSuggestion(email);
-                        if (suggestion) setEmail(suggestion);
+                        if (suggestion) {
+                          setEmail(suggestion);
+                          setOtpError(null);
+                        }
                       }}
-                      className="px-2 py-1 text-[11px] font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded cursor-pointer shrink-0 transition-colors"
+                      className="px-2.5 py-1 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded cursor-pointer shrink-0 transition-colors shadow-2xs"
                     >
                       Fix Email
                     </button>
@@ -741,7 +840,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 <span>Verification OTP Sent!</span>
               </div>
               <p className="text-[11px] text-indigo-700 leading-relaxed font-medium">
-                We sent a 6-digit verification code to <strong>{email}</strong>. Enter the code below to verify your account:
+                We sent a 6-digit verification code to <strong className="font-mono text-indigo-950 font-bold">{email.trim().toLowerCase()}</strong>. Enter the code below to verify your account:
               </p>
             </div>
 
@@ -759,19 +858,52 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 </div>
               </div>
               
-              {email.toLowerCase().includes('gmail.com') && (
-                <div className="pt-0.5">
+              <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                {email.toLowerCase().includes('gmail') && (
+                  <>
+                    <a
+                      href="https://mail.google.com/mail/u/0/#spam"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 font-semibold text-[11px] transition-colors border border-amber-300/70 cursor-pointer"
+                    >
+                      <span>Open Gmail Spam Folder</span>
+                      <ExternalLink className="w-3 h-3 text-amber-700" />
+                    </a>
+                    <a
+                      href="https://mail.google.com/mail/u/0/#inbox"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-800 font-semibold text-[11px] transition-colors border border-slate-200 cursor-pointer"
+                    >
+                      <span>Open Gmail Inbox</span>
+                      <ExternalLink className="w-3 h-3 text-slate-500" />
+                    </a>
+                  </>
+                )}
+                {email.toLowerCase().includes('yahoo') && (
                   <a
-                    href="https://mail.google.com/mail/u/0/#spam"
+                    href="https://mail.yahoo.com"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 font-semibold text-[11px] transition-colors border border-amber-300/70 cursor-pointer"
                   >
-                    <span>Open Gmail Spam Folder</span>
+                    <span>Open Yahoo Mail</span>
                     <ExternalLink className="w-3 h-3 text-amber-700" />
                   </a>
-                </div>
-              )}
+                )}
+                {(email.toLowerCase().includes('outlook') || email.toLowerCase().includes('hotmail')) && (
+                  <a
+                    href="https://outlook.live.com/mail/0/junkemail"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 font-semibold text-[11px] transition-colors border border-amber-300/70 cursor-pointer"
+                  >
+                    <span>Open Outlook Junk Folder</span>
+                    <ExternalLink className="w-3 h-3 text-amber-700" />
+                  </a>
+                )}
+              </div>
             </div>
 
             {successMsg ? (
