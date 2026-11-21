@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { UserProfile, CandidateRegistrationData } from '../types/auth';
 
 interface AuthContextType {
@@ -12,6 +12,7 @@ interface AuthContextType {
   logoutAdmin: () => void;
   logoutCandidate: () => void;
   updateUserProfile: (updates: Partial<UserProfile>) => Promise<UserProfile>;
+  refreshSession: () => Promise<UserProfile | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,33 +21,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
 
-  useEffect(() => {
-    const verifySession = async () => {
-      try {
-        const res = await fetch(`${getApiUrl()}/me`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.currentUser) {
-            setCurrentUser(data.currentUser);
-          }
-          if (data.isAdminAuthenticated) {
-            setIsAdminAuthenticated(true);
-          }
-        }
-      } catch (err) {
-        console.error('Session recovery failed:', err);
-      }
-    };
-    verifySession();
-  }, []);
-
   const getApiUrl = () => {
     return '/api/users';
   };
+
+  const refreshSession = useCallback(async (): Promise<UserProfile | null> => {
+    try {
+      const res = await fetch(`${getApiUrl()}/me`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.currentUser) {
+          const profile: UserProfile = {
+            ...data.currentUser,
+            avatarUrl: data.currentUser.avatarUrl || data.currentUser.avatar || undefined,
+          };
+          setCurrentUser(profile);
+          if (data.isAdminAuthenticated) {
+            setIsAdminAuthenticated(true);
+          }
+          return profile;
+        }
+        if (data.isAdminAuthenticated) {
+          setIsAdminAuthenticated(true);
+        }
+      }
+    } catch (err) {
+      console.error('Session recovery failed:', err);
+    }
+    return null;
+  }, []);
+
+  useEffect(() => {
+    refreshSession();
+  }, [refreshSession]);
 
   const registerCandidate = async (
     name: string,
@@ -84,6 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       name: resData.user.name,
       email: resData.user.email,
       role: resData.user.role,
+      avatarUrl: resData.user.avatarUrl || resData.user.avatar || undefined,
       phone: resData.user.phone,
       gender: resData.user.gender,
       occupationStatus: resData.user.occupationStatus,
@@ -137,6 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       name: data.name,
       email: data.email,
       role: data.role,
+      avatarUrl: data.avatarUrl || data.avatar || undefined,
       targetExam: data.targetExam,
       phone: data.phone,
       institution: data.institution,
@@ -192,6 +205,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updatedUser: UserProfile = {
       ...currentUser,
       ...data.user,
+      avatarUrl: data.user?.avatarUrl || data.user?.avatar || updates.avatarUrl || currentUser.avatarUrl,
     };
     setCurrentUser(updatedUser);
     return updatedUser;
@@ -261,6 +275,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logoutAdmin,
         logoutCandidate,
         updateUserProfile,
+        refreshSession,
       }}
     >
       {children}

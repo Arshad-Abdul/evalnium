@@ -44,6 +44,7 @@ export interface AuthContextType {
   logoutAdmin: () => void;
   logoutCandidate: () => void;
   updateUserProfile: (updates: Partial<UserProfile>) => Promise<UserProfile>;
+  refreshSession: () => Promise<UserProfile | null>;
 }
 
 export interface LeaderboardEntry {
