@@ -1,6 +1,7 @@
 import type { Quiz, QuizAttemptResult } from '../types/quiz';
 import type { Announcement } from '../types/announcement';
 import { INITIAL_QUIZZES } from '../data/initialQuizzes';
+import { healOptionText } from './parsers';
 
 const QUIZZES_KEY = 'evalnium_quizzes_v3';
 const RESULTS_KEY = 'evalnium_results_v3';
@@ -27,6 +28,13 @@ export async function syncQuizzesFromMySQL(): Promise<Quiz[] | null> {
         const normalizedData = data.map(q => ({
           ...q,
           difficulty: q.difficulty || 'Medium',
+          questions: Array.isArray(q.questions) ? q.questions.map((quest: any) => ({
+            ...quest,
+            options: Array.isArray(quest.options) ? quest.options.map((o: any) => ({
+              ...o,
+              text: healOptionText(o.text, o.id)
+            })) : quest.options
+          })) : q.questions
         }));
         try {
           localStorage.setItem(QUIZZES_KEY, JSON.stringify(normalizedData));
@@ -60,10 +68,17 @@ export function getStoredQuizzes(): Quiz[] {
     }
     const parsed = JSON.parse(data);
     if (!Array.isArray(parsed)) return INITIAL_QUIZZES;
-    // Normalize missing difficulty (old cached records may have null)
+    // Normalize missing difficulty and heal damaged option texts
     return parsed.map(q => ({
       ...q,
       difficulty: q.difficulty || 'Medium',
+      questions: Array.isArray(q.questions) ? q.questions.map((quest: any) => ({
+        ...quest,
+        options: Array.isArray(quest.options) ? quest.options.map((o: any) => ({
+          ...o,
+          text: healOptionText(o.text, o.id)
+        })) : quest.options
+      })) : q.questions
     }));
   } catch (err) {
     console.error('Error reading quizzes from storage:', err);

@@ -84,42 +84,77 @@ function fixMojibake(str: string): string {
 export function healOptionText(text: string, optionId?: string): string {
   if (!text) return text;
   let trimmed = text.trim();
+  const hasHindi = /[क-ङ]/.test(trimmed);
 
-  // Damaged match-the-following:
-  // e.g. "-(I), (B)-(II)..." or " - (I), (B)-(II)..." or "-(1), (B)-(2)..."
-  if (/^[\-\–—\:]\s*\([IVX0-9a-z]+\)[\s\,]+[\(\[]?B[\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed)) {
-    return '(A)' + trimmed.replace(/^\s*/, '');
+  const getRestoredLead = (optId?: string) => {
+    if (hasHindi) {
+      const u = (optId || 'A').toString().trim().toUpperCase();
+      if (u === 'A' || u === '1' || u === 'क') return '(क)';
+      if (u === 'B' || u === '2' || u === 'ख') return '(ख)';
+      if (u === 'C' || u === '3' || u === 'ग') return '(ग)';
+      if (u === 'D' || u === '4' || u === 'घ') return '(घ)';
+      if (u === 'E' || u === '5' || u === 'ङ') return '(ङ)';
+      return `(${optId})`;
+    }
+    if (!optId) return '(A)';
+    const u = optId.toString().trim().toUpperCase();
+    if (u === 'A' || u === '1') return '(A)';
+    if (u === 'B' || u === '2') return '(B)';
+    if (u === 'C' || u === '3') return '(C)';
+    if (u === 'D' || u === '4') return '(D)';
+    if (u === 'E' || u === '5') return '(E)';
+    if (u === 'क') return '(क)';
+    if (u === 'ख') return '(ख)';
+    if (u === 'ग') return '(ग)';
+    if (u === 'घ') return '(घ)';
+    if (u === 'ङ') return '(ङ)';
+    return `(${u})`;
+  };
+
+  // Case 1: Match-the-following starting with dash or colon
+  // e.g. " -(I), (B)-(II), (C)-(III), (D)-(IV)" or "-(1), (B)-(2)..."
+  if (/^[\s\-\–—\:]+\s*\([IVX0-9a-z]+\)[\s\,]+[\(\[]?[B-Eb-e][\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed)) {
+    const cleanRest = trimmed.replace(/^[\s\-\–—\:]+/, '');
+    return '(A)-' + cleanRest.replace(/^[\-\–—\:]+/, '').trim();
   }
-  if (/^[\-\–—\:]\s*[IVX0-9a-z]+[\s\,]+[\(\[]?B[\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed)) {
-    return 'A' + trimmed.replace(/^\s*/, '');
+  if (/^[\s\-\–—\:]+\s*[IVX0-9a-z]+[\s\,]+[\(\[]?[B-Eb-e][\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed)) {
+    const cleanRest = trimmed.replace(/^[\s\-\–—\:]+/, '');
+    return 'A-' + cleanRest.replace(/^[\-\–—\:]+/, '').trim();
   }
-  if (/^\([IVX0-9a-z]+\)\s*[\s\,]+[\(\[]?B[\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed)) {
+  if (/^\([IVX0-9a-z]+\)\s*[\s\,]+[\(\[]?[B-Eb-e][\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed)) {
     return '(A)-' + trimmed;
   }
-  if (/^[IVX0-9a-z]+[\s\,]+[\(\[]?B[\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed)) {
+  if (/^[IVX0-9a-z]+[\s\,]+[\(\[]?[B-Eb-e][\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed)) {
     return 'A-' + trimmed;
   }
 
-  // Damaged statement combo e.g. ' , (B), (C) Only' or ' , (ख), (ग) केवल'
-  const damagedComboMatch = trimmed.match(/^[\s\,\|;/]+\s*(\([B-Dख-घ]\)|[B-Dख-घ]\))\s*([\,\s].*)$/i);
-  if (damagedComboMatch) {
-    const nextLetter = damagedComboMatch[1].replace(/[\(\)\s]/g, '').toUpperCase();
-    let restoredLead = '(A)';
-    if (nextLetter === 'ख') {
-      restoredLead = '(क)';
-    } else if (nextLetter === 'ग') {
-      restoredLead = (optionId === 'B' || optionId === '2' || optionId === 'ख') ? '(ख)' : '(क)';
-    } else if (nextLetter === 'C') {
-      restoredLead = (optionId === 'B' || optionId === '2') ? '(B)' : '(A)';
-    } else if (nextLetter === 'D') {
-      restoredLead = (optionId === 'C' || optionId === '3') ? '(C)' : '(A)';
-    } else if (optionId && ['A', '1'].includes(optionId.toUpperCase())) {
-      restoredLead = '(A)';
-    }
-    return restoredLead + ', ' + trimmed.replace(/^[\s\,\|;/]+\s*/, '');
+  // Case 2: Combo starting with "and " or "& " or "और "
+  // e.g. " and (B) Only", " and (C) Only", " and (D) Only", " and (E).only", " and (D) Only"
+  if (/^[\s\,\|;/]*(?:and|और|\&)\s*(?:\([A-Ea-eक-ङ]\)|[A-Ea-eक-ङ]\b)/i.test(trimmed)) {
+    const restored = getRestoredLead(optionId);
+    const cleanTail = trimmed.replace(/^[\s\,\|;/]*(?:and|और|\&)\s*/i, '');
+    const connector = hasHindi ? ' और ' : ' and ';
+    return `${restored}${connector}${cleanTail}`;
   }
 
-  if (/^[\s\,\|;/]+\s*(\([A-Dक-घ]\)|[A-Dक-घ]\b)/i.test(trimmed)) {
+  // Case 3: Combo starting with comma / punctuation
+  // e.g. " , (B), (C) Only", " , (C), (D) Only", " , (C), (E) Only", " , (B), (C) and (D) Only"
+  const damagedCommaMatch = trimmed.match(/^[\s\,\|;/]+\s*(\([A-Ea-eक-ङ]\)|[A-Ea-eक-ङ]\))\s*([\,\s].*)$/i);
+  if (damagedCommaMatch) {
+    const nextLetter = damagedCommaMatch[1].replace(/[\(\)\s]/g, '').toUpperCase();
+    let restored = getRestoredLead(optionId);
+    if (!optionId) {
+      if (nextLetter === 'B' || nextLetter === 'ख') restored = hasHindi ? '(क)' : '(A)';
+      else if (nextLetter === 'C' || nextLetter === 'ग') restored = hasHindi ? '(ख)' : '(B)';
+      else if (nextLetter === 'D' || nextLetter === 'घ') restored = hasHindi ? '(ग)' : '(C)';
+      else restored = hasHindi ? '(क)' : '(A)';
+    }
+    const cleanTail = trimmed.replace(/^[\s\,\|;/]+\s*/, '');
+    return `${restored}, ${cleanTail}`;
+  }
+
+  // If text has corrupted leading commas before a valid letter e.g. " , (A), (B)..."
+  if (/^[\s\,\|;/]+\s*(\([A-Ea-eक-ङ]\)|[A-Ea-eक-ङ]\b)/i.test(trimmed)) {
     return trimmed.replace(/^[\s\,\|;/]+\s*/, '');
   }
 
@@ -148,8 +183,8 @@ export function cleanOptionText(text: string, expectedOptionId?: string): string
 
   // 1. MATCH-THE-FOLLOWING CHECK: NEVER strip pairings!
   const isMatchPairing = 
-    /[\(\[]?[A-D][\)\]]?\s*[\-\–—\:\=→]\s*[\(\[]?[IVX0-9a-z]+[\)\]]?[\s\,]+[\(\[]?[B-D][\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed) ||
-    /^[\(\[]?[A-D][\)\]]?\s*[\-\–—\:\=→]\s*[\(\[]?(?:[IVX]+|\d+|[a-z]+)[\)\]]?/i.test(trimmed) ||
+    /[\(\[]?[A-Ea-e][\)\]]?\s*[\-\–—\:\=→]\s*[\(\[]?[IVX0-9a-z]+[\)\]]?[\s\,]+[\(\[]?[B-Eb-e][\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed) ||
+    /^[\(\[]?[A-Ea-e][\)\]]?\s*[\-\–—\:\=→]\s*[\(\[]?(?:[IVX]+|\d+|[a-z]+)[\)\]]?/i.test(trimmed) ||
     (/[\(\[]?B[\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed) && /[\(\[]?C[\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed));
 
   if (isMatchPairing) {
@@ -159,40 +194,38 @@ export function cleanOptionText(text: string, expectedOptionId?: string): string
   // 2. MULTI-STATEMENT COMBINATION CHECK: NEVER strip statement combinations!
   // e.g. "(A), (B), (C) Only", "(B), (C), (D) Only", "(A) and (B) Only", "A, B and C only"
   const isStatementCombination = 
-    // Has multiple parenthesized or comma/and separated statements
-    /(?:\([A-Dक-घ]\)|\b[A-Dक-घ]\b(?!\w))\s*(?:[\,]|and|और|\&)\s*(?:\([A-Dक-घ]\)|\b[A-Dक-घ]\b(?!\w))/i.test(trimmed) ||
-    // Ends with "Only" or "केवल" and contains statement letters like "(A)" or "(B)"
-    (/\b(?:Only|केवल)$/i.test(trimmed) && /(?:\([A-Dक-घ]\)|\b[A-Dक-घ]\b(?!\w))/.test(trimmed)) ||
-    // Is a single statement like "(A) Only" or "(B) only"
-    /^(?:\([A-Dक-घ]\)|\b[A-Dक-घ]\b(?!\w))\s*(?:Only|केवल)$/i.test(trimmed) ||
-    // Has pattern like "(A), (C), (D)"
-    /^\([A-Dक-घ]\)\s*,\s*\([A-Dक-घ]\)/i.test(trimmed);
+    /(?:\([A-Ea-eक-ङ]\)|\b[A-Ea-eक-ङ]\b(?!\w))\s*(?:[\,]|and|और|\&)\s*(?:\([A-Ea-eक-ङ]\)|\b[A-Ea-eक-ङ]\b(?!\w))/i.test(trimmed) ||
+    (/\b(?:Only|केवल)[\s\.]*$/i.test(trimmed) && /(?:\([A-Ea-eक-ङ]\)|\b[A-Ea-eक-ङ]\b(?!\w))/.test(trimmed)) ||
+    /^(?:\([A-Ea-eक-ङ]\)|\b[A-Ea-eक-ङ]\b(?!\w))\s*(?:Only|केवल)[\s\.]*$/i.test(trimmed) ||
+    /^\([A-Ea-eक-ङ]\)\s*,\s*\([A-Ea-eक-ङ]\)/i.test(trimmed);
 
   if (isStatementCombination) {
     return trimmed;
   }
 
   // Option candidate letters/numbers
-  let candidateGroup = expectedOptionId || '[A-D1-4]';
+  let candidateGroup = expectedOptionId || '[A-E1-5]';
   if (expectedOptionId) {
     const upper = expectedOptionId.toUpperCase();
     if (upper === 'A') candidateGroup = '[Aa1]';
     else if (upper === 'B') candidateGroup = '[Bb2]';
     else if (upper === 'C') candidateGroup = '[Cc3]';
     else if (upper === 'D') candidateGroup = '[Dd4]';
+    else if (upper === 'E') candidateGroup = '[Ee5]';
     else if (upper === '1') candidateGroup = '[Aa1]';
     else if (upper === '2') candidateGroup = '[Bb2]';
     else if (upper === '3') candidateGroup = '[Cc3]';
     else if (upper === '4') candidateGroup = '[Dd4]';
+    else if (upper === '5') candidateGroup = '[Ee5]';
     else candidateGroup = expectedOptionId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   // Negative lookahead ensuring we don't strip if followed by a comma or another statement letter (e.g. "(A), (B)")
-  const lookahead = '(?![\\,\\&\\s]+(?:\\([A-Dक-घ]\\)|\\b[A-Dक-घ]\\b(?!\\w)))';
+  const lookahead = '(?![\\,\\&\\s]+(?:\\([A-Ea-eक-ङ]\\)|\\b[A-Ea-eक-ङ]\\b(?!\\w)|and\\b|और\\b))';
   const prefixRegex = new RegExp(`^[\\(\\[]?\\s*${candidateGroup}(?:\\s*[\\.\\:\\)]|\\))${lookahead}\\s*`, 'i');
 
   const stripped = trimmed.replace(prefixRegex, '').trim();
-  if (stripped.startsWith(',') || stripped.startsWith('and ') || /^\([B-Dक-घ]\)/.test(stripped)) {
+  if (stripped.startsWith(',') || stripped.startsWith('and ') || stripped.startsWith('& ') || /^\([B-Eक-ङ]\)/.test(stripped)) {
     return trimmed;
   }
   return stripped;
@@ -221,7 +254,7 @@ export function detectAndExtractMatchFollowing(rawText: string): MatchFollowingE
 
   // Pattern 1: Interleaved table export: A. [Item A] I. [Item I] B. [Item B] II. [Item II] ...
   const interleavedRegex = /(?:(?:^|\s)(?:A\.|\(A\)|1\.|\(1\))\s*)([\s\S]+?)\s*(?:(?:I\.|\(I\)|1\.|\(1\))\s*)([\s\S]+?)\s*(?:(?:B\.|\(B\)|2\.|\(2\))\s*)([\s\S]+?)\s*(?:(?:II\.|\(II\)|2\.|\(2\))\s*)([\s\S]+?)\s*(?:(?:C\.|\(C\)|3\.|\(3\))\s*)([\s\S]+?)\s*(?:(?:III\.|\(III\)|3\.|\(3\))\s*)([\s\S]+?)\s*(?:(?:D\.|\(D\)|4\.|\(4\))\s*)([\s\S]+?)\s*(?:(?:IV\.|\(IV\)|4\.|\(4\))\s*)([\s\S]+?)(?=(?:\s*(?:Choose the correct|Select the correct|Options?|Codes?:?|$)))/i;
-  
+
   const m1 = text.match(interleavedRegex);
   if (m1) {
     const listI = [m1[1].trim(), m1[3].trim(), m1[5].trim(), m1[7].trim()];
@@ -454,8 +487,8 @@ export function extractComprehensionPassage(rawText: string): ComprehensionPassa
   const text = rawText.trim();
 
   const compPrefixRegex = /^(?:Comprehension\s*:?\s*)?Read the (?:following )?passage (?:carefully )?and answer the question(?:s)?(?:\s*given below)?\s*:?\s*/i;
-  const isComp = compPrefixRegex.test(text) || 
-    /^(?:Directions?\s*:?\s*)?Read the (?:following )?passage/i.test(text) || 
+  const isComp = compPrefixRegex.test(text) ||
+    /^(?:Directions?\s*:?\s*)?Read the (?:following )?passage/i.test(text) ||
     /^(?:गद्यांश|निर्देश)\s*:?\s*(?:निम्नलिखित\s*)?गद्यांश को पढ़कर/i.test(text) ||
     /\b(?:Comprehension\s*:?\s*)?Read the (?:following )?passage/i.test(text);
 
@@ -464,10 +497,10 @@ export function extractComprehensionPassage(rawText: string): ComprehensionPassa
   let body = text.replace(compPrefixRegex, '').trim();
   // Strip PDF header/footer artifacts e.g. "28 | P age", "30 | Page", "Page 28 of 50"
   body = body.replace(/\b\d+\s*\|\s*P\s*age\b/gi, '')
-             .replace(/\b\d+\s*\|\s*Page\b/gi, '')
-             .replace(/\b\d+\s*I\s*P\s*age\b/gi, '')
-             .replace(/\bPage\s*\d+\s*(?:of\s*\d+)?\b/gi, '')
-             .trim();
+    .replace(/\b\d+\s*\|\s*Page\b/gi, '')
+    .replace(/\b\d+\s*I\s*P\s*age\b/gi, '')
+    .replace(/\bPage\s*\d+\s*(?:of\s*\d+)?\b/gi, '')
+    .trim();
 
   // Strip any internal repeated "Comprehension: Read the following passage..." headers
   body = body.replace(/(?:Comprehension\s*:?\s*)?Read the (?:following )?passage (?:carefully )?and answer the question(?:s)?(?:\s*given below)?\s*:?\s*/gi, ' ').trim();
@@ -507,7 +540,7 @@ export function extractComprehensionPassage(rawText: string): ComprehensionPassa
 export function parsePlainText(text: string): ParseResult {
   const errors: string[] = [];
   const questions: ParsedQuestion[] = [];
-  
+
   if (!text || !text.trim()) {
     return { questions: [], rawText: text, errors: ['File or text is empty.'] };
   }
@@ -517,11 +550,11 @@ export function parsePlainText(text: string): ParseResult {
 
   // Normalize line endings
   const cleanText = cleanRawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  
+
   // Isolated Answer Key section at bottom (e.g. "Answer Key:", "Answers:", "Key:")
   let mainContent = cleanText;
   const answerKeyMap: Record<string, string> = {};
-  
+
   const answerKeySectionMatch = cleanText.match(/(?:Answer Key|Answers|Key|उत्तर कुंजी)\s*:?\n([\s\S]+)$/i);
   if (answerKeySectionMatch) {
     mainContent = cleanText.substring(0, answerKeySectionMatch.index);
@@ -540,7 +573,7 @@ export function parsePlainText(text: string): ParseResult {
 
   // Strategy 1: Split by Question Headers (e.g. Q1., Question 1, 1., 1), [Q1])
   let rawBlocks = mainContent.split(/(?:\n|^)(?=(?:Q(?:uestion)?[\s\.\_\-]*\d+|\d+[\.\:\)]|\*?\*?\d+[\.\:\)]\*?\*?)\s+)/i);
-  
+
   // Strategy 2 Fallback: If Question Headers split produced only 1 block, split by double blank lines (\n\s*\n+)
   if (rawBlocks.length <= 1) {
     rawBlocks = mainContent.split(/\n\s*\n+/);
@@ -566,7 +599,7 @@ export function parsePlainText(text: string): ParseResult {
     let inlineExplanation = '';
 
     const ansMatch = remainingBlock.match(/(?:^|\n)\s*(?:Answer|Ans|Correct Answer|Correct Option|Correct_Answer|Key|उत्तर)\s*:?\s*[\(\[]?\s*([A-D1-4])(?:\.|\:|\)|\]|\b).*$/im) ||
-                     remainingBlock.match(/(?:Answer|Ans|Correct Answer|Correct Option|Correct_Answer|Key|उत्तर)\s*:?\s*[\(\[]?\s*([A-D1-4])\s*[\)\]]?(?:\n|$)/i);
+      remainingBlock.match(/(?:Answer|Ans|Correct Answer|Correct Option|Correct_Answer|Key|उत्तर)\s*:?\s*[\(\[]?\s*([A-D1-4])\s*[\)\]]?(?:\n|$)/i);
     if (ansMatch) {
       let val = ansMatch[1].toUpperCase();
       if (val === '1') val = 'A';
@@ -641,7 +674,7 @@ export function parsePlainText(text: string): ParseResult {
 
     questionText = fixMojibake(questionText.replace(/^[\#\*\s\d\.\:\)]+/, '').trim());
     questionText = formatPremiseStatements(questionText);
-    
+
     // Extract English & Hindi blocks if present in questionText
     let questionEnglish: string | undefined;
     let questionHindi: string | undefined;
@@ -812,7 +845,7 @@ export function parseCSV(csvContent: string): ParseResult {
       const finalOptB = optB || rawCells[startOptIdx + 1] || (filledCells.length > startOptIdx + 1 ? filledCells[startOptIdx + 1] : '');
       const finalOptC = optC || rawCells[startOptIdx + 2] || (filledCells.length > startOptIdx + 2 ? filledCells[startOptIdx + 2] : '');
       const finalOptD = optD || rawCells[startOptIdx + 3] || (filledCells.length > startOptIdx + 3 ? filledCells[startOptIdx + 3] : '');
-      
+
       let answer = getValueByHeader(row, ['correct_answer', 'correctanswer', 'answer', 'correct_option', 'correctoption', 'key', 'ans', 'correct', 'correct_key', 'answer_key']).toUpperCase();
       if (answer.startsWith('OPTION ')) answer = answer.replace('OPTION ', '').trim();
       if (['1', '2', '3', '4'].includes(answer)) {
