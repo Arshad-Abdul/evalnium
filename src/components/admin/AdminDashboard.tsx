@@ -9,8 +9,9 @@ import { AuditLogsManager } from './AuditLogsManager';
 import { CandidateResponseModal } from './CandidateResponseModal';
 import { EmailManager } from './EmailManager';
 import { StudentDoubtsManager } from './StudentDoubtsManager';
+import { CandidateBookmarksModal } from './CandidateBookmarksModal';
 import { ConfirmModal } from '../common/ConfirmModal';
-import { Plus, Trash2, FileDown, Layers, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, EyeOff, Trophy, LogOut, Globe, Radio, Laptop, Smartphone, Monitor, ShieldCheck, UserCheck, Search, Filter, RefreshCw, Compass, MapPin, Download, Image as ImageIcon, BarChart2, Calendar, TrendingUp, History, Terminal, Mail, Phone, Briefcase, Building2, GraduationCap, KeyRound, Copy, ExternalLink, ShieldAlert } from 'lucide-react';
+import { Plus, Trash2, FileDown, Layers, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, EyeOff, Trophy, LogOut, Globe, Radio, Laptop, Smartphone, Monitor, ShieldCheck, UserCheck, Search, Filter, RefreshCw, Compass, MapPin, Download, Image as ImageIcon, BarChart2, Calendar, TrendingUp, History, Terminal, Mail, Phone, Briefcase, Building2, GraduationCap, KeyRound, Copy, ExternalLink, ShieldAlert, Bookmark } from 'lucide-react';
 import { getStoredResults, fetchResultsFromServer } from '../../utils/storage';
 
 export type AdminSubTab = 'overview' | 'import' | 'manage' | 'exam_responses' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users' | 'visitors' | 'banners' | 'audit' | 'emails' | 'discussions';
@@ -370,6 +371,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const [parsedResult, setParsedResult] = useState<{ res: ParseResult; sourceName: string } | null>(null);
   const [viewingResult, setViewingResult] = useState<QuizAttemptResult | null>(null);
+  const [viewingBookmarksCandidate, setViewingBookmarksCandidate] = useState<{ name: string; email?: string | null; uid?: string | null } | null>(null);
   const [storedResults, setStoredResults] = useState<QuizAttemptResult[]>(() => getStoredResults());
   const [expandedExamResponses, setExpandedExamResponses] = useState<string | null>(null);
   const [examResponsesSearch, setExamResponsesSearch] = useState('');
@@ -1434,13 +1436,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               )}
                             </td>
                             <td className="p-3.5 text-right">
-                              <button
-                                onClick={() => handleDeleteUser(user.uid, user.name || user.email)}
-                                className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition-colors flex items-center space-x-1 ml-auto"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                <span>Delete</span>
-                              </button>
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingBookmarksCandidate({
+                                    name: user.name || user.email,
+                                    email: user.email,
+                                    uid: user.uid,
+                                  })}
+                                  className="px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold border border-amber-200 transition-colors flex items-center space-x-1 cursor-pointer"
+                                  title="View revision bookmarks saved by this student"
+                                >
+                                  <Bookmark className="w-3.5 h-3.5 fill-amber-500 text-amber-600" />
+                                  <span className="hidden sm:inline">Saved</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteUser(user.uid, user.name || user.email)}
+                                  className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition-colors flex items-center space-x-1"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))
@@ -1605,20 +1622,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                                         Individual Attempts ({candAttempts.length})
                                       </p>
-                                      {candAttempts.length > 0 && (
+                                      <div className="flex items-center gap-2">
                                         <button
                                           type="button"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            handleDeleteAllCandidateAttempts(cand.candidateEmail, cand.candidateName, candAttempts.length);
+                                            const matchedUser = registeredUsers.find(u => u.email?.toLowerCase() === cand.candidateEmail?.toLowerCase() || u.name === cand.candidateName);
+                                            setViewingBookmarksCandidate({
+                                              name: cand.candidateName,
+                                              email: cand.candidateEmail,
+                                              uid: matchedUser?.uid || null,
+                                            });
                                           }}
-                                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 border border-rose-200 text-xs font-bold transition-all shadow-2xs cursor-pointer"
-                                          title="Permanently wipe all attempts for this candidate"
+                                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-amber-50 text-amber-700 hover:text-amber-800 border border-amber-200 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                                          title="View questions this candidate saved in their Revision Bank"
                                         >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                          <span>Delete All ({candAttempts.length}) Attempts</span>
+                                          <Bookmark className="w-3.5 h-3.5 fill-amber-500 text-amber-600" />
+                                          <span>Saved Questions</span>
                                         </button>
-                                      )}
+                                        {candAttempts.length > 0 && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleDeleteAllCandidateAttempts(cand.candidateEmail, cand.candidateName, candAttempts.length);
+                                            }}
+                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 border border-rose-200 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                                            title="Permanently wipe all attempts for this candidate"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                            <span>Delete All ({candAttempts.length}) Attempts</span>
+                                          </button>
+                                        )}
+                                      </div>
                                     </div>
                                     {candAttempts.length === 0 ? (
                                       <p className="text-xs text-slate-400">No individual attempts visible.</p>
@@ -3000,6 +3036,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           attemptResult={viewingResult}
           quiz={quizzes.find(q => q.id === viewingResult.quizId) || null}
           onClose={() => setViewingResult(null)}
+        />
+      )}
+
+      {viewingBookmarksCandidate && (
+        <CandidateBookmarksModal
+          candidateName={viewingBookmarksCandidate.name}
+          candidateEmail={viewingBookmarksCandidate.email}
+          candidateUid={viewingBookmarksCandidate.uid}
+          onClose={() => setViewingBookmarksCandidate(null)}
         />
       )}
 

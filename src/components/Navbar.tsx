@@ -241,8 +241,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
 
-            {/* Saved Bookmarks (Desktop) */}
-            {onOpenRevisionHub && (
+            {/* Saved Bookmarks (Desktop) - Strictly visible for signed-in candidates */}
+            {currentUser && onOpenRevisionHub && (
               <button
                 type="button"
                 onClick={onOpenRevisionHub}
@@ -503,7 +503,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </span>
                 </button>
 
-                {onOpenRevisionHub && (
+                {currentUser && onOpenRevisionHub && (
                   <button
                     type="button"
                     onClick={() => {

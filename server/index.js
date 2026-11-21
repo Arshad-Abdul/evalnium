@@ -3543,6 +3543,39 @@ app.get('/api/bookmarks', async (req, res) => {
     return res.status(401).json({ error: 'Access Denied: Authentication required to access bookmarks.' });
   }
 
+  // Admin global inspect mode: fetch all saved questions across candidates
+  if (isAdmin && (!targetUid || req.query.all === 'true')) {
+    try {
+      const [rows] = await pool.query(
+        `SELECT b.id, b.uid, u.name AS candidate_name, u.email AS candidate_email,
+                b.quiz_id, b.quiz_title, b.question_id, b.question_json, b.bookmarked_at
+         FROM bookmarks b
+         LEFT JOIN users u ON b.uid = u.uid
+         ORDER BY b.bookmarked_at DESC LIMIT 500`
+      );
+      return res.json(rows.map(r => {
+        let parsed = null;
+        try {
+          parsed = JSON.parse(r.question_json);
+        } catch {
+          parsed = null;
+        }
+        return {
+          id: r.question_id,
+          uid: r.uid,
+          candidateName: r.candidate_name || 'Registered Candidate',
+          candidateEmail: r.candidate_email || null,
+          quizId: r.quiz_id || parsed?.quizId || 'exam_quiz',
+          quizTitle: r.quiz_title || parsed?.quizTitle || 'Practice Assessment',
+          question: parsed?.question || parsed,
+          bookmarkedAt: r.bookmarked_at,
+        };
+      }));
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   // Non-admins can strictly only fetch their own bookmarks (CWE-639 IDOR Defense)
   const effectiveUid = isAdmin ? (targetUid || authenticatedCandidate?.uid) : authenticatedCandidate.uid;
   if (!effectiveUid) {

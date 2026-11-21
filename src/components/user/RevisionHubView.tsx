@@ -14,6 +14,8 @@ import {
   AlertCircle,
   Cloud,
   RefreshCw,
+  LogIn,
+  Lock,
 } from 'lucide-react';
 import { AudioPlayerButton } from '../common/AudioPlayerButton';
 import { FormattedQuestionStem } from '../common/FormattedQuestionStem';
@@ -86,8 +88,7 @@ export const RevisionHubView: React.FC<RevisionHubViewProps> = ({
       setEntries(userCached);
       fetchCloudBookmarks();
     } else {
-      const guestCached = getStoredSavedEntries(undefined);
-      setEntries(guestCached);
+      setEntries([]);
       setIsCloudSynced(false);
     }
   }, [currentUser?.uid]);
@@ -145,6 +146,39 @@ export const RevisionHubView: React.FC<RevisionHubViewProps> = ({
       return true;
     });
   }, [entries, selectedQuizFilter, searchQuery]);
+
+  if (!currentUser) {
+    return (
+      <div className="w-full max-w-xl mx-auto py-16 px-4 text-center space-y-5 animate-in fade-in duration-200">
+        <div className="w-16 h-16 rounded-3xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center mx-auto shadow-sm">
+          <Bookmark className="w-8 h-8 fill-amber-500 text-amber-600" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-black text-slate-900 tracking-tight">Sign In to Access Your Revision Bank</h2>
+          <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
+            Your saved questions are private and permanently synchronized to your personal candidate account in MySQL database. Please sign in to view and practice your saved questions.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onRequireAuth}
+            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer"
+          >
+            <LogIn className="w-4 h-4" />
+            <span>Sign In to Your Account</span>
+          </button>
+          <button
+            type="button"
+            onClick={onNavigateToCatalog}
+            className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs transition-all cursor-pointer"
+          >
+            Back to Exams
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full space-y-6 pb-16 animate-in fade-in duration-150">

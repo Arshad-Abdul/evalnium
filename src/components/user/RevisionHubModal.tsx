@@ -22,8 +22,17 @@ interface RevisionHubModalProps {
 export const BOOKMARKS_KEY = 'evalnium_bookmarked_questions_v2';
 const LEGACY_KEY = 'evalnium_bookmarked_questions_v1';
 
+// Purge any lingering guest or legacy storage
+if (typeof window !== 'undefined') {
+  try {
+    localStorage.removeItem('evalnium_bookmarks_guest');
+    localStorage.removeItem(BOOKMARKS_KEY);
+    localStorage.removeItem(LEGACY_KEY);
+  } catch {}
+}
+
 export const getBookmarksKey = (uid?: string): string => {
-  return uid ? `evalnium_bookmarks_user_${uid}` : `evalnium_bookmarks_guest`;
+  return uid ? `evalnium_bookmarks_user_${uid}` : '';
 };
 
 const getApiBase = () => {
@@ -53,26 +62,15 @@ export function normalizeSavedEntry(item: any): SavedQuestionEntry {
 }
 
 export function getStoredSavedEntries(uid?: string): SavedQuestionEntry[] {
+  if (!uid) return [];
   try {
     const key = getBookmarksKey(uid);
+    if (!key) return [];
     const raw = localStorage.getItem(key);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
         return parsed.map(normalizeSavedEntry);
-      }
-    }
-    // One-time migration: If user is logged in and has old shared cache, migrate it to user's key
-    if (uid) {
-      const legacyRaw = localStorage.getItem(BOOKMARKS_KEY);
-      if (legacyRaw) {
-        const parsedLegacy = JSON.parse(legacyRaw);
-        if (Array.isArray(parsedLegacy) && parsedLegacy.length > 0) {
-          const migrated = parsedLegacy.map(normalizeSavedEntry);
-          localStorage.setItem(key, JSON.stringify(migrated));
-          localStorage.removeItem(BOOKMARKS_KEY);
-          return migrated;
-        }
       }
     }
     return [];
@@ -91,6 +89,10 @@ export function saveBookmarkedQuestion(
   quizId?: string,
   quizTitle?: string
 ): SavedQuestionEntry[] {
+  if (!uid) {
+    // Unauthenticated visitors must not save bookmarks to shared/guest storage
+    return [];
+  }
   const existing = getStoredSavedEntries(uid);
   const alreadySaved = existing.some((q) => q.id === question.id);
   if (alreadySaved) return existing;
@@ -105,23 +107,23 @@ export function saveBookmarkedQuestion(
 
   const updated = [newEntry, ...existing];
   try {
-    localStorage.setItem(getBookmarksKey(uid), JSON.stringify(updated));
+    const key = getBookmarksKey(uid);
+    if (key) localStorage.setItem(key, JSON.stringify(updated));
   } catch { }
 
-  if (uid) {
-    fetch(`${getApiBase()}/bookmarks`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        uid,
-        questionId: question.id,
-        quizId: newEntry.quizId,
-        quizTitle: newEntry.quizTitle,
-        question,
-      }),
-    }).catch(() => {});
-  }
+  fetch(`${getApiBase()}/bookmarks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      uid,
+      questionId: question.id,
+      quizId: newEntry.quizId,
+      quizTitle: newEntry.quizTitle,
+      question,
+    }),
+  }).catch(() => {});
+
   return updated;
 }
 
