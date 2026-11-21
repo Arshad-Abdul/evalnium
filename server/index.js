@@ -318,10 +318,11 @@ async function sendTemplatedEmail({
     const finalCtaText = escapeHtml(replaceVars(ctaText, false).replace(/<[^>]*>/g, '').trim());
     let finalCtaUrl = replaceVars(ctaUrl, false).replace(/<[^>]*>/g, '').trim();
 
-    // Ensure CTA URL is fully qualified if it's a safe root-relative path
-    const networkIp = getNetworkIp();
-    const defaultHost = networkIp !== 'localhost' ? `http://${networkIp}:5175` : 'http://localhost:5175';
-    const appBaseUrl = process.env.APP_URL || defaultHost;
+    // Ensure CTA URL is fully qualified with a secure, public domain (never suspicious internal LAN IP in emails)
+    let appBaseUrl = process.env.APP_URL;
+    if (!appBaseUrl || appBaseUrl.includes('localhost') || /^http:\/\/(?:10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|127\.)/.test(appBaseUrl)) {
+      appBaseUrl = 'https://evalnium.com';
+    }
     if (finalCtaUrl.startsWith('/') && !finalCtaUrl.startsWith('//')) {
       finalCtaUrl = `${appBaseUrl}${finalCtaUrl}`;
     } else if (!finalCtaUrl.startsWith('https://') && !finalCtaUrl.startsWith('http://')) {
@@ -413,7 +414,10 @@ async function sendTemplatedEmail({
         'X-Priority': '1',
         'X-MSMail-Priority': 'High',
         'Importance': 'high',
-      } : undefined,
+      } : {
+        'List-Unsubscribe': `<mailto:${senderEmail}?subject=Unsubscribe>`,
+        'X-Mailer': 'Evalnium Notification Engine v2.0'
+      },
     });
 
     console.log(`[TEMPLATED EMAIL DELIVERED] ✅ Sent "${templateId}" to ${to}. MessageID: ${info.messageId}`);
@@ -2331,8 +2335,8 @@ app.post('/api/quizzes', authenticateAdmin, async (req, res) => {
                   quiz_id: q.id
                 }
               });
-              // 50ms cooldown between dispatches to maintain clean SMTP connection health
-              await new Promise(resolve => setTimeout(resolve, 50));
+              // 1200ms cooldown between dispatches to respect Gmail SMTP rate limits and avoid spam bounce
+              await new Promise(resolve => setTimeout(resolve, 1200));
             } catch (candErr) {
               console.error(`Failed to dispatch new exam alert to ${cand.email}:`, candErr.message);
             }
@@ -2410,7 +2414,8 @@ app.post('/api/quizzes/:id/dispatch-results-email', authenticateAdmin, async (re
             fallbackCtaUrl: `${appUrl}/#/dashboard`
           });
           dispatchedCount++;
-          await new Promise(resolve => setTimeout(resolve, 80));
+          // 1200ms cooldown between emails to respect SMTP throughput
+          await new Promise(resolve => setTimeout(resolve, 1200));
         } catch (mailErr) {
           console.error(`Failed to dispatch result email to ${cand.candidate_email}:`, mailErr.message);
         }
@@ -4521,8 +4526,8 @@ app.post('/api/admin/email/broadcast', authenticateAdmin, async (req, res) => {
               fallbackBody: message_body
             });
             successCount++;
-            // 50ms cooldown between emails to respect SMTP throughput
-            await new Promise(resolve => setTimeout(resolve, 50));
+            // 1200ms cooldown between emails to respect SMTP throughput and prevent spam block
+            await new Promise(resolve => setTimeout(resolve, 1200));
           } catch (sendErr) {
             console.error(`Failed sending broadcast email to ${recipient.email}:`, sendErr.message);
           }
