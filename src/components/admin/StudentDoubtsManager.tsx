@@ -85,9 +85,9 @@ export const StudentDoubtsManager: React.FC<StudentDoubtsManagerProps> = ({ quiz
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            userName: 'Evalnium Faculty',
+            userName: 'Evalnium Admin',
             userEmail: 'evalniumlis@gmail.com',
-            role: 'faculty',
+            role: 'admin',
             comment: text,
           }),
         }
@@ -95,7 +95,7 @@ export const StudentDoubtsManager: React.FC<StudentDoubtsManagerProps> = ({ quiz
 
       if (res.ok) {
         setReplyTextMap((prev) => ({ ...prev, [item.id]: '' }));
-        setActionSuccessMessage(`Official Faculty reply posted for Question ${item.questionId}!`);
+        setActionSuccessMessage(`Official Admin reply posted for Question ${item.questionId}!`);
         setTimeout(() => setActionSuccessMessage(null), 3000);
         fetchDiscussions();
       } else {
@@ -207,7 +207,7 @@ export const StudentDoubtsManager: React.FC<StudentDoubtsManagerProps> = ({ quiz
             <span className="text-xl font-bold font-mono text-amber-900 mt-0.5 block">{candidateDoubtsCount}</span>
           </div>
           <div className="p-3 rounded-lg bg-indigo-50/60 border border-indigo-200 col-span-2 sm:col-span-1">
-            <span className="text-[11px] font-semibold text-indigo-900 block">Verified Faculty Replies</span>
+            <span className="text-[11px] font-semibold text-indigo-900 block">Official Admin Replies</span>
             <span className="text-xl font-bold font-mono text-indigo-900 mt-0.5 block">{facultyRepliesCount}</span>
           </div>
         </div>
@@ -264,7 +264,7 @@ export const StudentDoubtsManager: React.FC<StudentDoubtsManagerProps> = ({ quiz
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              Faculty ({facultyRepliesCount})
+              Admin ({facultyRepliesCount})
             </button>
           </div>
         </div>
@@ -312,9 +312,9 @@ export const StudentDoubtsManager: React.FC<StudentDoubtsManagerProps> = ({ quiz
                     )}
 
                     {isFaculty ? (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-600 text-white">
-                        <ShieldCheck className="w-2.5 h-2.5" />
-                        <span>Verified Faculty</span>
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-900 text-white">
+                        <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
+                        <span>Evalnium Admin</span>
                       </span>
                     ) : (
                       <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
@@ -384,7 +384,7 @@ export const StudentDoubtsManager: React.FC<StudentDoubtsManagerProps> = ({ quiz
                   <div className="pt-1 flex items-center gap-2">
                     <input
                       type="text"
-                      placeholder={`Reply to ${item.userName} with official verified faculty explanation...`}
+                      placeholder={`Reply to ${item.userName} with official verified admin explanation...`}
                       value={replyTextMap[item.id] || ''}
                       onChange={(e) =>
                         setReplyTextMap((prev) => ({ ...prev, [item.id]: e.target.value }))
@@ -401,10 +401,10 @@ export const StudentDoubtsManager: React.FC<StudentDoubtsManagerProps> = ({ quiz
                       type="button"
                       onClick={() => handlePostFacultyReply(item)}
                       disabled={submittingReplyId === item.id || !(replyTextMap[item.id] || '').trim()}
-                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
+                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
                     >
                       <Send className="w-3 h-3" />
-                      <span>{submittingReplyId === item.id ? 'Posting...' : 'Reply as Faculty'}</span>
+                      <span>{submittingReplyId === item.id ? 'Posting...' : 'Reply as Admin'}</span>
                     </button>
                   </div>
                 )}

@@ -286,22 +286,21 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
           </div>
 
           <div className="flex items-center space-x-2">
-            <span className={`px-2.5 py-1 rounded font-mono font-semibold text-xs uppercase border ${
-              quiz.quizType === 'unranked_practice'
+            <span className={`px-2.5 py-1 rounded font-mono font-semibold text-xs uppercase border ${quiz.quizType === 'unranked_practice'
                 ? 'bg-teal-50 text-teal-800 border-teal-300'
                 : !quiz.passingPercentage || quiz.passingPercentage <= 0
-                ? 'bg-blue-50 text-blue-800 border-blue-300'
-                : result.passed
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                : 'bg-rose-50 text-rose-800 border-rose-300'
-            }`}>
+                  ? 'bg-blue-50 text-blue-800 border-blue-300'
+                  : result.passed
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                    : 'bg-rose-50 text-rose-800 border-rose-300'
+              }`}>
               {quiz.quizType === 'unranked_practice'
                 ? 'Status: PRACTICE COMPLETED (Self-Assessment)'
                 : !quiz.passingPercentage || quiz.passingPercentage <= 0
-                ? 'Status: COMPLETED (Self-Assessment)'
-                : result.passed
-                ? 'Status: QUALIFIED'
-                : 'Status: NOT QUALIFIED'}
+                  ? 'Status: COMPLETED (Self-Assessment)'
+                  : result.passed
+                    ? 'Status: QUALIFIED'
+                    : 'Status: NOT QUALIFIED'}
             </span>
 
             {quiz.quizType === 'unranked_practice' ? (
@@ -495,8 +494,8 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
               <button
                 onClick={() => setLanguageMode('dual')}
                 className={`px-2 py-1 rounded text-xs font-medium transition-colors ${languageMode === 'dual'
-                    ? 'bg-white text-slate-900 shadow-xs font-semibold'
-                    : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                  : 'text-slate-600 hover:text-slate-900'
                   }`}
               >
                 Dual Mode
@@ -504,8 +503,8 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
               <button
                 onClick={() => setLanguageMode('en')}
                 className={`px-2 py-1 rounded text-xs font-medium transition-colors ${languageMode === 'en'
-                    ? 'bg-white text-slate-900 shadow-xs font-semibold'
-                    : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                  : 'text-slate-600 hover:text-slate-900'
                   }`}
               >
                 English
@@ -513,8 +512,8 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
               <button
                 onClick={() => setLanguageMode('hi')}
                 className={`px-2 py-1 rounded text-xs font-medium transition-colors ${languageMode === 'hi'
-                    ? 'bg-white text-slate-900 shadow-xs font-semibold'
-                    : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                  : 'text-slate-600 hover:text-slate-900'
                   }`}
               >
                 हिन्दी
@@ -528,8 +527,8 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                   key={f}
                   onClick={() => setFilterType(f)}
                   className={`px-2.5 py-1 rounded text-xs font-medium capitalize transition-colors ${filterType === f
-                      ? 'bg-white text-slate-900 shadow-xs font-semibold'
-                      : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                    : 'text-slate-600 hover:text-slate-900'
                     }`}
                 >
                   {f}
@@ -560,10 +559,10 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                       Q.{idx + 1}
                     </span>
                     <span className={`text-[11px] font-mono px-2 py-0.5 rounded font-semibold uppercase ${isSkipped
-                        ? 'bg-amber-50 text-amber-800 border border-amber-300'
-                        : isCorrect
-                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
-                          : 'bg-rose-50 text-rose-800 border border-rose-300'
+                      ? 'bg-amber-50 text-amber-800 border border-amber-300'
+                      : isCorrect
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
+                        : 'bg-rose-50 text-rose-800 border border-rose-300'
                       }`}>
                       {isSkipped ? 'Unattempted' : isCorrect ? 'Correct Response' : 'Incorrect Response'}
                     </span>
@@ -705,10 +704,10 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                           >
                             <div className="flex items-center space-x-2.5">
                               <span className={`w-5 h-5 rounded font-mono font-bold text-xs flex items-center justify-center flex-shrink-0 ${isRightAnswer
-                                  ? 'bg-emerald-600 text-white'
-                                  : isCandidateChoice
-                                    ? 'bg-rose-600 text-white'
-                                    : 'bg-slate-200 text-slate-700'
+                                ? 'bg-emerald-600 text-white'
+                                : isCandidateChoice
+                                  ? 'bg-rose-600 text-white'
+                                  : 'bg-slate-200 text-slate-700'
                                 }`}>
                                 {opt.id}
                               </span>

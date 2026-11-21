@@ -134,7 +134,7 @@ export const QuestionDiscussion: React.FC<QuestionDiscussionProps> = ({
             onChange={(e) => setAuthorName(e.target.value)}
             className="w-1/3 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:border-indigo-600"
           />
-          <span className="text-[10px] text-slate-400 font-medium">Posting as {currentUser?.role === 'admin' ? 'Faculty Admin' : 'Candidate'}</span>
+          <span className="text-[10px] text-slate-400 font-medium">Posting as {currentUser?.role === 'admin' ? 'Portal Admin' : 'Candidate'}</span>
         </div>
 
         <div className="flex items-center space-x-2">
@@ -182,9 +182,9 @@ export const QuestionDiscussion: React.FC<QuestionDiscussionProps> = ({
                 <div className="flex items-center space-x-2">
                   <span className="font-bold text-slate-900">{d.userName}</span>
                   {d.role === 'admin' || d.role === 'faculty' ? (
-                    <span className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-600 text-white">
-                      <ShieldCheck className="w-2.5 h-2.5" />
-                      <span>Verified Faculty</span>
+                    <span className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-900 text-white">
+                      <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
+                      <span>Evalnium Admin</span>
                     </span>
                   ) : (
                     <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-600 border border-slate-200">

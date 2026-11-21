@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   Info,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { AuthModal } from './auth/AuthModal';
@@ -22,8 +23,8 @@ import { AboutModal } from './common/AboutModal';
 import { EvalniumLogo } from './brand/EvalniumLogo';
 
 interface NavbarProps {
-  activeTab: 'user' | 'dashboard' | 'leaderboard' | 'admin' | 'about';
-  setActiveTab: (tab: 'user' | 'dashboard' | 'leaderboard' | 'admin' | 'about') => void;
+  activeTab: 'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'admin';
+  setActiveTab: (tab: 'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'admin') => void;
   isAdminAuthenticated: boolean;
   onAdminLogout: () => void;
   onCandidateLogout?: () => void;
@@ -114,7 +115,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     isAdminAuthenticated &&
     (!currentUser || currentUser.role === 'admin');
 
-  const navigateTo = (tab: 'user' | 'dashboard' | 'leaderboard' | 'admin' | 'about') => {
+  const navigateTo = (tab: 'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'admin') => {
     setActiveTab(tab);
     setMobileMenuOpen(false);
   };
@@ -147,11 +148,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 type="button"
                 onClick={() => navigateTo('user')}
-                className={`px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                  activeTab === 'user'
+                className={`px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'user'
                     ? 'bg-slate-100 text-slate-900'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                }`}
+                  }`}
               >
                 <BookOpen className={`w-4 h-4 ${activeTab === 'user' ? 'text-blue-600' : 'text-slate-400'}`} />
                 <span>Exams</span>
@@ -164,11 +164,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   type="button"
                   onClick={() => navigateTo('dashboard')}
-                  className={`px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                    activeTab === 'dashboard'
+                  className={`px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'dashboard'
                       ? 'bg-slate-100 text-slate-900'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
+                    }`}
                 >
                   <LayoutDashboard className={`w-4 h-4 ${activeTab === 'dashboard' ? 'text-blue-600' : 'text-slate-400'}`} />
                   <span>Dashboard</span>
@@ -178,11 +177,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 type="button"
                 onClick={() => navigateTo('leaderboard')}
-                className={`px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                  activeTab === 'leaderboard'
+                className={`px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'leaderboard'
                     ? 'bg-slate-100 text-slate-900'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                }`}
+                  }`}
               >
                 <Trophy className={`w-4 h-4 ${activeTab === 'leaderboard' ? 'text-amber-600' : 'text-slate-400'}`} />
                 <span>Rankings</span>
@@ -193,12 +191,24 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               <button
                 type="button"
-                onClick={() => navigateTo('about')}
-                className={`px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                  activeTab === 'about'
+                onClick={() => navigateTo('doubts')}
+                className={`px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'doubts'
                     ? 'bg-indigo-50 text-indigo-700 border border-indigo-100'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                }`}
+                  }`}
+                title="Student Questions & Doubts Discussion Hub"
+              >
+                <MessageSquare className="w-4 h-4 text-indigo-500" />
+                <span>Doubts</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigateTo('about')}
+                className={`px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'about'
+                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-100'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
                 title="About Evalnium Portal & Features"
               >
                 <Info className="w-4 h-4 text-indigo-500" />
@@ -209,11 +219,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   type="button"
                   onClick={() => navigateTo('admin')}
-                  className={`px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                    activeTab === 'admin'
+                  className={`px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'admin'
                       ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/80'
                       : 'text-emerald-700 hover:bg-emerald-50/70'
-                  }`}
+                    }`}
                 >
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
                   <span>Admin Studio</span>
@@ -415,11 +424,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   type="button"
                   onClick={() => navigateTo('user')}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                    activeTab === 'user'
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${activeTab === 'user'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-slate-700 hover:bg-slate-100'
-                  }`}
+                    }`}
                 >
                   <span className="flex items-center gap-2.5">
                     <BookOpen className={`w-4 h-4 ${activeTab === 'user' ? 'text-blue-600' : 'text-slate-400'}`} />
@@ -434,11 +442,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <button
                     type="button"
                     onClick={() => navigateTo('dashboard')}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                      activeTab === 'dashboard'
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${activeTab === 'dashboard'
                         ? 'bg-blue-50 text-blue-700'
                         : 'text-slate-700 hover:bg-slate-100'
-                    }`}
+                      }`}
                   >
                     <span className="flex items-center gap-2.5">
                       <LayoutDashboard className={`w-4 h-4 ${activeTab === 'dashboard' ? 'text-blue-600' : 'text-slate-400'}`} />
@@ -450,11 +457,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   type="button"
                   onClick={() => navigateTo('leaderboard')}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                    activeTab === 'leaderboard'
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${activeTab === 'leaderboard'
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-slate-700 hover:bg-slate-100'
-                  }`}
+                    }`}
                 >
                   <span className="flex items-center gap-2.5">
                     <Trophy className={`w-4 h-4 ${activeTab === 'leaderboard' ? 'text-amber-600' : 'text-slate-400'}`} />
@@ -467,12 +473,25 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => navigateTo('about')}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                    activeTab === 'about'
+                  onClick={() => navigateTo('doubts')}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${activeTab === 'doubts'
                       ? 'bg-indigo-50 text-indigo-700'
                       : 'text-slate-700 hover:bg-slate-100'
-                  }`}
+                    }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <MessageSquare className="w-4 h-4 text-indigo-500" />
+                    <span>Doubts &amp; Discussions</span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigateTo('about')}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${activeTab === 'about'
+                      ? 'bg-indigo-50 text-indigo-700'
+                      : 'text-slate-700 hover:bg-slate-100'
+                    }`}
                 >
                   <span className="flex items-center gap-2.5">
                     <Info className="w-4 h-4 text-indigo-500" />
@@ -500,11 +519,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <button
                     type="button"
                     onClick={() => navigateTo('admin')}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                      activeTab === 'admin'
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${activeTab === 'admin'
                         ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                         : 'text-emerald-700 hover:bg-emerald-50'
-                    }`}
+                      }`}
                   >
                     <span className="flex items-center gap-2.5">
                       <ShieldCheck className="w-4 h-4 text-emerald-600" />

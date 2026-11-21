@@ -55,10 +55,11 @@ const ExamRunner = lazyWithRetry(() => import('./components/user/ExamRunner').th
 const ExamResultView = lazyWithRetry(() => import('./components/user/ExamResultView').then(m => ({ default: m.ExamResultView })));
 const RevisionHubModal = lazyWithRetry(() => import('./components/user/RevisionHubModal').then(m => ({ default: m.RevisionHubModal })));
 const AboutPage = lazyWithRetry(() => import('./components/common/AboutPage').then(m => ({ default: m.AboutPage })));
+const DoubtsHubView = lazyWithRetry(() => import('./components/user/DoubtsHubView').then(m => ({ default: m.DoubtsHubView })));
 
 function MainAppContent() {
   const { isAdminAuthenticated, logoutAdmin, currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'user' | 'dashboard' | 'leaderboard' | 'admin' | 'about'>('user');
+  const [activeTab, setActiveTab] = useState<'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'admin'>('user');
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [attemptsHistory, setAttemptsHistory] = useState<QuizAttemptResult[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -140,7 +141,7 @@ function MainAppContent() {
       const isAdminSession = Boolean(isAdminAuthenticated || activeTab === 'admin');
       const currentPage = examPhase === 'running' 
         ? `Taking Exam: ${selectedQuiz?.title || 'CBT Assessment'}` 
-        : (activeTab === 'dashboard' ? 'Candidate Dashboard' : (activeTab === 'leaderboard' ? 'Live Rankings' : (activeTab === 'admin' ? 'Admin Studio' : (activeTab === 'about' ? 'About Portal' : 'Exam Catalog'))));
+        : (activeTab === 'dashboard' ? 'Candidate Dashboard' : (activeTab === 'leaderboard' ? 'Live Rankings' : (activeTab === 'doubts' ? 'Doubts Hub' : (activeTab === 'admin' ? 'Admin Studio' : (activeTab === 'about' ? 'About Portal' : 'Exam Catalog')))));
 
       const body = JSON.stringify({
         clientId,
@@ -243,7 +244,7 @@ function MainAppContent() {
     }
   }, [examPhase, selectedQuiz, activeTab]);
 
-  const handleTabChange = (tab: 'user' | 'dashboard' | 'leaderboard' | 'admin' | 'about') => {
+  const handleTabChange = (tab: 'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'admin') => {
     if (tab === 'admin') {
       if (!isAdminAuthenticated) {
         setShowAdminLockModal(true);
@@ -504,6 +505,12 @@ function MainAppContent() {
               attemptsHistory={attemptsHistory}
               onNavigateToCatalog={() => setActiveTab('user')}
             />
+          ) : activeTab === 'doubts' ? (
+            <DoubtsHubView
+              quizzes={candidateVisibleQuizzes}
+              onSelectQuiz={handleSelectQuiz}
+              onNavigateToCatalog={() => setActiveTab('user')}
+            />
           ) : activeTab === 'about' ? (
             <AboutPage
               onNavigateToCatalog={() => setActiveTab('user')}
@@ -668,6 +675,14 @@ function MainAppContent() {
 
             {/* Platform Version, Legal Links & Authenticated Admin Studio Shortcut */}
             <div className="flex flex-wrap items-center gap-2.5 text-slate-400 font-mono text-[11px] justify-center md:justify-end">
+              <button
+                type="button"
+                onClick={() => setActiveTab('doubts')}
+                className="text-slate-500 hover:text-slate-900 font-medium transition-colors cursor-pointer"
+              >
+                Doubts Hub
+              </button>
+              <span>·</span>
               <button
                 type="button"
                 onClick={() => setActiveTab('about')}

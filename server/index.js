@@ -3796,6 +3796,56 @@ app.delete('/api/banners/:id', authenticateAdmin, async (req, res) => {
 // ==========================================
 // 2. QUESTION DISCUSSIONS & DOUBTS FORUM API
 // ==========================================
+// Central Public Discussions API (All Discussions / Filtered by Quiz or Candidate)
+app.get('/api/discussions', async (req, res) => {
+  try {
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit || '100', 10)));
+    const quizId = req.query.quizId;
+    const userEmail = req.query.userEmail;
+
+    let query = `
+      SELECT d.*, COALESCE(q.title, d.quiz_id) AS quiz_title
+      FROM question_discussions d
+      LEFT JOIN quizzes q ON d.quiz_id = q.id
+    `;
+    const params = [];
+    const conditions = [];
+
+    if (quizId) {
+      conditions.push('d.quiz_id = ?');
+      params.push(quizId);
+    }
+    if (userEmail) {
+      conditions.push('LOWER(d.user_email) = LOWER(?)');
+      params.push(userEmail);
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ${conditions.join(' AND ')}`;
+    }
+
+    query += ` ORDER BY d.is_pinned DESC, d.created_at DESC LIMIT ?`;
+    params.push(limit);
+
+    const [rows] = await pool.query(query, params);
+    res.json(rows.map(r => ({
+      id: r.id,
+      quizId: r.quiz_id,
+      quizTitle: r.quiz_title || r.quiz_id,
+      questionId: r.question_id,
+      userName: r.user_name,
+      userEmail: r.user_email,
+      role: r.role,
+      comment: r.comment,
+      likesCount: r.likes_count,
+      isPinned: Boolean(r.is_pinned),
+      createdAt: r.created_at,
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/discussions/:quizId/:questionId', async (req, res) => {
   const { quizId, questionId } = req.params;
   try {
