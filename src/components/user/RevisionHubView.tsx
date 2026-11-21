@@ -22,6 +22,7 @@ import {
   getStoredSavedEntries,
   removeBookmarkedQuestion,
   normalizeSavedEntry,
+  getBookmarksKey,
   type SavedQuestionEntry,
 } from './RevisionHubModal';
 
@@ -67,11 +68,8 @@ export const RevisionHubView: React.FC<RevisionHubViewProps> = ({
         const remote = await res.json();
         if (Array.isArray(remote)) {
           const remoteNormalized = remote.map(normalizeSavedEntry);
-          const local = getStoredSavedEntries();
-          const localIds = new Set(local.map((e) => e.id));
-          const merged = [...local, ...remoteNormalized.filter((e) => !localIds.has(e.id))];
-          localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(merged));
-          setEntries(merged);
+          localStorage.setItem(getBookmarksKey(currentUser.uid), JSON.stringify(remoteNormalized));
+          setEntries(remoteNormalized);
           setIsCloudSynced(true);
         }
       }
@@ -83,11 +81,13 @@ export const RevisionHubView: React.FC<RevisionHubViewProps> = ({
   };
 
   useEffect(() => {
-    const local = getStoredSavedEntries();
-    setEntries(local);
     if (currentUser?.uid) {
+      const userCached = getStoredSavedEntries(currentUser.uid);
+      setEntries(userCached);
       fetchCloudBookmarks();
     } else {
+      const guestCached = getStoredSavedEntries(undefined);
+      setEntries(guestCached);
       setIsCloudSynced(false);
     }
   }, [currentUser?.uid]);

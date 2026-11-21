@@ -19,8 +19,12 @@ interface RevisionHubModalProps {
   onClose: () => void;
 }
 
-const BOOKMARKS_KEY = 'evalnium_bookmarked_questions_v2';
+export const BOOKMARKS_KEY = 'evalnium_bookmarked_questions_v2';
 const LEGACY_KEY = 'evalnium_bookmarked_questions_v1';
+
+export const getBookmarksKey = (uid?: string): string => {
+  return uid ? `evalnium_bookmarks_user_${uid}` : `evalnium_bookmarks_guest`;
+};
 
 const getApiBase = () => {
   if (typeof window !== 'undefined') {
@@ -48,23 +52,27 @@ export function normalizeSavedEntry(item: any): SavedQuestionEntry {
   };
 }
 
-export function getStoredSavedEntries(): SavedQuestionEntry[] {
+export function getStoredSavedEntries(uid?: string): SavedQuestionEntry[] {
   try {
-    const raw = localStorage.getItem(BOOKMARKS_KEY);
+    const key = getBookmarksKey(uid);
+    const raw = localStorage.getItem(key);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
         return parsed.map(normalizeSavedEntry);
       }
     }
-    // Check legacy v1
-    const legacyRaw = localStorage.getItem(LEGACY_KEY);
-    if (legacyRaw) {
-      const parsedLegacy = JSON.parse(legacyRaw);
-      if (Array.isArray(parsedLegacy)) {
-        const migrated = parsedLegacy.map(normalizeSavedEntry);
-        localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(migrated));
-        return migrated;
+    // One-time migration: If user is logged in and has old shared cache, migrate it to user's key
+    if (uid) {
+      const legacyRaw = localStorage.getItem(BOOKMARKS_KEY);
+      if (legacyRaw) {
+        const parsedLegacy = JSON.parse(legacyRaw);
+        if (Array.isArray(parsedLegacy) && parsedLegacy.length > 0) {
+          const migrated = parsedLegacy.map(normalizeSavedEntry);
+          localStorage.setItem(key, JSON.stringify(migrated));
+          localStorage.removeItem(BOOKMARKS_KEY);
+          return migrated;
+        }
       }
     }
     return [];
@@ -73,8 +81,8 @@ export function getStoredSavedEntries(): SavedQuestionEntry[] {
   }
 }
 
-export function getBookmarkedQuestions(): Question[] {
-  return getStoredSavedEntries().map((e) => e.question);
+export function getBookmarkedQuestions(uid?: string): Question[] {
+  return getStoredSavedEntries(uid).map((e) => e.question);
 }
 
 export function saveBookmarkedQuestion(
@@ -83,7 +91,7 @@ export function saveBookmarkedQuestion(
   quizId?: string,
   quizTitle?: string
 ): SavedQuestionEntry[] {
-  const existing = getStoredSavedEntries();
+  const existing = getStoredSavedEntries(uid);
   const alreadySaved = existing.some((q) => q.id === question.id);
   if (alreadySaved) return existing;
 
@@ -97,7 +105,7 @@ export function saveBookmarkedQuestion(
 
   const updated = [newEntry, ...existing];
   try {
-    localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(updated));
+    localStorage.setItem(getBookmarksKey(uid), JSON.stringify(updated));
   } catch { }
 
   if (uid) {
@@ -118,10 +126,10 @@ export function saveBookmarkedQuestion(
 }
 
 export function removeBookmarkedQuestion(qId: string, uid?: string): SavedQuestionEntry[] {
-  const existing = getStoredSavedEntries();
+  const existing = getStoredSavedEntries(uid);
   const updated = existing.filter((q) => q.id !== qId);
   try {
-    localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(updated));
+    localStorage.setItem(getBookmarksKey(uid), JSON.stringify(updated));
   } catch { }
 
   if (uid) {
@@ -139,22 +147,20 @@ export const RevisionHubModal: React.FC<RevisionHubModalProps> = ({ isOpen, onCl
 
   useEffect(() => {
     if (!isOpen) return;
-    const local = getStoredSavedEntries();
+    const local = getStoredSavedEntries(currentUser?.uid);
     setEntries(local);
 
-    // Sync from MySQL if logged in and merge with localStorage
+    // Sync from MySQL if logged in
     if (currentUser?.uid) {
       fetch(`${getApiBase()}/bookmarks?uid=${encodeURIComponent(currentUser.uid)}`, {
         credentials: 'include',
       })
         .then((r) => (r.ok ? r.json() : null))
         .then((remote: any[] | null) => {
-          if (!remote || !Array.isArray(remote) || remote.length === 0) return;
+          if (!remote || !Array.isArray(remote)) return;
           const remoteNormalized = remote.map(normalizeSavedEntry);
-          const localIds = new Set(local.map((e) => e.id));
-          const merged = [...local, ...remoteNormalized.filter((e) => !localIds.has(e.id))];
-          localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(merged));
-          setEntries(merged);
+          localStorage.setItem(getBookmarksKey(currentUser.uid), JSON.stringify(remoteNormalized));
+          setEntries(remoteNormalized);
         })
         .catch(() => {});
     }

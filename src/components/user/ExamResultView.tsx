@@ -34,9 +34,14 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
   const [allAttempts, setAllAttempts] = useState<QuizAttemptResult[]>([]);
   const [showCertModal, setShowCertModal] = useState<boolean>(false);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(() => {
-    const existing = getStoredSavedEntries();
+    const existing = getStoredSavedEntries(currentUser?.uid);
     return new Set(existing.map((e) => e.id));
   });
+
+  useEffect(() => {
+    const existing = getStoredSavedEntries(currentUser?.uid);
+    setBookmarkedIds(new Set(existing.map((e) => e.id)));
+  }, [currentUser?.uid]);
   const [autoHindiMap, setAutoHindiMap] = useState<Record<string, {
     questionText?: string;
     options: Record<string, string>;

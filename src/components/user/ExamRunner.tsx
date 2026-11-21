@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Quiz, UserAnswer, QuizAttemptResult } from '../../types/quiz';
 import { ChevronLeft, ChevronRight, AlertTriangle, Send, Clock, X, ShieldAlert } from 'lucide-react';
-import { saveBookmarkedQuestion } from './RevisionHubModal';
+import { saveBookmarkedQuestion, removeBookmarkedQuestion } from './RevisionHubModal';
 import { ExamHeader } from '../exam/ExamHeader';
 import { QuestionPalette } from '../exam/QuestionPalette';
 import { QuestionCard } from '../exam/QuestionCard';
@@ -484,6 +484,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
       };
       const nextState = !existing.isMarkedForReview;
       if (nextState && qObj) saveBookmarkedQuestion(qObj, currentUser?.uid, quiz.id, quiz.title);
+      if (!nextState && qObj) removeBookmarkedQuestion(qObj.id, currentUser?.uid);
       return { ...prev, [qId]: { ...existing, isMarkedForReview: nextState } };
     });
   }, [activeQuestions, currentUser?.uid]);
