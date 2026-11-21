@@ -71,50 +71,131 @@ function fixMojibake(str: string): string {
 }
 
 /**
- * Helper to strip leading option letter prefixes like "A) ", "B. ", "(C) " from option values.
- * Strictly preserves match-the-following pairing formats (e.g., "A-III, B-I, C-IV, D-II" or "A-1, B-2").
+ * Auto-heal any option that suffered from prefix stripping:
+ * 1. Match-the-following options that lost their leading "(A)-" or "A-":
+ *    e.g. "-(I), (B)-(II), (C)-(III), (D)-(IV)" -> "(A)-(I), (B)-(II), (C)-(III), (D)-(IV)"
+ *    e.g. "(I), (B)-(II), (C)-(III), (D)-(IV)" -> "(A)-(I), (B)-(II), (C)-(III), (D)-(IV)"
+ *    e.g. "III, B-III, C-I, D-IV" -> "A-III, B-III, C-I, D-IV"
+ * 2. Multi-statement combination options that lost their leading statement:
+ *    e.g. " , (B), (C) Only" -> "(A), (B), (C) Only"
+ *    e.g. " , (C), (D) Only" -> "(B), (C), (D) Only" (for Option B)
+ *    e.g. " , (B), (C) and (D) Only" -> "(A), (B), (C) and (D) Only"
  */
-export function cleanOptionText(text: string, expectedOptionId?: string): string {
-  if (!text) return '';
-  const trimmed = text.trim();
+export function healOptionText(text: string, optionId?: string): string {
+  if (!text) return text;
+  let trimmed = text.trim();
 
-  // 1. If this option text is a match-the-following pairing pattern, NEVER strip anything!
-  // e.g. "A-III, B-III, C-I, D-IV", "A-1, B-2, C-3, D-4", "A-(iv), B-(i)", "(a)-(iii), (b)-(i)"
-  if (/[A-D]\s*[\-\–—\:\=→]\s*[IVX0-9a-z\(\)]+[\s\,]+[A-D]\s*[\-\–—\:\=→]/i.test(trimmed)) {
-    return trimmed;
+  // Damaged match-the-following:
+  // e.g. "-(I), (B)-(II)..." or " - (I), (B)-(II)..." or "-(1), (B)-(2)..."
+  if (/^[\-\–—\:]\s*\([IVX0-9a-z]+\)[\s\,]+[\(\[]?B[\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed)) {
+    return '(A)' + trimmed.replace(/^\s*/, '');
   }
-  if (/\bB\s*[\-\–—\:\=→]/i.test(trimmed) && /\bC\s*[\-\–—\:\=→]/i.test(trimmed)) {
-    return trimmed;
+  if (/^[\-\–—\:]\s*[IVX0-9a-z]+[\s\,]+[\(\[]?B[\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed)) {
+    return 'A' + trimmed.replace(/^\s*/, '');
   }
-  // If text starts with A-, B-, C-, D- followed by roman numeral or number, it's a pairing!
-  if (/^[A-D]\s*[\-\–—\:\=→]\s*(?:[IVX]+|\d+|\([IVX0-9]+\))/i.test(trimmed)) {
-    return trimmed;
+  if (/^\([IVX0-9a-z]+\)\s*[\s\,]+[\(\[]?B[\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed)) {
+    return '(A)-' + trimmed;
   }
-
-  // 2. If an expectedOptionId is passed (e.g. 'B', 'C', 'D'), only strip if it matches THAT option!
-  // It makes no sense for Option B to strip "A-"!
-  if (expectedOptionId) {
-    const escaped = expectedOptionId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`^[\\(\\[]?\\s*${escaped}[\\.\\:\\)]\\s*`, 'i');
-    return trimmed.replace(regex, '').trim();
+  if (/^[IVX0-9a-z]+[\s\,]+[\(\[]?B[\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed)) {
+    return 'A-' + trimmed;
   }
 
-  // 3. General fallback: only strip standard option prefixes like "A. ", "A) ", "(A) ",
-  // NOT hyphens "A-" which are overwhelmingly used in match pairings (e.g. A-I, A-IV)
-  return trimmed.replace(/^[\(\[]?\s*[A-D1-4][\.\:\)]\s*/i, '').trim();
+  // Damaged statement combo e.g. ' , (B), (C) Only' or ' , (ख), (ग) केवल'
+  const damagedComboMatch = trimmed.match(/^[\s\,\|;/]+\s*(\([B-Dख-घ]\)|[B-Dख-घ]\))\s*([\,\s].*)$/i);
+  if (damagedComboMatch) {
+    const nextLetter = damagedComboMatch[1].replace(/[\(\)\s]/g, '').toUpperCase();
+    let restoredLead = '(A)';
+    if (nextLetter === 'ख') {
+      restoredLead = '(क)';
+    } else if (nextLetter === 'ग') {
+      restoredLead = (optionId === 'B' || optionId === '2' || optionId === 'ख') ? '(ख)' : '(क)';
+    } else if (nextLetter === 'C') {
+      restoredLead = (optionId === 'B' || optionId === '2') ? '(B)' : '(A)';
+    } else if (nextLetter === 'D') {
+      restoredLead = (optionId === 'C' || optionId === '3') ? '(C)' : '(A)';
+    } else if (optionId && ['A', '1'].includes(optionId.toUpperCase())) {
+      restoredLead = '(A)';
+    }
+    return restoredLead + ', ' + trimmed.replace(/^[\s\,\|;/]+\s*/, '');
+  }
+
+  if (/^[\s\,\|;/]+\s*(\([A-Dक-घ]\)|[A-Dक-घ]\b)/i.test(trimmed)) {
+    return trimmed.replace(/^[\s\,\|;/]+\s*/, '');
+  }
+
+  return trimmed;
 }
 
 /**
  * Auto-heal options that lost their leading "A-" due to legacy parsing
  * e.g. "III, B-III, C-I, D-IV" -> "A-III, B-III, C-I, D-IV"
  */
-export function healMatchOption(text: string): string {
-  if (!text) return text;
-  const trimmed = text.trim();
-  if (/^[IVX0-9a-z\(\)]+[\s\,]+B\s*[\-\–—\:\=→]/i.test(trimmed)) {
-    return 'A-' + trimmed;
+export function healMatchOption(text: string, optionId?: string): string {
+  return healOptionText(text, optionId);
+}
+
+/**
+ * Helper to strip leading option letter prefixes like "A) ", "B. ", "(C) " from option values.
+ * Strictly preserves:
+ * 1. Match-the-following pairing formats (e.g., "(A)-(I), (B)-(II)...", "A-III, B-I...", "A-1, B-2").
+ * 2. Multi-statement combinations (e.g., "(A), (B), (C) Only", "(B), (C), (D) Only", "(A) and (B) Only").
+ * 3. Auto-heals legacy damaged options (e.g., " , (B), (C) Only" -> "(A), (B), (C) Only").
+ */
+export function cleanOptionText(text: string, expectedOptionId?: string): string {
+  if (!text) return '';
+  let trimmed = text.trim();
+  trimmed = healOptionText(trimmed, expectedOptionId);
+
+  // 1. MATCH-THE-FOLLOWING CHECK: NEVER strip pairings!
+  const isMatchPairing = 
+    /[\(\[]?[A-D][\)\]]?\s*[\-\–—\:\=→]\s*[\(\[]?[IVX0-9a-z]+[\)\]]?[\s\,]+[\(\[]?[B-D][\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed) ||
+    /^[\(\[]?[A-D][\)\]]?\s*[\-\–—\:\=→]\s*[\(\[]?(?:[IVX]+|\d+|[a-z]+)[\)\]]?/i.test(trimmed) ||
+    (/[\(\[]?B[\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed) && /[\(\[]?C[\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed));
+
+  if (isMatchPairing) {
+    return trimmed;
   }
-  return text;
+
+  // 2. MULTI-STATEMENT COMBINATION CHECK: NEVER strip statement combinations!
+  // e.g. "(A), (B), (C) Only", "(B), (C), (D) Only", "(A) and (B) Only", "A, B and C only"
+  const isStatementCombination = 
+    // Has multiple parenthesized or comma/and separated statements
+    /(?:\([A-Dक-घ]\)|\b[A-Dक-घ]\b(?!\w))\s*(?:[\,]|and|और|\&)\s*(?:\([A-Dक-घ]\)|\b[A-Dक-घ]\b(?!\w))/i.test(trimmed) ||
+    // Ends with "Only" or "केवल" and contains statement letters like "(A)" or "(B)"
+    (/\b(?:Only|केवल)$/i.test(trimmed) && /(?:\([A-Dक-घ]\)|\b[A-Dक-घ]\b(?!\w))/.test(trimmed)) ||
+    // Is a single statement like "(A) Only" or "(B) only"
+    /^(?:\([A-Dक-घ]\)|\b[A-Dक-घ]\b(?!\w))\s*(?:Only|केवल)$/i.test(trimmed) ||
+    // Has pattern like "(A), (C), (D)"
+    /^\([A-Dक-घ]\)\s*,\s*\([A-Dक-घ]\)/i.test(trimmed);
+
+  if (isStatementCombination) {
+    return trimmed;
+  }
+
+  // Option candidate letters/numbers
+  let candidateGroup = expectedOptionId || '[A-D1-4]';
+  if (expectedOptionId) {
+    const upper = expectedOptionId.toUpperCase();
+    if (upper === 'A') candidateGroup = '[Aa1]';
+    else if (upper === 'B') candidateGroup = '[Bb2]';
+    else if (upper === 'C') candidateGroup = '[Cc3]';
+    else if (upper === 'D') candidateGroup = '[Dd4]';
+    else if (upper === '1') candidateGroup = '[Aa1]';
+    else if (upper === '2') candidateGroup = '[Bb2]';
+    else if (upper === '3') candidateGroup = '[Cc3]';
+    else if (upper === '4') candidateGroup = '[Dd4]';
+    else candidateGroup = expectedOptionId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  // Negative lookahead ensuring we don't strip if followed by a comma or another statement letter (e.g. "(A), (B)")
+  const lookahead = '(?![\\,\\&\\s]+(?:\\([A-Dक-घ]\\)|\\b[A-Dक-घ]\\b(?!\\w)))';
+  const prefixRegex = new RegExp(`^[\\(\\[]?\\s*${candidateGroup}(?:\\s*[\\.\\:\\)]|\\))${lookahead}\\s*`, 'i');
+
+  const stripped = trimmed.replace(prefixRegex, '').trim();
+  if (stripped.startsWith(',') || stripped.startsWith('and ') || /^\([B-Dक-घ]\)/.test(stripped)) {
+    return trimmed;
+  }
+  return stripped;
 }
 
 export interface MatchFollowingExtraction {
@@ -541,7 +622,7 @@ export function parsePlainText(text: string): ParseResult {
         else if (optId === '3') optId = 'C';
         else if (optId === '4') optId = 'D';
 
-        const optText = cleanOptionText(fixMojibake(optMatch[2].trim().replace(/\n+/g, ' ')));
+        const optText = cleanOptionText(fixMojibake(optMatch[2].trim().replace(/\n+/g, ' ')), optId);
         if (!options.some(o => o.id === optId)) {
           options.push({ id: optId, text: optText });
         }
@@ -552,7 +633,8 @@ export function parsePlainText(text: string): ParseResult {
         questionText = lines[0];
         let optChar = 65; // 'A'
         for (let i = 1; i < lines.length && i <= 4; i++) {
-          options.push({ id: String.fromCharCode(optChar++), text: cleanOptionText(fixMojibake(lines[i])) });
+          const char = String.fromCharCode(optChar++);
+          options.push({ id: char, text: cleanOptionText(fixMojibake(lines[i]), char) });
         }
       }
     }

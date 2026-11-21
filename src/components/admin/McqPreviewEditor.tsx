@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import type { ParsedQuestion, ParseResult, Quiz, DifficultyLevel, ListOrderStyle } from '../../types/quiz';
 import { translateToHindi } from '../../utils/translator';
 import { getStoredQuizzes } from '../../utils/storage';
-import { detectAndExtractMatchFollowing, healMatchOption, extractComprehensionPassage, getItemPrefix, cleanItemText, formatPremiseStatements } from '../../utils/parsers';
+import { detectAndExtractMatchFollowing, healMatchOption, healOptionText, extractComprehensionPassage, getItemPrefix, cleanItemText, formatPremiseStatements } from '../../utils/parsers';
 import { calculateTimeRemaining, addMinutesToDateTimeLocal } from '../../utils/countdown';
 import { resolveSmartBadge, getQuizCardAccent } from '../../utils/badgeHelper';
 import { Mail, Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages, Eye, EyeOff, BookOpen, Lock, Fingerprint, Tag } from 'lucide-react';
@@ -130,10 +130,10 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
 
   const [questions, setQuestions] = useState<ParsedQuestion[]>(() => {
     return parseResult.questions.map((q) => {
-      // Auto-heal any option that lost its 'A-' in match combinations e.g. "III, B-III, C-I, D-IV"
+      // Auto-heal any option that suffered from prefix stripping (e.g. " , (B), (C) Only", "-(I), (B)-(II)...")
       const opts = (q.options && q.options.length > 0) ? q.options.map(o => ({
         ...o,
-        text: healMatchOption(o.text)
+        text: healOptionText(o.text, o.id)
       })) : [
         { id: 'A', text: '' },
         { id: 'B', text: '' },
@@ -181,6 +181,19 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
         if (qEng) qEng = formatPremiseStatements(qEng);
       }
 
+      // Auto-heal default explanation if it quoted a damaged option
+      let explanation = q.explanation;
+      if (explanation) {
+        const correctId = q.correctOptionId || 'A';
+        const targetOpt = opts.find(o => o.id === correctId);
+        if (targetOpt && targetOpt.text) {
+          explanation = explanation.replace(
+            new RegExp(`Option\\s*\\([${correctId}]\\):\\s*"[^"]*"\\s*is the correct answer\\.`, 'i'),
+            `Option (${correctId}): "${targetOpt.text}" is the correct answer.`
+          );
+        }
+      }
+
       return {
         ...q,
         questionText: qText,
@@ -195,6 +208,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
         listIIOrder: listIIOrder || 'roman_upper',
         options: opts,
         correctOptionId: q.correctOptionId || 'A',
+        explanation,
       };
     });
   });
@@ -515,7 +529,10 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
         passage: q.passage,
         questionEnglish: q.questionEnglish,
         questionHindi: q.questionHindi,
-        options: (q.options && q.options.length >= 2) ? q.options : [
+        options: (q.options && q.options.length >= 2) ? q.options.map(o => ({
+          ...o,
+          text: healOptionText(o.text, o.id)
+        })) : [
           { id: 'A', text: 'Option A' },
           { id: 'B', text: 'Option B' },
           { id: 'C', text: 'Option C' },
