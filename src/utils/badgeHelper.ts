@@ -79,6 +79,15 @@ export function resolveSmartBadge(quiz?: Partial<Quiz> | null): SmartBadgeResult
     };
   }
 
+  // Detection B2: Practice Quiz (No Ranking)
+  if (quizType === 'unranked_practice') {
+    return {
+      text: 'PRACTICE QUIZ',
+      colorClass: 'bg-teal-50 text-teal-800 border-teal-200/90',
+      isAutoDetected: true,
+    };
+  }
+
   // Detection C: Daily Quiz by Title (Matches: daily quiz, day 1, day-2, etc.)
   if (/daily\s*quiz|\bday[\s-]*\d+/i.test(title)) {
     return {
@@ -155,6 +164,14 @@ export function getQuizCardAccent(quiz?: Partial<Quiz> | null): CardAccentResult
     return {
       topStripClass: 'bg-amber-500',
       leftStripClass: 'border-l-amber-500',
+    };
+  }
+
+  // 1b. Practice Quiz (No Ranking) (Teal)
+  if (quizType === 'unranked_practice') {
+    return {
+      topStripClass: 'bg-teal-600',
+      leftStripClass: 'border-l-teal-600',
     };
   }
 

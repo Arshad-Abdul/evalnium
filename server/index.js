@@ -2987,6 +2987,7 @@ app.get('/api/results', async (req, res) => {
       `SELECT r.*, COALESCE(q.title, r.quiz_title) AS current_quiz_title 
        FROM results r 
        LEFT JOIN quizzes q ON r.quiz_id = q.id 
+       WHERE (q.quiz_type IS NULL OR q.quiz_type != 'unranked_practice')
        ORDER BY r.percentage DESC, r.time_spent_seconds ASC LIMIT ? OFFSET ?`,
       [limit, offset]
     );

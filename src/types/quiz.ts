@@ -45,7 +45,7 @@ export interface Quiz {
   shuffleQuestions?: boolean;
   shuffleOptions?: boolean;
   enablePracticeMode?: boolean;
-  quizType?: 'practice' | 'live_contest' | 'scheduled_unlock'; // 'practice' (24/7 Unlimited) vs 'scheduled_unlock' (Unlocks at time, then Evergreen 24/7) vs 'live_contest' (Strict 1-Time Lock)
+  quizType?: 'practice' | 'live_contest' | 'scheduled_unlock' | 'unranked_practice'; // 'practice' (24/7 Unlimited) vs 'scheduled_unlock' (Unlocks at time, then Evergreen 24/7) vs 'live_contest' (Strict 1-Time Lock) vs 'unranked_practice' (Practice Only - No Public Ranking)
   scheduledStartDateTime?: string; // ISO string e.g. "2026-08-10T10:00"
   scheduledEndDateTime?: string; // ISO string e.g. "2026-08-10T12:00"
   defaultLanguageMode?: 'en' | 'hi' | 'dual';
@@ -142,7 +142,7 @@ export interface ParseResult {
   shuffleQuestions?: boolean;
   shuffleOptions?: boolean;
   enablePracticeMode?: boolean;
-  quizType?: 'practice' | 'live_contest' | 'scheduled_unlock';
+  quizType?: 'practice' | 'live_contest' | 'scheduled_unlock' | 'unranked_practice';
   scheduledStartDateTime?: string;
   scheduledEndDateTime?: string;
   defaultLanguageMode?: 'en' | 'hi' | 'dual';

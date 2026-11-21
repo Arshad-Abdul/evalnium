@@ -45,7 +45,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [shuffleQuestions, setShuffleQuestions] = useState(parseResult.shuffleQuestions ?? true);
   const [shuffleOptions, setShuffleOptions] = useState(parseResult.shuffleOptions ?? false);
   const [enablePracticeMode, setEnablePracticeMode] = useState(parseResult.enablePracticeMode ?? false);
-  const [quizType, setQuizType] = useState<'practice' | 'live_contest' | 'scheduled_unlock'>(parseResult.quizType || 'practice');
+  const [quizType, setQuizType] = useState<'practice' | 'live_contest' | 'scheduled_unlock' | 'unranked_practice'>(parseResult.quizType || 'practice');
   const [scheduledStartDateTime, setScheduledStartDateTime] = useState<string>(parseResult.scheduledStartDateTime || '');
   const [scheduledEndDateTime, setScheduledEndDateTime] = useState<string>(parseResult.scheduledEndDateTime || '');
   const [defaultLanguageMode, setDefaultLanguageMode] = useState<'en' | 'hi' | 'dual'>(parseResult.defaultLanguageMode || 'en');
@@ -453,7 +453,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       shuffleOptions,
       enablePracticeMode,
       quizType,
-      scheduledStartDateTime: quizType === 'practice' ? undefined : (scheduledStartDateTime || undefined),
+      scheduledStartDateTime: (quizType === 'practice' || quizType === 'unranked_practice') ? undefined : (scheduledStartDateTime || undefined),
       scheduledEndDateTime: quizType === 'live_contest' ? (scheduledEndDateTime || undefined) : undefined,
       publishAt: activeMode === 'scheduled' ? (publishAt || undefined) : undefined,
       customBadge: customBadge.trim() || undefined,
@@ -860,7 +860,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
         {/* Exam Type Selector: Practice vs Strict Live Contest */}
         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
           <label className="block text-xs font-bold text-slate-900">Select Exam Mode & Candidate Access Rule</label>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <button
               type="button"
               onClick={() => setQuizType('practice')}
@@ -903,6 +903,21 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               <div>
                 <p className="text-xs font-bold text-slate-900">Strict Live Contest</p>
                 <p className="text-[11px] text-slate-500 font-medium mt-0.5 leading-snug">1-Time Lock Exam with strict start & closing window. Closes permanently after end time!</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setQuizType('unranked_practice')}
+              className={`p-3 rounded-lg border text-left flex items-start space-x-3 transition-all ${quizType === 'unranked_practice'
+                ? 'bg-white border-teal-600 ring-1 ring-teal-600 text-teal-950 font-bold shadow-xs'
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+            >
+              <span className="w-5 h-5 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">🛡️</span>
+              <div>
+                <p className="text-xs font-bold text-slate-900">Practice Quiz (No Ranking)</p>
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5 leading-snug">Self-assessment test. Score is not published on public rankings.</p>
               </div>
             </button>
           </div>
@@ -1220,7 +1235,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
             </div>
             <p className="text-[10px] text-slate-500 font-medium mt-1">
               {!customBadge
-                ? `Auto-detect active: Mode "${quizType === 'live_contest' ? 'Strict Live Contest' : quizType === 'scheduled_unlock' ? 'Daily Quiz' : '24/7 Practice'}" currently resolves to: "${previewBadge?.text || 'Standard Paper'}"`
+                ? `Auto-detect active: Mode "${quizType === 'live_contest' ? 'Strict Live Contest' : quizType === 'scheduled_unlock' ? 'Daily Quiz' : quizType === 'unranked_practice' ? 'Practice Quiz (No Ranking)' : '24/7 Practice'}" currently resolves to: "${previewBadge?.text || 'Standard Paper'}"`
                 : `Custom override active ("${customBadge}"). Click "Auto-Detect" anytime to restore automatic categorization.`}
             </p>
           </div>
@@ -1309,9 +1324,9 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
                 </>
               )}
             </div>
-            {quizType === 'practice' && publishMode !== 'scheduled' && (
+            {(quizType === 'practice' || quizType === 'unranked_practice') && publishMode !== 'scheduled' && (
               <p className="text-[10px] text-slate-400 font-medium italic mt-1.5">
-                ⚡ 24/7 Practice Exams are permanently available — countdown timer & scheduled dates only apply to Scheduled Daily Quizzes & Live Contests.
+                ⚡ Practice papers are permanently available — countdown timer & scheduled dates only apply to Scheduled Daily Quizzes & Live Contests.
               </p>
             )}
           </div>

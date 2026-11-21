@@ -287,24 +287,47 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
 
           <div className="flex items-center space-x-2">
             <span className={`px-2.5 py-1 rounded font-mono font-semibold text-xs uppercase border ${
-              !quiz.passingPercentage || quiz.passingPercentage <= 0
+              quiz.quizType === 'unranked_practice'
+                ? 'bg-teal-50 text-teal-800 border-teal-300'
+                : !quiz.passingPercentage || quiz.passingPercentage <= 0
                 ? 'bg-blue-50 text-blue-800 border-blue-300'
                 : result.passed
                 ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                 : 'bg-rose-50 text-rose-800 border-rose-300'
             }`}>
-              {!quiz.passingPercentage || quiz.passingPercentage <= 0
+              {quiz.quizType === 'unranked_practice'
+                ? 'Status: PRACTICE COMPLETED (Self-Assessment)'
+                : !quiz.passingPercentage || quiz.passingPercentage <= 0
                 ? 'Status: COMPLETED (Self-Assessment)'
                 : result.passed
                 ? 'Status: QUALIFIED'
                 : 'Status: NOT QUALIFIED'}
             </span>
 
-            <span className="px-2.5 py-1 rounded font-mono font-semibold text-xs bg-slate-100 text-slate-800 border border-slate-200">
-              {percentileRank}th Percentile
-            </span>
+            {quiz.quizType === 'unranked_practice' ? (
+              <span className="px-2.5 py-1 rounded font-mono font-semibold text-xs bg-teal-50 text-teal-800 border border-teal-200">
+                🛡️ Unranked Paper
+              </span>
+            ) : (
+              <span className="px-2.5 py-1 rounded font-mono font-semibold text-xs bg-slate-100 text-slate-800 border border-slate-200">
+                {percentileRank}th Percentile
+              </span>
+            )}
           </div>
         </div>
+
+        {/* Unranked Practice Notice */}
+        {quiz.quizType === 'unranked_practice' && (
+          <div className="p-3 bg-teal-50 border border-teal-200/90 rounded-lg flex items-start space-x-2.5 text-teal-900">
+            <span className="text-base shrink-0">🛡️</span>
+            <div>
+              <p className="text-xs font-bold text-teal-950">Self-Assessment Practice Paper</p>
+              <p className="text-[11px] text-teal-700 mt-0.5">
+                This paper was conducted in Practice Quiz mode. Your comprehensive scorecard and solutions are preserved in your personal candidate dashboard, and this attempt is not published on public rankings.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* 4-Column Structured Metric Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">

@@ -36,7 +36,9 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
   const normalizeTopic = (value?: string) => (value || '').replace(/\s+/g, ' ').trim();
 
   useEffect(() => {
-    const activeQuizzes = liveQuizzes && liveQuizzes.length > 0 ? liveQuizzes : getStoredQuizzes();
+    const rawQuizzes = liveQuizzes && liveQuizzes.length > 0 ? liveQuizzes : getStoredQuizzes();
+    // Exclude unranked practice papers from public leaderboard
+    const activeQuizzes = rawQuizzes.filter(q => q.quizType !== 'unranked_practice');
     const results = liveResults && liveResults.length > 0 ? liveResults : getStoredResults();
     
     // Filter out deleted quizzes (Live/Published and Drafted quizzes remain!)
