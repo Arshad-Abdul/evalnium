@@ -412,7 +412,7 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
                     >
                       <div className="min-w-0">
                         <p className="text-xs font-semibold text-slate-900 truncate">{quiz.title}</p>
-                        <p className="text-[11px] text-slate-500 font-mono">{quiz.questions.length} Qs · {quiz.timeLimitMinutes}m</p>
+                        <p className="text-[11px] text-slate-500 font-mono">{quiz.questions.length} Qs · {Number(quiz.timeLimitMinutes) > 0 ? `${quiz.timeLimitMinutes}m` : 'Untimed'}</p>
                       </div>
                       <Play className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                     </button>

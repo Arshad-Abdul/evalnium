@@ -695,6 +695,34 @@ function MainAppContent() {
             </div>
           </div>
 
+          {/* Candidate Community & Support Links */}
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs font-medium text-slate-600 border-t border-slate-100 pt-3">
+            <a
+              href="https://forms.gle/VCGQKcT5yAuYNkrg6"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-indigo-600 flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <span>📄 Submit Previous Papers</span>
+            </a>
+            <span className="text-slate-300">·</span>
+            <a
+              href="https://forms.gle/r1K6pgTie8TaiyYG8"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-indigo-600 flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <span>💬 Platform Feedback</span>
+            </a>
+            <span className="text-slate-300">·</span>
+            <a
+              href="mailto:evalniumlis@gmail.com"
+              className="hover:text-indigo-600 flex items-center gap-1.5 transition-colors cursor-pointer font-mono text-[11px]"
+            >
+              <span>✉️ evalniumlis@gmail.com</span>
+            </a>
+          </div>
+
           {/* Legal Non-Affiliation Disclaimer */}
           <div className="border-t border-slate-100 pt-3 text-center">
             <p className="text-[11px] text-slate-400 leading-relaxed max-w-4xl mx-auto">
