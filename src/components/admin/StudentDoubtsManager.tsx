@@ -14,8 +14,12 @@ import {
   CheckCircle2,
   AlertCircle,
   Sparkles,
+  Image as ImageIcon,
+  X,
+  Maximize2,
 } from 'lucide-react';
 import type { Quiz } from '../../types/quiz';
+import { renderTextWithLinks, compressDiscussionImage } from '../../utils/discussionHelper';
 
 interface AdminDiscussion {
   id: number;
@@ -26,6 +30,7 @@ interface AdminDiscussion {
   userEmail?: string;
   role: string;
   comment: string;
+  imageUrl?: string | null;
   likesCount: number;
   isPinned: boolean;
   createdAt: string;
@@ -41,8 +46,11 @@ export const StudentDoubtsManager: React.FC<StudentDoubtsManagerProps> = ({ quiz
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState<'all' | 'candidate' | 'faculty'>('all');
   const [replyTextMap, setReplyTextMap] = useState<Record<number, string>>({});
+  const [replyImageMap, setReplyImageMap] = useState<Record<number, string | null>>({});
+  const [replyImageUploadingMap, setReplyImageUploadingMap] = useState<Record<number, boolean>>({});
   const [submittingReplyId, setSubmittingReplyId] = useState<number | null>(null);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
+  const [activeZoomImage, setActiveZoomImage] = useState<string | null>(null);
 
   const getApiBaseUrl = () => {
     if (typeof window !== 'undefined') {
@@ -74,7 +82,8 @@ export const StudentDoubtsManager: React.FC<StudentDoubtsManagerProps> = ({ quiz
 
   const handlePostFacultyReply = async (item: AdminDiscussion) => {
     const text = (replyTextMap[item.id] || '').trim();
-    if (!text) return;
+    const attachedImg = replyImageMap[item.id] || null;
+    if (!text && !attachedImg) return;
 
     setSubmittingReplyId(item.id);
     try {
@@ -88,13 +97,15 @@ export const StudentDoubtsManager: React.FC<StudentDoubtsManagerProps> = ({ quiz
             userName: 'Evalnium Admin',
             userEmail: 'evalniumlis@gmail.com',
             role: 'admin',
-            comment: text,
+            comment: text || 'Please review the attached solution image/diagram.',
+            imageUrl: attachedImg || undefined,
           }),
         }
       );
 
       if (res.ok) {
         setReplyTextMap((prev) => ({ ...prev, [item.id]: '' }));
+        setReplyImageMap((prev) => ({ ...prev, [item.id]: null }));
         setActionSuccessMessage(`Official Admin reply posted for Question ${item.questionId}!`);
         setTimeout(() => setActionSuccessMessage(null), 3000);
         fetchDiscussions();
@@ -106,6 +117,21 @@ export const StudentDoubtsManager: React.FC<StudentDoubtsManagerProps> = ({ quiz
       alert('Network error while posting reply.');
     } finally {
       setSubmittingReplyId(null);
+    }
+  };
+
+  const handleReplyImageSelect = async (itemId: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setReplyImageUploadingMap((prev) => ({ ...prev, [itemId]: true }));
+    try {
+      const compressed = await compressDiscussionImage(file);
+      setReplyImageMap((prev) => ({ ...prev, [itemId]: compressed }));
+    } catch (err: any) {
+      alert(err?.message || 'Could not process image.');
+    } finally {
+      setReplyImageUploadingMap((prev) => ({ ...prev, [itemId]: false }));
+      e.target.value = '';
     }
   };
 
@@ -375,42 +401,139 @@ export const StudentDoubtsManager: React.FC<StudentDoubtsManagerProps> = ({ quiz
                 </div>
 
                 {/* Comment Content */}
-                <div className="p-3 bg-white rounded-lg border border-slate-200 text-xs text-slate-800 leading-relaxed font-normal">
-                  {item.comment}
+                <div className="p-3 bg-white rounded-lg border border-slate-200 text-xs text-slate-800 leading-relaxed font-normal space-y-2">
+                  <div>{renderTextWithLinks(item.comment)}</div>
+                  {item.imageUrl && (
+                    <div className="pt-1">
+                      <div className="relative group inline-block rounded-lg overflow-hidden border border-slate-200 bg-slate-50 cursor-pointer shadow-2xs hover:shadow-sm transition-shadow">
+                        <img
+                          src={item.imageUrl}
+                          alt="Doubt attachment"
+                          className="max-h-56 max-w-full sm:max-w-md object-contain rounded-lg"
+                          onClick={() => setActiveZoomImage(item.imageUrl || null)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setActiveZoomImage(item.imageUrl || null)}
+                          className="absolute bottom-2 right-2 px-2 py-1 bg-black/70 hover:bg-black text-white text-[10px] font-bold rounded flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Maximize2 className="w-3 h-3" />
+                          <span>View Full</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Reply Form (Only if Candidate Doubt) */}
                 {!isFaculty && (
-                  <div className="pt-1 flex items-center gap-2">
-                    <input
-                      type="text"
-                      placeholder={`Reply to ${item.userName} with official verified admin explanation...`}
-                      value={replyTextMap[item.id] || ''}
-                      onChange={(e) =>
-                        setReplyTextMap((prev) => ({ ...prev, [item.id]: e.target.value }))
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handlePostFacultyReply(item);
+                  <div className="pt-1 space-y-2">
+                    {replyImageMap[item.id] && (
+                      <div className="flex items-center gap-2 p-1.5 rounded-lg bg-indigo-50/60 border border-indigo-200 w-fit">
+                        <img
+                          src={replyImageMap[item.id]!}
+                          alt="Preview"
+                          className="w-10 h-10 object-cover rounded border border-indigo-200 cursor-pointer"
+                          onClick={() => setActiveZoomImage(replyImageMap[item.id]!)}
+                        />
+                        <span className="text-[11px] font-medium text-indigo-900">Image attached</span>
+                        <button
+                          type="button"
+                          onClick={() => setReplyImageMap((prev) => ({ ...prev, [item.id]: null }))}
+                          className="p-1 hover:bg-indigo-100 text-indigo-700 rounded cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder={`Reply to ${item.userName} with official verified admin explanation...`}
+                        value={replyTextMap[item.id] || ''}
+                        onChange={(e) =>
+                          setReplyTextMap((prev) => ({ ...prev, [item.id]: e.target.value }))
                         }
-                      }}
-                      className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:bg-white focus:border-indigo-600 focus:outline-none font-medium"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handlePostFacultyReply(item)}
-                      disabled={submittingReplyId === item.id || !(replyTextMap[item.id] || '').trim()}
-                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
-                    >
-                      <Send className="w-3 h-3" />
-                      <span>{submittingReplyId === item.id ? 'Posting...' : 'Reply as Admin'}</span>
-                    </button>
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handlePostFacultyReply(item);
+                          }
+                        }}
+                        className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:bg-white focus:border-indigo-600 focus:outline-none font-medium"
+                      />
+
+                      <label
+                        className={`p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer shrink-0 ${
+                          replyImageUploadingMap[item.id] ? 'opacity-50 pointer-events-none' : ''
+                        }`}
+                        title="Attach Diagram or Screenshot"
+                      >
+                        <ImageIcon className="w-4 h-4 text-slate-600" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleReplyImageSelect(item.id, e)}
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => handlePostFacultyReply(item)}
+                        disabled={
+                          submittingReplyId === item.id ||
+                          (!(replyTextMap[item.id] || '').trim() && !replyImageMap[item.id])
+                        }
+                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
+                      >
+                        <Send className="w-3 h-3" />
+                        <span>{submittingReplyId === item.id ? 'Posting...' : 'Reply as Admin'}</span>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Fullscreen Image Lightbox Modal */}
+      {activeZoomImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in"
+          onClick={() => setActiveZoomImage(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-slate-950 rounded-xl overflow-hidden shadow-2xl border border-slate-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+              <a
+                href={activeZoomImage}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1.5 rounded-lg bg-black/60 hover:bg-black text-white text-xs font-semibold flex items-center gap-1 transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Open Full</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => setActiveZoomImage(null)}
+                className="p-1.5 rounded-lg bg-black/60 hover:bg-black text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <img
+              src={activeZoomImage}
+              alt="Full view"
+              className="max-h-[85vh] w-auto mx-auto object-contain"
+            />
+          </div>
         </div>
       )}
     </div>

@@ -821,12 +821,14 @@ async function initDatabase() {
         user_email VARCHAR(150),
         role VARCHAR(50) DEFAULT 'candidate',
         comment TEXT NOT NULL,
+        image_url MEDIUMTEXT,
         likes_count INT DEFAULT 0,
         is_pinned TINYINT(1) DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
     try { await pool.query(`CREATE INDEX idx_discussions_quiz_q ON question_discussions(quiz_id, question_id);`); } catch { }
+    try { await pool.query(`ALTER TABLE question_discussions ADD COLUMN image_url MEDIUMTEXT;`); } catch { }
 
     // 3. Live Proctoring & Anti-Cheating Logs Table
     await pool.query(`
@@ -3837,6 +3839,7 @@ app.get('/api/discussions', async (req, res) => {
       userEmail: r.user_email,
       role: r.role,
       comment: r.comment,
+      imageUrl: r.image_url || null,
       likesCount: r.likes_count,
       isPinned: Boolean(r.is_pinned),
       createdAt: r.created_at,
@@ -3863,6 +3866,7 @@ app.get('/api/discussions/:quizId/:questionId', async (req, res) => {
       userEmail: r.user_email,
       role: r.role,
       comment: r.comment,
+      imageUrl: r.image_url || null,
       likesCount: r.likes_count,
       isPinned: Boolean(r.is_pinned),
       createdAt: r.created_at,
@@ -3908,6 +3912,7 @@ app.get('/api/admin/discussions', authenticateAdmin, async (req, res) => {
       userEmail: r.user_email,
       role: r.role,
       comment: r.comment,
+      imageUrl: r.image_url || null,
       likesCount: r.likes_count,
       isPinned: Boolean(r.is_pinned),
       createdAt: r.created_at,
@@ -3946,15 +3951,16 @@ const discussionCommentLimiter = createRateLimiter({
 
 app.post('/api/discussions/:quizId/:questionId', discussionCommentLimiter, async (req, res) => {
   const { quizId, questionId } = req.params;
-  const { userName, userEmail, role = 'candidate', comment } = req.body;
+  const { userName, userEmail, role = 'candidate', comment, imageUrl } = req.body;
 
-  if (!userName || !comment) {
-    return res.status(400).json({ error: 'userName and comment are required' });
+  if (!userName || (!comment && !imageUrl)) {
+    return res.status(400).json({ error: 'Comment text or an attached image is required.' });
   }
 
   // Type and length validation
-  if (typeof comment !== 'string' || comment.trim().length === 0 || comment.length > 2000) {
-    return res.status(400).json({ error: 'Comment must be between 1 and 2000 characters.' });
+  const safeComment = typeof comment === 'string' ? comment.trim() : '';
+  if (safeComment.length > 2000) {
+    return res.status(400).json({ error: 'Comment must not exceed 2000 characters.' });
   }
   if (typeof userName !== 'string' || userName.trim().length === 0 || userName.length > 100) {
     return res.status(400).json({ error: 'User name must be between 1 and 100 characters.' });
@@ -3986,17 +3992,27 @@ app.post('/api/discussions/:quizId/:questionId', discussionCommentLimiter, async
     } catch { }
   }
 
+  // Sanitize attached picture / link (base64 image or url)
+  let cleanImageUrl = null;
+  if (typeof imageUrl === 'string' && imageUrl.trim().length > 0) {
+    const trimmed = imageUrl.trim();
+    if (trimmed.startsWith('data:image/') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      cleanImageUrl = trimmed.slice(0, 1000000); // 1MB ceiling
+    }
+  }
+
   try {
     const [result] = await pool.query(
-      `INSERT INTO question_discussions (quiz_id, question_id, user_name, user_email, role, comment)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO question_discussions (quiz_id, question_id, user_name, user_email, role, comment, image_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         String(quizId).slice(0, 100),
         String(questionId).slice(0, 100),
         userName.trim().slice(0, 100),
         verifiedEmail,
         verifiedRole,
-        comment.trim().slice(0, 2000)
+        safeComment || 'Attached image / solution',
+        cleanImageUrl
       ]
     );
     res.json({ success: true, id: result.insertId });

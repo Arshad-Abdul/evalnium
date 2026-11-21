@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   MessageSquare,
   Search,
@@ -15,9 +15,15 @@ import {
   HelpCircle,
   Sparkles,
   ExternalLink,
+  Image as ImageIcon,
+  X,
+  Maximize2,
+  Trash2,
+  Plus,
 } from 'lucide-react';
 import type { Quiz } from '../../types/quiz';
 import { useAuth } from '../../context/AuthContext';
+import { compressDiscussionImage, renderTextWithLinks } from '../../utils/discussionHelper';
 
 export interface PublicDiscussionItem {
   id: number;
@@ -28,6 +34,7 @@ export interface PublicDiscussionItem {
   userEmail?: string;
   role: string;
   comment: string;
+  imageUrl?: string;
   likesCount: number;
   isPinned: boolean;
   createdAt: string;
@@ -51,8 +58,20 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
   const [selectedQuizFilter, setSelectedQuizFilter] = useState('All');
   const [activeTab, setActiveTab] = useState<'all' | 'my' | 'admin_answered'>('all');
   const [replyInputMap, setReplyInputMap] = useState<Record<string, string>>({});
+  const [replyImageMap, setReplyImageMap] = useState<Record<string, string>>({});
   const [submittingThreadKey, setSubmittingThreadKey] = useState<string | null>(null);
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+
+  // New Post Modal / Drawer State
+  const [showNewDoubtModal, setShowNewDoubtModal] = useState(false);
+  const [newDoubtQuizId, setNewDoubtQuizId] = useState<string>('');
+  const [newDoubtQuestionId, setNewDoubtQuestionId] = useState<string>('General Discussion');
+  const [newDoubtComment, setNewDoubtComment] = useState<string>('');
+  const [newDoubtImage, setNewDoubtImage] = useState<string | null>(null);
+  const [submittingNewDoubt, setSubmittingNewDoubt] = useState(false);
+
+  const newDoubtFileInputRef = useRef<HTMLInputElement>(null);
 
   const getApiBaseUrl = () => {
     if (typeof window !== 'undefined') return '/api';
@@ -94,17 +113,51 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
     } catch { }
   };
 
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to permanently delete this comment?')) return;
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/discussions/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        setDiscussions((prev) => prev.filter((d) => d.id !== id));
+      }
+    } catch (e) {
+      console.error('Failed to delete comment:', e);
+    }
+  };
+
+  const handleImagePickForThread = async (
+    threadKey: string,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const base64 = await compressDiscussionImage(file);
+      setReplyImageMap((prev) => ({ ...prev, [threadKey]: base64 }));
+    } catch (err: any) {
+      alert(err.message || 'Image compression failed');
+    }
+  };
+
   const handlePostReply = async (quizId: string, questionId: string, threadKey: string) => {
     const text = (replyInputMap[threadKey] || '').trim();
-    if (!text) return;
+    const image = replyImageMap[threadKey] || null;
+    if (!text && !image) return;
 
     setSubmittingThreadKey(threadKey);
     try {
       const payload = {
-        userName: currentUser?.role === 'admin' ? 'Evalnium Admin' : (currentUser?.name || 'Aspirant Candidate'),
+        userName:
+          currentUser?.role === 'admin'
+            ? 'Evalnium Admin'
+            : currentUser?.name || 'Aspirant Candidate',
         userEmail: currentUser?.email || null,
         role: currentUser?.role === 'admin' ? 'admin' : 'candidate',
         comment: text,
+        imageUrl: image,
       };
 
       const res = await fetch(
@@ -119,12 +172,64 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
 
       if (res.ok) {
         setReplyInputMap((prev) => ({ ...prev, [threadKey]: '' }));
+        setReplyImageMap((prev) => {
+          const updated = { ...prev };
+          delete updated[threadKey];
+          return updated;
+        });
         fetchAllDiscussions();
       }
     } catch (e) {
       console.error('Failed to post reply:', e);
     } finally {
       setSubmittingThreadKey(null);
+    }
+  };
+
+  const handleCreateNewDoubt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDoubtQuizId) {
+      alert('Please select an examination paper.');
+      return;
+    }
+    if (!newDoubtComment.trim() && !newDoubtImage) {
+      alert('Please enter your question or attach an image.');
+      return;
+    }
+
+    setSubmittingNewDoubt(true);
+    try {
+      const payload = {
+        userName:
+          currentUser?.role === 'admin'
+            ? 'Evalnium Admin'
+            : currentUser?.name || 'Aspirant Candidate',
+        userEmail: currentUser?.email || null,
+        role: currentUser?.role === 'admin' ? 'admin' : 'candidate',
+        comment: newDoubtComment.trim(),
+        imageUrl: newDoubtImage,
+      };
+
+      const res = await fetch(
+        `${getApiBaseUrl()}/discussions/${encodeURIComponent(newDoubtQuizId)}/${encodeURIComponent(newDoubtQuestionId.trim() || 'General')}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (res.ok) {
+        setNewDoubtComment('');
+        setNewDoubtImage(null);
+        setShowNewDoubtModal(false);
+        fetchAllDiscussions();
+      }
+    } catch (e) {
+      console.error('Failed to create new doubt:', e);
+    } finally {
+      setSubmittingNewDoubt(false);
     }
   };
 
@@ -218,20 +323,36 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
               <span>Candidate Doubts &amp; Discussion Hub</span>
             </h1>
             <p className="text-xs text-slate-500 font-medium">
-              Ask doubts, view verified solutions, and check official Admin replies on all test questions.
+              Ask doubts with images and links, view verified solutions, and check official Admin answers across all tests.
             </p>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={fetchAllDiscussions}
-          disabled={loading}
-          className="self-start sm:self-auto px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          <span>Refresh</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (quizzes.length > 0 && !newDoubtQuizId) {
+                setNewDoubtQuizId(quizzes[0].id);
+              }
+              setShowNewDoubtModal(true);
+            }}
+            className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Ask a Doubt</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={fetchAllDiscussions}
+            disabled={loading}
+            className="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* Tabs & Search Strip */}
@@ -329,8 +450,8 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
           <h3 className="text-sm font-bold text-slate-800">No Doubts Found</h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto">
             {activeTab === 'my'
-              ? 'You have not asked any doubts on questions yet. When reviewing your submitted exams, use the Discussion Hub under any question to ask a doubt.'
-              : 'No discussions match your filter. You can ask a doubt on any question during your exam review.'}
+              ? 'You have not asked any doubts yet. Click "Ask a Doubt" or use the Discussion Hub under any question during your exam review.'
+              : 'No discussions match your filter. You can be the first to ask a doubt or post a discussion on any question.'}
           </p>
         </div>
       ) : (
@@ -339,6 +460,7 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
             const matchedQuiz = quizzes.find(
               (q) => q.id === thread.quizId || q.title === thread.quizTitle
             );
+            const attachedImageForThread = replyImageMap[thread.key] || null;
 
             return (
               <div
@@ -391,7 +513,7 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
                     return (
                       <div
                         key={item.id}
-                        className={`p-3 rounded-lg border text-xs space-y-1.5 transition-all ${
+                        className={`p-3.5 rounded-xl border text-xs space-y-2 transition-all ${
                           item.isPinned
                             ? 'bg-amber-50/60 border-amber-200'
                             : isAdmin
@@ -424,19 +546,53 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
                             )}
                           </div>
 
-                          <span className="text-[10px] font-mono text-slate-400">
-                            {new Date(item.createdAt).toLocaleDateString([], {
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono text-slate-400">
+                              {new Date(item.createdAt).toLocaleDateString([], {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+
+                            {currentUser?.role === 'admin' && (
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(item.id)}
+                                className="p-1 rounded text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                                title="Admin: Delete Comment"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
 
-                        <p className={`text-xs leading-relaxed ${isAdmin ? 'text-slate-900 font-medium' : 'text-slate-700'}`}>
-                          {item.comment}
-                        </p>
+                        {/* Comment Content with Clickable Links */}
+                        <div className={`text-xs leading-relaxed ${isAdmin ? 'text-slate-900 font-medium' : 'text-slate-700'}`}>
+                          {renderTextWithLinks(item.comment)}
+                        </div>
+
+                        {/* Attached Image Thumbnail */}
+                        {item.imageUrl && (
+                          <div className="pt-1">
+                            <div
+                              onClick={() => setLightboxImage(item.imageUrl || null)}
+                              className="relative group inline-block cursor-pointer overflow-hidden rounded-lg border border-slate-200 hover:border-indigo-400 transition-colors max-w-sm"
+                            >
+                              <img
+                                src={item.imageUrl}
+                                alt="Doubt attachment"
+                                className="max-h-56 rounded-lg object-contain bg-slate-50"
+                              />
+                              <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1">
+                                <Maximize2 className="w-3.5 h-3.5" />
+                                <span>Zoom</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         <div className="pt-1 flex items-center justify-between text-[11px] text-slate-500">
                           <button
@@ -457,42 +613,231 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
                   })}
                 </div>
 
-                {/* Reply to this Thread */}
-                <div className="pt-1 flex items-center gap-2">
-                  <input
-                    type="text"
-                    placeholder={`Reply or share an alternate solution for Question ${thread.questionId}...`}
-                    value={replyInputMap[thread.key] || ''}
-                    onChange={(e) =>
-                      setReplyInputMap((prev) => ({ ...prev, [thread.key]: e.target.value }))
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handlePostReply(thread.quizId, thread.questionId, thread.key);
+                {/* Reply to this Thread (With Image Attachment) */}
+                <div className="pt-1 space-y-2">
+                  {attachedImageForThread && (
+                    <div className="relative inline-block">
+                      <img
+                        src={attachedImageForThread}
+                        alt="Reply preview"
+                        className="w-16 h-16 object-cover rounded-lg border border-indigo-200 shadow-2xs bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReplyImageMap((prev) => {
+                            const updated = { ...prev };
+                            delete updated[thread.key];
+                            return updated;
+                          });
+                        }}
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] hover:bg-rose-600 transition-colors cursor-pointer"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder={`Reply to Question ${thread.questionId} (or share link/explanation)...`}
+                      value={replyInputMap[thread.key] || ''}
+                      onChange={(e) =>
+                        setReplyInputMap((prev) => ({ ...prev, [thread.key]: e.target.value }))
                       }
-                    }}
-                    className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:bg-white focus:border-indigo-600 focus:outline-none font-medium"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handlePostReply(thread.quizId, thread.questionId, thread.key)}
-                    disabled={
-                      submittingThreadKey === thread.key ||
-                      !(replyInputMap[thread.key] || '').trim()
-                    }
-                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
-                  >
-                    <Send className="w-3 h-3" />
-                    <span>{submittingThreadKey === thread.key ? 'Posting...' : 'Reply'}</span>
-                  </button>
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handlePostReply(thread.quizId, thread.questionId, thread.key);
+                        }
+                      }}
+                      className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:bg-white focus:border-indigo-600 focus:outline-none font-medium"
+                    />
+
+                    {/* Image Attachment Button */}
+                    <label
+                      className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer shrink-0"
+                      title="Attach picture or screenshot"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleImagePickForThread(thread.key, e)}
+                      />
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() => handlePostReply(thread.quizId, thread.questionId, thread.key)}
+                      disabled={
+                        submittingThreadKey === thread.key ||
+                        (!attachedImageForThread && !(replyInputMap[thread.key] || '').trim())
+                      }
+                      className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
+                    >
+                      <Send className="w-3 h-3" />
+                      <span>{submittingThreadKey === thread.key ? 'Posting...' : 'Reply'}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
+      {/* Ask a New Doubt Modal */}
+      {showNewDoubtModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white max-w-lg w-full rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-indigo-600" />
+                <h3 className="font-bold text-sm sm:text-base text-slate-900">Post Question / Doubt</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNewDoubtModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateNewDoubt} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Select Examination Paper *</label>
+                <select
+                  required
+                  value={newDoubtQuizId}
+                  onChange={(e) => setNewDoubtQuizId(e.target.value)}
+                  className="w-full p-2 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium"
+                >
+                  {quizzes.map((q) => (
+                    <option key={q.id} value={q.id}>
+                      {q.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Question Number or Topic Reference *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Question 14, DDC Table 2, AACR2 Rule"
+                  value={newDoubtQuestionId}
+                  onChange={(e) => setNewDoubtQuestionId(e.target.value)}
+                  className="w-full p-2 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Your Question or Explanation *</label>
+                <textarea
+                  rows={4}
+                  placeholder="Explain your doubt in detail or paste reference links..."
+                  value={newDoubtComment}
+                  onChange={(e) => setNewDoubtComment(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium"
+                />
+              </div>
+
+              {/* Attach Picture */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Attach Picture / Screenshot (Optional)</label>
+                <div className="flex items-center gap-3">
+                  <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold cursor-pointer text-xs">
+                    <ImageIcon className="w-4 h-4 text-slate-600" />
+                    <span>Choose Image</span>
+                    <input
+                      ref={newDoubtFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          const base64 = await compressDiscussionImage(file);
+                          setNewDoubtImage(base64);
+                        } catch (err: any) {
+                          alert(err.message || 'Image failed to compress');
+                        }
+                      }}
+                    />
+                  </label>
+
+                  {newDoubtImage && (
+                    <div className="relative inline-block">
+                      <img
+                        src={newDoubtImage}
+                        alt="Thumbnail"
+                        className="w-12 h-12 object-cover rounded-lg border border-indigo-200 shadow-2xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setNewDoubtImage(null)}
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] hover:bg-rose-600 transition-colors cursor-pointer"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowNewDoubtModal(false)}
+                  className="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingNewDoubt || (!newDoubtComment.trim() && !newDoubtImage)}
+                  className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{submittingNewDoubt ? 'Posting...' : 'Post Doubt'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Lightbox Modal */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setLightboxImage(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-white rounded-xl p-2 shadow-2xl cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setLightboxImage(null)}
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center hover:bg-rose-600 transition-colors shadow-lg cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <img
+              src={lightboxImage}
+              alt="Enlarged attachment"
+              className="max-h-[85vh] max-w-full rounded-lg object-contain"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-
