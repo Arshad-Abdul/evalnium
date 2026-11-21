@@ -17,8 +17,20 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const AUTH_USER_CACHE_KEY = 'evalnium_cached_user';
+
+const getInitialUser = (): UserProfile | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(AUTH_USER_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(getInitialUser);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
 
   const getApiUrl = () => {
@@ -40,10 +52,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             avatarUrl: data.currentUser.avatarUrl || data.currentUser.avatar || undefined,
           };
           setCurrentUser(profile);
+          try {
+            localStorage.setItem(AUTH_USER_CACHE_KEY, JSON.stringify(profile));
+          } catch {}
           if (data.isAdminAuthenticated) {
             setIsAdminAuthenticated(true);
           }
           return profile;
+        } else {
+          // Server confirmed no active session
+          setCurrentUser(null);
+          try {
+            localStorage.removeItem(AUTH_USER_CACHE_KEY);
+          } catch {}
         }
         if (data.isAdminAuthenticated) {
           setIsAdminAuthenticated(true);
@@ -109,6 +130,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     setCurrentUser(newUser);
+    try {
+      localStorage.setItem(AUTH_USER_CACHE_KEY, JSON.stringify(newUser));
+    } catch {}
     setIsAdminAuthenticated(false);
     return newUser;
   };
@@ -163,6 +187,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     
     setCurrentUser(user);
+    try {
+      localStorage.setItem(AUTH_USER_CACHE_KEY, JSON.stringify(user));
+    } catch {}
     setIsAdminAuthenticated(false);
     return user;
   };
@@ -208,6 +235,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       avatarUrl: data.user?.avatarUrl || data.user?.avatar || updates.avatarUrl || currentUser.avatarUrl,
     };
     setCurrentUser(updatedUser);
+    try {
+      localStorage.setItem(AUTH_USER_CACHE_KEY, JSON.stringify(updatedUser));
+    } catch {}
     return updatedUser;
   };
 
@@ -258,6 +288,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (typeof window !== 'undefined') {
       localStorage.removeItem('evalnium_client_id');
+      localStorage.removeItem(AUTH_USER_CACHE_KEY);
     }
     setCurrentUser(null);
   };

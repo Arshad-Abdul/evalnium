@@ -9,12 +9,26 @@ interface CatalogAdCardProps {
   apiBaseUrl?: string;
 }
 
+const CATALOG_ADS_CACHE_KEY = 'evalnium_catalog_ads_cache';
+
+const getInitialAds = (): BannerItem[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const cached = localStorage.getItem(CATALOG_ADS_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return [];
+};
+
 export const CatalogAdCard: React.FC<CatalogAdCardProps> = ({
   quizzes = [],
   onSelectQuiz,
   apiBaseUrl,
 }) => {
-  const [adBanners, setAdBanners] = useState<BannerItem[]>([]);
+  const [adBanners, setAdBanners] = useState<BannerItem[]>(getInitialAds);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDismissed, setIsDismissed] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -27,18 +41,19 @@ export const CatalogAdCard: React.FC<CatalogAdCardProps> = ({
 
   const fetchAds = async () => {
     try {
-      const res = await fetch(`${getBaseUrl()}/banners?slot=catalog_ad&_t=${Date.now()}`);
+      const res = await fetch(`${getBaseUrl()}/banners?slot=catalog_ad`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
           setAdBanners(data);
+          try {
+            localStorage.setItem(CATALOG_ADS_CACHE_KEY, JSON.stringify(data));
+          } catch {}
           return;
         }
       }
-      setAdBanners([]);
     } catch (err) {
       console.error('Failed to fetch catalog ad box:', err);
-      setAdBanners([]);
     }
   };
 
@@ -47,7 +62,7 @@ export const CatalogAdCard: React.FC<CatalogAdCardProps> = ({
 
     const handleUpdate = () => fetchAds();
     window.addEventListener('evalnium_banners_updated', handleUpdate);
-    const pollTimer = setInterval(fetchAds, 4000);
+    const pollTimer = setInterval(fetchAds, 30000);
     window.addEventListener('focus', handleUpdate);
 
     return () => {

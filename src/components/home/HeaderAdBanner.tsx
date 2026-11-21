@@ -20,7 +20,19 @@ export const HeaderAdBanner: React.FC<HeaderAdBannerProps> = ({
   className,
   containerClassName,
 }) => {
-  const [adBanners, setAdBanners] = useState<BannerItem[]>([]);
+  const getInitialAds = (): BannerItem[] => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const cached = localStorage.getItem(`evalnium_ad_banners_${slotType}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  };
+
+  const [adBanners, setAdBanners] = useState<BannerItem[]>(getInitialAds);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [dismissedMap, setDismissedMap] = useState<Record<number, boolean>>({});
@@ -33,18 +45,19 @@ export const HeaderAdBanner: React.FC<HeaderAdBannerProps> = ({
 
   const fetchAdBanners = async () => {
     try {
-      const res = await fetch(`${getBaseUrl()}/banners?slot=${slotType}&_t=${Date.now()}`);
+      const res = await fetch(`${getBaseUrl()}/banners?slot=${slotType}`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
           setAdBanners(data);
+          try {
+            localStorage.setItem(`evalnium_ad_banners_${slotType}`, JSON.stringify(data));
+          } catch {}
           return;
         }
       }
-      setAdBanners([]);
     } catch (err) {
       console.error(`Failed to fetch banners for slot "${slotType}":`, err);
-      setAdBanners([]);
     }
   };
 
@@ -53,7 +66,7 @@ export const HeaderAdBanner: React.FC<HeaderAdBannerProps> = ({
 
     const handleUpdate = () => fetchAdBanners();
     window.addEventListener('evalnium_banners_updated', handleUpdate);
-    const pollTimer = setInterval(fetchAdBanners, 4000);
+    const pollTimer = setInterval(fetchAdBanners, 30000);
     window.addEventListener('focus', handleUpdate);
 
     return () => {

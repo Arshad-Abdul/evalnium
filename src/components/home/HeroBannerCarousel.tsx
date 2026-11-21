@@ -24,12 +24,26 @@ interface HeroBannerCarouselProps {
   apiBaseUrl?: string;
 }
 
+const HERO_BANNERS_CACHE_KEY = 'evalnium_hero_banners_cache';
+
+const getInitialBanners = (): BannerItem[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const cached = localStorage.getItem(HERO_BANNERS_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return [];
+};
+
 export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({
   quizzes,
   onSelectQuiz,
   apiBaseUrl,
 }) => {
-  const [banners, setBanners] = useState<BannerItem[]>([]);
+  const [banners, setBanners] = useState<BannerItem[]>(getInitialBanners);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [dismissedMap, setDismissedMap] = useState<Record<number, boolean>>({});
@@ -44,18 +58,19 @@ export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({
 
   const fetchBanners = async () => {
     try {
-      const res = await fetch(`${getBaseUrl()}/banners?slot=hero&_t=${Date.now()}`);
+      const res = await fetch(`${getBaseUrl()}/banners?slot=hero`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
           setBanners(data);
+          try {
+            localStorage.setItem(HERO_BANNERS_CACHE_KEY, JSON.stringify(data));
+          } catch {}
           return;
         }
       }
-      setBanners([]);
     } catch (e) {
       console.error('Failed to fetch hero banners:', e);
-      setBanners([]);
     }
   };
 
@@ -64,7 +79,7 @@ export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({
 
     const handleUpdate = () => fetchBanners();
     window.addEventListener('evalnium_banners_updated', handleUpdate);
-    const pollTimer = setInterval(fetchBanners, 4000);
+    const pollTimer = setInterval(fetchBanners, 30000);
     window.addEventListener('focus', handleUpdate);
 
     return () => {
