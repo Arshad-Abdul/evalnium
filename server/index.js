@@ -3839,6 +3839,44 @@ app.post('/api/discussions/:id/like', discussionLikeLimiter, async (req, res) =>
   }
 });
 
+app.get('/api/admin/discussions', authenticateAdmin, async (req, res) => {
+  try {
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit || '100', 10)));
+    const [rows] = await pool.query(
+      `SELECT d.*, q.title AS quiz_title
+       FROM question_discussions d
+       LEFT JOIN quizzes q ON d.quiz_id = q.id
+       ORDER BY d.created_at DESC LIMIT ?`,
+      [limit]
+    );
+    res.json(rows.map(r => ({
+      id: r.id,
+      quizId: r.quiz_id,
+      quizTitle: r.quiz_title || r.quiz_id,
+      questionId: r.question_id,
+      userName: r.user_name,
+      userEmail: r.user_email,
+      role: r.role,
+      comment: r.comment,
+      likesCount: r.likes_count,
+      isPinned: Boolean(r.is_pinned),
+      createdAt: r.created_at,
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/discussions/:id/pin', authenticateAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('UPDATE question_discussions SET is_pinned = NOT is_pinned WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.delete('/api/discussions/:id', authenticateAdmin, async (req, res) => {
   const { id } = req.params;
   try {

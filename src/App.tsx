@@ -54,10 +54,11 @@ const CandidateDashboard = lazyWithRetry(() => import('./components/user/Candida
 const ExamRunner = lazyWithRetry(() => import('./components/user/ExamRunner').then(m => ({ default: m.ExamRunner })));
 const ExamResultView = lazyWithRetry(() => import('./components/user/ExamResultView').then(m => ({ default: m.ExamResultView })));
 const RevisionHubModal = lazyWithRetry(() => import('./components/user/RevisionHubModal').then(m => ({ default: m.RevisionHubModal })));
+const AboutPage = lazyWithRetry(() => import('./components/common/AboutPage').then(m => ({ default: m.AboutPage })));
 
 function MainAppContent() {
   const { isAdminAuthenticated, logoutAdmin, currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'user' | 'dashboard' | 'leaderboard' | 'admin'>('user');
+  const [activeTab, setActiveTab] = useState<'user' | 'dashboard' | 'leaderboard' | 'admin' | 'about'>('user');
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [attemptsHistory, setAttemptsHistory] = useState<QuizAttemptResult[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -139,7 +140,7 @@ function MainAppContent() {
       const isAdminSession = Boolean(isAdminAuthenticated || activeTab === 'admin');
       const currentPage = examPhase === 'running' 
         ? `Taking Exam: ${selectedQuiz?.title || 'CBT Assessment'}` 
-        : (activeTab === 'dashboard' ? 'Candidate Dashboard' : (activeTab === 'leaderboard' ? 'Live Rankings' : (activeTab === 'admin' ? 'Admin Studio' : 'Exam Catalog')));
+        : (activeTab === 'dashboard' ? 'Candidate Dashboard' : (activeTab === 'leaderboard' ? 'Live Rankings' : (activeTab === 'admin' ? 'Admin Studio' : (activeTab === 'about' ? 'About Portal' : 'Exam Catalog'))));
 
       const body = JSON.stringify({
         clientId,
@@ -242,7 +243,7 @@ function MainAppContent() {
     }
   }, [examPhase, selectedQuiz, activeTab]);
 
-  const handleTabChange = (tab: 'user' | 'dashboard' | 'leaderboard' | 'admin') => {
+  const handleTabChange = (tab: 'user' | 'dashboard' | 'leaderboard' | 'admin' | 'about') => {
     if (tab === 'admin') {
       if (!isAdminAuthenticated) {
         setShowAdminLockModal(true);
@@ -503,6 +504,10 @@ function MainAppContent() {
               attemptsHistory={attemptsHistory}
               onNavigateToCatalog={() => setActiveTab('user')}
             />
+          ) : activeTab === 'about' ? (
+            <AboutPage
+              onNavigateToCatalog={() => setActiveTab('user')}
+            />
           ) : (
             <>
               {examPhase === 'catalog' && (
@@ -663,6 +668,14 @@ function MainAppContent() {
 
             {/* Platform Version, Legal Links & Authenticated Admin Studio Shortcut */}
             <div className="flex flex-wrap items-center gap-2.5 text-slate-400 font-mono text-[11px] justify-center md:justify-end">
+              <button
+                type="button"
+                onClick={() => setActiveTab('about')}
+                className="text-slate-500 hover:text-slate-900 font-medium transition-colors cursor-pointer"
+              >
+                About Portal
+              </button>
+              <span>·</span>
               <button
                 type="button"
                 onClick={() => setLegalDoc('terms')}

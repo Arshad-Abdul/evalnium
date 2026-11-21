@@ -22,8 +22,8 @@ import { AboutModal } from './common/AboutModal';
 import { EvalniumLogo } from './brand/EvalniumLogo';
 
 interface NavbarProps {
-  activeTab: 'user' | 'dashboard' | 'leaderboard' | 'admin';
-  setActiveTab: (tab: 'user' | 'dashboard' | 'leaderboard' | 'admin') => void;
+  activeTab: 'user' | 'dashboard' | 'leaderboard' | 'admin' | 'about';
+  setActiveTab: (tab: 'user' | 'dashboard' | 'leaderboard' | 'admin' | 'about') => void;
   isAdminAuthenticated: boolean;
   onAdminLogout: () => void;
   onCandidateLogout?: () => void;
@@ -114,7 +114,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     isAdminAuthenticated &&
     (!currentUser || currentUser.role === 'admin');
 
-  const navigateTo = (tab: 'user' | 'dashboard' | 'leaderboard' | 'admin') => {
+  const navigateTo = (tab: 'user' | 'dashboard' | 'leaderboard' | 'admin' | 'about') => {
     setActiveTab(tab);
     setMobileMenuOpen(false);
   };
@@ -193,8 +193,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               <button
                 type="button"
-                onClick={() => setShowAboutModal(true)}
-                className="px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                onClick={() => navigateTo('about')}
+                className={`px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeTab === 'about'
+                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-100'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
                 title="About Evalnium Portal & Features"
               >
                 <Info className="w-4 h-4 text-indigo-500" />
@@ -463,11 +467,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    setShowAboutModal(true);
-                  }}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                  onClick={() => navigateTo('about')}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
+                    activeTab === 'about'
+                      ? 'bg-indigo-50 text-indigo-700'
+                      : 'text-slate-700 hover:bg-slate-100'
+                  }`}
                 >
                   <span className="flex items-center gap-2.5">
                     <Info className="w-4 h-4 text-indigo-500" />

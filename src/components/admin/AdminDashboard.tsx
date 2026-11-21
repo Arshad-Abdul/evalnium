@@ -8,9 +8,12 @@ import { BannerManager } from './BannerManager';
 import { AuditLogsManager } from './AuditLogsManager';
 import { CandidateResponseModal } from './CandidateResponseModal';
 import { EmailManager } from './EmailManager';
+import { StudentDoubtsManager } from './StudentDoubtsManager';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { Plus, Trash2, FileDown, Layers, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, EyeOff, Trophy, LogOut, Globe, Radio, Laptop, Smartphone, Monitor, ShieldCheck, UserCheck, Search, Filter, RefreshCw, Compass, MapPin, Download, Image as ImageIcon, BarChart2, Calendar, TrendingUp, History, Terminal, Mail, Phone, Briefcase, Building2, GraduationCap, KeyRound, Copy, ExternalLink, ShieldAlert } from 'lucide-react';
 import { getStoredResults, fetchResultsFromServer } from '../../utils/storage';
+
+export type AdminSubTab = 'overview' | 'import' | 'manage' | 'exam_responses' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users' | 'visitors' | 'banners' | 'audit' | 'emails' | 'discussions';
 
 interface AdminDashboardProps {
   quizzes: Quiz[];
@@ -33,7 +36,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onDeleteAnnouncement = () => { },
   onLogout,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'import' | 'manage' | 'exam_responses' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users' | 'visitors' | 'banners' | 'audit' | 'emails'>('overview');
+  const [activeSubTab, setActiveSubTab] = useState<AdminSubTab>('overview');
   const [liveSessions, setLiveSessions] = useState<any[]>([]);
   const [registeredUsers, setRegisteredUsers] = useState<Array<{
     uid: string;
@@ -728,8 +731,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     );
   }
 
-  type AdminSubTab = 'overview' | 'import' | 'manage' | 'exam_responses' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users' | 'visitors' | 'banners' | 'audit' | 'emails';
-
   const navGroups: Array<{
     id: 'overview' | 'exams' | 'candidates_group' | 'comms' | 'monitoring';
     label: string;
@@ -772,8 +773,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       id: 'comms',
       label: 'Content & Comms',
       icon: <Megaphone className="w-4 h-4" />,
-      defaultTab: 'banners',
+      defaultTab: 'discussions',
       items: [
+        { id: 'discussions', label: 'Student Doubts Hub' },
         { id: 'banners', label: 'Banners & Ads' },
         { id: 'announcements', label: 'Bulletins & Notices', count: announcements.length },
         { id: 'emails', label: 'Email Campaigns' },
@@ -2569,6 +2571,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           onSaveAnnouncement={onSaveAnnouncement}
           onDeleteAnnouncement={onDeleteAnnouncement}
         />
+      )}
+
+      {activeSubTab === 'discussions' && (
+        <StudentDoubtsManager quizzes={quizzes} />
       )}
 
       {activeSubTab === 'banners' && (
