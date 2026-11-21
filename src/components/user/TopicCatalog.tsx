@@ -28,6 +28,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedTopic, setSelectedTopic] = useState<string>('All');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('All');
+  const [selectedCategory, setSelectedCategory] = useState<'all' | 'daily' | 'pyq' | 'practice' | 'contest'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
   const [selectedCertAttempt, setSelectedCertAttempt] = useState<QuizAttemptResult | null>(null);
@@ -88,6 +89,19 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
     }, {})
   ).map(([name, count]) => ({ name, count }));
 
+  const countDaily = publishedQuizzes.filter(q => q.quizType === 'scheduled_unlock' || /daily\s*quiz|\bday[\s-]*\d+/i.test(q.title || '')).length;
+  const countPyq = publishedQuizzes.filter(q => /\bpyq\b|previous\s*year|solved\s*paper|\b20\d\d\s*pyq\b/i.test(q.title || '')).length;
+  const countUnranked = publishedQuizzes.filter(q => q.quizType === 'unranked_practice').length;
+  const countContests = publishedQuizzes.filter(q => q.quizType === 'live_contest').length;
+
+  const categoryPills: Array<{ id: 'all' | 'daily' | 'pyq' | 'practice' | 'contest'; label: string; icon: string; count: number }> = [
+    { id: 'all', label: 'All Tests', icon: '📝', count: publishedQuizzes.length },
+    ...(countDaily > 0 ? [{ id: 'daily' as const, label: 'Daily Quizzes', icon: '⚡', count: countDaily }] : []),
+    ...(countPyq > 0 ? [{ id: 'pyq' as const, label: 'PYQ Archive', icon: '📚', count: countPyq }] : []),
+    ...(countUnranked > 0 ? [{ id: 'practice' as const, label: 'Practice Only', icon: '🛡️', count: countUnranked }] : []),
+    ...(countContests > 0 ? [{ id: 'contest' as const, label: 'Live Contests', icon: '🏆', count: countContests }] : []),
+  ];
+
   const filteredQuizzes = publishedQuizzes.filter(quiz => {
     const matchesSearch = quiz.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       quiz.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -95,7 +109,20 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
     const matchesTopic = selectedTopic === 'All' || normalizeTopic(quiz.topic) === selectedTopic;
     const effectiveDifficulty = quiz.difficulty || 'Medium';
     const matchesDifficulty = selectedDifficulty === 'All' || effectiveDifficulty === selectedDifficulty;
-    return matchesSearch && matchesTopic && matchesDifficulty;
+
+    let matchesCategory = true;
+    const title = (quiz.title || '').toLowerCase();
+    if (selectedCategory === 'daily') {
+      matchesCategory = quiz.quizType === 'scheduled_unlock' || /daily\s*quiz|\bday[\s-]*\d+/i.test(title);
+    } else if (selectedCategory === 'pyq') {
+      matchesCategory = /\bpyq\b|previous\s*year|solved\s*paper|\b20\d\d\s*pyq\b/i.test(title);
+    } else if (selectedCategory === 'practice') {
+      matchesCategory = quiz.quizType === 'unranked_practice';
+    } else if (selectedCategory === 'contest') {
+      matchesCategory = quiz.quizType === 'live_contest';
+    }
+
+    return matchesSearch && matchesTopic && matchesDifficulty && matchesCategory;
   });
 
   return (
@@ -197,6 +224,37 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Dynamic Category Pill Bar (Only shows when multiple categories exist - Zero clutter) */}
+        {categoryPills.length > 1 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
+            {categoryPills.map((pill) => {
+              const isSelected = selectedCategory === pill.id;
+              return (
+                <button
+                  key={pill.id}
+                  type="button"
+                  onClick={() => setSelectedCategory(pill.id)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-slate-900 text-white shadow-2xs'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  <span>{pill.icon}</span>
+                  <span>{pill.label}</span>
+                  <span
+                    className={`font-mono text-[10px] px-1.5 py-0.2 rounded-full ${
+                      isSelected ? 'bg-white/20 text-white' : 'bg-white text-slate-600'
+                    }`}
+                  >
+                    {pill.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Subject Filter Strip */}
         {subjectItems.length > 0 && (
