@@ -6,12 +6,21 @@ import { getItemPrefix, cleanItemText } from '../../utils/parsers';
 import { FormattedQuestionStem } from '../common/FormattedQuestionStem';
 import { useAuth } from '../../context/AuthContext';
 
+export interface SavedQuestionEntry {
+  id: string;
+  quizId?: string;
+  quizTitle?: string;
+  question: Question;
+  bookmarkedAt?: string;
+}
+
 interface RevisionHubModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const BOOKMARKS_KEY = 'evalnium_bookmarked_questions_v1';
+const BOOKMARKS_KEY = 'evalnium_bookmarked_questions_v2';
+const LEGACY_KEY = 'evalnium_bookmarked_questions_v1';
 
 const getApiBase = () => {
   if (typeof window !== 'undefined') {
@@ -20,35 +29,101 @@ const getApiBase = () => {
   return 'http://localhost:5050/api';
 };
 
-export function getBookmarkedQuestions(): Question[] {
+export function normalizeSavedEntry(item: any): SavedQuestionEntry {
+  if (item && item.question && item.question.id) {
+    return {
+      id: item.question.id,
+      quizId: item.quizId || 'exam_quiz',
+      quizTitle: item.quizTitle || 'Practice Assessment',
+      question: item.question,
+      bookmarkedAt: item.bookmarkedAt || new Date().toISOString(),
+    };
+  }
+  return {
+    id: item?.id || 'q_unknown',
+    quizId: item?.quizId || 'exam_quiz',
+    quizTitle: item?.quizTitle || 'Practice Assessment',
+    question: item,
+    bookmarkedAt: item?.bookmarkedAt || new Date().toISOString(),
+  };
+}
+
+export function getStoredSavedEntries(): SavedQuestionEntry[] {
   try {
-    const data = localStorage.getItem(BOOKMARKS_KEY);
-    return data ? JSON.parse(data) : [];
+    const raw = localStorage.getItem(BOOKMARKS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map(normalizeSavedEntry);
+      }
+    }
+    // Check legacy v1
+    const legacyRaw = localStorage.getItem(LEGACY_KEY);
+    if (legacyRaw) {
+      const parsedLegacy = JSON.parse(legacyRaw);
+      if (Array.isArray(parsedLegacy)) {
+        const migrated = parsedLegacy.map(normalizeSavedEntry);
+        localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(migrated));
+        return migrated;
+      }
+    }
+    return [];
   } catch {
     return [];
   }
 }
 
-export function saveBookmarkedQuestion(question: Question, uid?: string): Question[] {
-  const existing = getBookmarkedQuestions();
-  if (existing.some(q => q.id === question.id)) return existing;
-  const updated = [question, ...existing];
-  localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(updated));
+export function getBookmarkedQuestions(): Question[] {
+  return getStoredSavedEntries().map((e) => e.question);
+}
+
+export function saveBookmarkedQuestion(
+  question: Question,
+  uid?: string,
+  quizId?: string,
+  quizTitle?: string
+): SavedQuestionEntry[] {
+  const existing = getStoredSavedEntries();
+  const alreadySaved = existing.some((q) => q.id === question.id);
+  if (alreadySaved) return existing;
+
+  const newEntry: SavedQuestionEntry = {
+    id: question.id,
+    quizId: quizId || 'exam_quiz',
+    quizTitle: quizTitle || 'Practice Assessment',
+    question,
+    bookmarkedAt: new Date().toISOString(),
+  };
+
+  const updated = [newEntry, ...existing];
+  try {
+    localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(updated));
+  } catch { }
+
   if (uid) {
     fetch(`${getApiBase()}/bookmarks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ uid, questionId: question.id, question }),
+      body: JSON.stringify({
+        uid,
+        questionId: question.id,
+        quizId: newEntry.quizId,
+        quizTitle: newEntry.quizTitle,
+        question,
+      }),
     }).catch(() => {});
   }
   return updated;
 }
 
-export function removeBookmarkedQuestion(qId: string, uid?: string): Question[] {
-  const existing = getBookmarkedQuestions();
-  const updated = existing.filter(q => q.id !== qId);
-  localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(updated));
+export function removeBookmarkedQuestion(qId: string, uid?: string): SavedQuestionEntry[] {
+  const existing = getStoredSavedEntries();
+  const updated = existing.filter((q) => q.id !== qId);
+  try {
+    localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(updated));
+  } catch { }
+
   if (uid) {
     fetch(`${getApiBase()}/bookmarks/${encodeURIComponent(qId)}?uid=${encodeURIComponent(uid)}`, {
       method: 'DELETE',
@@ -60,24 +135,26 @@ export function removeBookmarkedQuestion(qId: string, uid?: string): Question[] 
 
 export const RevisionHubModal: React.FC<RevisionHubModalProps> = ({ isOpen, onClose }) => {
   const { currentUser } = useAuth();
-  const [bookmarks, setBookmarks] = useState<Question[]>([]);
+  const [entries, setEntries] = useState<SavedQuestionEntry[]>([]);
 
   useEffect(() => {
     if (!isOpen) return;
-    const local = getBookmarkedQuestions();
-    setBookmarks(local);
+    const local = getStoredSavedEntries();
+    setEntries(local);
+
     // Sync from MySQL if logged in and merge with localStorage
     if (currentUser?.uid) {
       fetch(`${getApiBase()}/bookmarks?uid=${encodeURIComponent(currentUser.uid)}`, {
-        credentials: 'include'
+        credentials: 'include',
       })
-        .then(r => r.ok ? r.json() : null)
-        .then((remote: Question[] | null) => {
-          if (!remote || remote.length === 0) return;
-          const localIds = new Set(local.map(q => q.id));
-          const merged = [...local, ...remote.filter(q => !localIds.has(q.id))];
+        .then((r) => (r.ok ? r.json() : null))
+        .then((remote: any[] | null) => {
+          if (!remote || !Array.isArray(remote) || remote.length === 0) return;
+          const remoteNormalized = remote.map(normalizeSavedEntry);
+          const localIds = new Set(local.map((e) => e.id));
+          const merged = [...local, ...remoteNormalized.filter((e) => !localIds.has(e.id))];
           localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(merged));
-          setBookmarks(merged);
+          setEntries(merged);
         })
         .catch(() => {});
     }
@@ -87,7 +164,7 @@ export const RevisionHubModal: React.FC<RevisionHubModalProps> = ({ isOpen, onCl
 
   const handleRemove = (qId: string) => {
     const updated = removeBookmarkedQuestion(qId, currentUser?.uid);
-    setBookmarks(updated);
+    setEntries(updated);
   };
 
   return (
@@ -114,21 +191,26 @@ export const RevisionHubModal: React.FC<RevisionHubModalProps> = ({ isOpen, onCl
         </div>
 
         <div className="overflow-y-auto flex-1 space-y-4 pr-1 text-xs">
-          {bookmarks.length === 0 ? (
+          {entries.length === 0 ? (
             <div className="text-center py-12 text-slate-500 space-y-2">
               <BookOpen className="w-10 h-10 mx-auto text-slate-300" />
               <p className="text-sm font-bold text-slate-700">No Bookmarked Questions Saved</p>
               <p className="text-xs">Click the 🔖 Bookmark button during live exams or result reviews to save questions here.</p>
             </div>
           ) : (
-            bookmarks.map((q, idx) => (
-              <div key={q.id} className="p-5 rounded-xl border border-slate-200 bg-white space-y-3 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
+            entries.map((entry, idx) => {
+              const q = entry.question;
+              return (
+              <div key={entry.id} className="p-5 rounded-xl border border-slate-200 bg-white space-y-3 shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="w-6 h-6 rounded bg-slate-100 text-slate-700 font-mono font-bold text-xs flex items-center justify-center border">
                       Q{idx + 1}
                     </span>
-                    <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border">
+                    <span className="text-[11px] font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                      📚 {entry.quizTitle || 'Practice Exam'}
+                    </span>
+                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
                       {q.topic || 'General Topic'}
                     </span>
                   </div>
@@ -136,8 +218,8 @@ export const RevisionHubModal: React.FC<RevisionHubModalProps> = ({ isOpen, onCl
                   <div className="flex items-center space-x-2">
                     <AudioPlayerButton textToRead={q.questionEnglish || q.questionText} />
                     <button
-                      onClick={() => handleRemove(q.id)}
-                      className="p-1.5 rounded text-rose-600 hover:bg-rose-50 border border-rose-200"
+                      onClick={() => handleRemove(entry.id)}
+                      className="p-1.5 rounded text-rose-600 hover:bg-rose-50 border border-rose-200 cursor-pointer"
                       title="Remove Bookmark"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -248,7 +330,8 @@ export const RevisionHubModal: React.FC<RevisionHubModalProps> = ({ isOpen, onCl
                   <p>{q.explanation || `Option (${q.correctOptionId}) is correct.`}</p>
                 </div>
               </div>
-            ))
+            );
+          })
           )}
         </div>
 

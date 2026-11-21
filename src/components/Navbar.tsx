@@ -23,8 +23,8 @@ import { AboutModal } from './common/AboutModal';
 import { EvalniumLogo } from './brand/EvalniumLogo';
 
 interface NavbarProps {
-  activeTab: 'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'admin';
-  setActiveTab: (tab: 'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'admin') => void;
+  activeTab: 'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'saved' | 'admin';
+  setActiveTab: (tab: 'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'saved' | 'admin') => void;
   isAdminAuthenticated: boolean;
   onAdminLogout: () => void;
   onCandidateLogout?: () => void;
@@ -246,10 +246,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 type="button"
                 onClick={onOpenRevisionHub}
-                className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+                  activeTab === 'saved'
+                    ? 'bg-amber-50 border-amber-300 text-amber-900 shadow-2xs'
+                    : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                }`}
                 title="Saved Questions & Bookmarks"
               >
-                <Bookmark className="w-3.5 h-3.5 text-amber-500" />
+                <Bookmark className={`w-3.5 h-3.5 ${activeTab === 'saved' ? 'fill-amber-500 text-amber-600' : 'text-amber-500'}`} />
                 <span className="hidden xl:inline">Saved</span>
               </button>
             )}

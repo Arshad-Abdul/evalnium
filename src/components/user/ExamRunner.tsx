@@ -483,7 +483,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         timeSpentSeconds: 0,
       };
       const nextState = !existing.isMarkedForReview;
-      if (nextState && qObj) saveBookmarkedQuestion(qObj, currentUser?.uid);
+      if (nextState && qObj) saveBookmarkedQuestion(qObj, currentUser?.uid, quiz.id, quiz.title);
       return { ...prev, [qId]: { ...existing, isMarkedForReview: nextState } };
     });
   }, [activeQuestions, currentUser?.uid]);

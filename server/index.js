@@ -739,12 +739,16 @@ async function initDatabase() {
         id VARCHAR(150) PRIMARY KEY,
         uid VARCHAR(100) NOT NULL,
         question_id VARCHAR(100) NOT NULL,
+        quiz_id VARCHAR(100),
+        quiz_title VARCHAR(255),
         question_json LONGTEXT,
         bookmarked_at VARCHAR(100),
         UNIQUE KEY unique_user_question (uid, question_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
     try { await pool.query(`CREATE INDEX idx_bookmarks_uid ON bookmarks(uid);`); } catch { }
+    try { await pool.query(`ALTER TABLE bookmarks ADD COLUMN quiz_id VARCHAR(100);`); } catch { }
+    try { await pool.query(`ALTER TABLE bookmarks ADD COLUMN quiz_title VARCHAR(255);`); } catch { }
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS site_visits (
@@ -3541,8 +3545,25 @@ app.get('/api/bookmarks', async (req, res) => {
   }
 
   try {
-    const [rows] = await pool.query('SELECT question_json FROM bookmarks WHERE uid = ? ORDER BY bookmarked_at DESC', [effectiveUid]);
-    res.json(rows.map(r => JSON.parse(r.question_json)));
+    const [rows] = await pool.query(
+      'SELECT quiz_id, quiz_title, question_id, question_json, bookmarked_at FROM bookmarks WHERE uid = ? ORDER BY bookmarked_at DESC',
+      [effectiveUid]
+    );
+    res.json(rows.map(r => {
+      let parsed = null;
+      try {
+        parsed = JSON.parse(r.question_json);
+      } catch {
+        parsed = null;
+      }
+      return {
+        id: r.question_id,
+        quizId: r.quiz_id || parsed?.quizId || 'exam_quiz',
+        quizTitle: r.quiz_title || parsed?.quizTitle || 'Practice Assessment',
+        question: parsed?.question || parsed,
+        bookmarkedAt: r.bookmarked_at,
+      };
+    }));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -3550,7 +3571,7 @@ app.get('/api/bookmarks', async (req, res) => {
 
 app.post('/api/bookmarks', bookmarksLimiter, async (req, res) => {
   const { isAdmin, authenticatedCandidate } = resolveAuthenticatedUid(req);
-  const { uid, questionId, question } = req.body;
+  const { uid, questionId, quizId, quizTitle, question } = req.body;
 
   if (!isAdmin && !authenticatedCandidate) {
     return res.status(401).json({ error: 'Access Denied: Authentication required to save bookmarks.' });
@@ -3568,9 +3589,19 @@ app.post('/api/bookmarks', bookmarksLimiter, async (req, res) => {
 
   // Input validation
   const safeQuestionId = String(questionId).slice(0, 100);
+  const safeQuizId = quizId ? String(quizId).slice(0, 100) : null;
+  const safeQuizTitle = quizTitle ? String(quizTitle).slice(0, 255) : null;
+
   let safeQuestionJson;
   try {
-    safeQuestionJson = typeof question === 'string' ? question : JSON.stringify(question);
+    const enrichedPayload = {
+      id: safeQuestionId,
+      quizId: safeQuizId,
+      quizTitle: safeQuizTitle,
+      question: question,
+      bookmarkedAt: new Date().toISOString()
+    };
+    safeQuestionJson = JSON.stringify(enrichedPayload);
     if (safeQuestionJson.length > 50000) {
       return res.status(400).json({ error: 'Question data payload too large.' });
     }
@@ -3580,12 +3611,30 @@ app.post('/api/bookmarks', bookmarksLimiter, async (req, res) => {
 
   try {
     const id = `bm_${effectiveUid}_${safeQuestionId}`.slice(0, 150);
+    const nowIso = new Date().toISOString();
     await pool.query(
-      `INSERT INTO bookmarks (id, uid, question_id, question_json, bookmarked_at)
-       VALUES (?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE question_json = VALUES(question_json), bookmarked_at = VALUES(bookmarked_at)`,
-      [id, effectiveUid, safeQuestionId, safeQuestionJson, new Date().toISOString()]
+      `INSERT INTO bookmarks (id, uid, question_id, quiz_id, quiz_title, question_json, bookmarked_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE 
+         quiz_id = VALUES(quiz_id),
+         quiz_title = VALUES(quiz_title),
+         question_json = VALUES(question_json), 
+         bookmarked_at = VALUES(bookmarked_at)`,
+      [id, effectiveUid, safeQuestionId, safeQuizId, safeQuizTitle, safeQuestionJson, nowIso]
     );
+
+    // Audit Logging: Student Saved Question in Revision Bank
+    recordAuditLog({
+      eventType: 'bookmark_add',
+      severity: 'info',
+      actorName: authenticatedCandidate?.name || (isAdmin ? 'Admin' : 'Candidate'),
+      actorEmail: authenticatedCandidate?.email || null,
+      actorRole: isAdmin ? 'admin' : 'student',
+      actionTitle: `🔖 Question Saved to Revision Bank: Q.${safeQuestionId}`,
+      detailsText: `Candidate saved Question ID "${safeQuestionId}" from "${safeQuizTitle || safeQuizId || 'Practice Exam'}" into their personal Revision Bank.`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -3610,6 +3659,19 @@ app.delete('/api/bookmarks/:questionId', bookmarksLimiter, async (req, res) => {
 
   try {
     await pool.query('DELETE FROM bookmarks WHERE uid = ? AND question_id = ?', [effectiveUid, safeQuestionId]);
+
+    // Audit Logging: Student Removed Question from Revision Bank
+    recordAuditLog({
+      eventType: 'bookmark_remove',
+      severity: 'info',
+      actorName: authenticatedCandidate?.name || (isAdmin ? 'Admin' : 'Candidate'),
+      actorEmail: authenticatedCandidate?.email || null,
+      actorRole: isAdmin ? 'admin' : 'student',
+      actionTitle: `🗑️ Question Removed from Revision Bank: Q.${safeQuestionId}`,
+      detailsText: `Candidate removed Question ID "${safeQuestionId}" from their Revision Bank.`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -3926,6 +3988,18 @@ app.post('/api/admin/discussions/:id/pin', authenticateAdmin, async (req, res) =
   const { id } = req.params;
   try {
     await pool.query('UPDATE question_discussions SET is_pinned = NOT is_pinned WHERE id = ?', [id]);
+    
+    // Audit Log: Solution Pinned / Unpinned
+    recordAuditLog({
+      eventType: 'admin_action',
+      severity: 'info',
+      actorName: req.adminUser?.name || 'Evalnium Admin',
+      actorRole: 'admin',
+      actionTitle: `📌 Discussion Solution Toggled (ID: ${id})`,
+      detailsText: `Admin toggled pinned state for discussion comment ID ${id}.`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -3936,6 +4010,18 @@ app.delete('/api/discussions/:id', authenticateAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query('DELETE FROM question_discussions WHERE id = ?', [id]);
+
+    // Audit Log: Comment Deleted by Admin
+    recordAuditLog({
+      eventType: 'admin_action',
+      severity: 'warning',
+      actorName: req.adminUser?.name || 'Evalnium Admin',
+      actorRole: 'admin',
+      actionTitle: `🗑️ Discussion Comment Deleted (ID: ${id})`,
+      detailsText: `Admin permanently removed inappropriate discussion comment ID ${id}.`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -3953,7 +4039,15 @@ app.post('/api/discussions/:quizId/:questionId', discussionCommentLimiter, async
   const { quizId, questionId } = req.params;
   const { userName, userEmail, role = 'candidate', comment, imageUrl } = req.body;
 
-  if (!userName || (!comment && !imageUrl)) {
+  // Verification: Require authenticated user (Admin or Candidate)
+  const isAdmin = isAdminAuthenticatedRequest(req);
+  const authenticatedCandidate = getAuthenticatedCandidate(req);
+
+  if (!isAdmin && !authenticatedCandidate) {
+    return res.status(401).json({ error: 'Authentication required. Please sign in to ask doubts or participate in discussions.' });
+  }
+
+  if (!comment && !imageUrl) {
     return res.status(400).json({ error: 'Comment text or an attached image is required.' });
   }
 
@@ -3962,35 +4056,29 @@ app.post('/api/discussions/:quizId/:questionId', discussionCommentLimiter, async
   if (safeComment.length > 2000) {
     return res.status(400).json({ error: 'Comment must not exceed 2000 characters.' });
   }
-  if (typeof userName !== 'string' || userName.trim().length === 0 || userName.length > 100) {
-    return res.status(400).json({ error: 'User name must be between 1 and 100 characters.' });
-  }
-
-  // Verify administrative privileges to prevent role impersonation (CWE-269)
-  const isAdmin = isAdminAuthenticatedRequest(req);
 
   // If user requests a privileged role (admin, faculty, staff) but lacks credentials, forcefully demote to 'candidate'
   let verifiedRole = 'candidate';
   const requestedRole = String(role).toLowerCase().trim();
   if (requestedRole === 'admin' || requestedRole === 'faculty' || requestedRole === 'moderator' || requestedRole === 'staff') {
     if (isAdmin) {
-      verifiedRole = requestedRole;
+      verifiedRole = 'admin';
     } else {
-      console.warn(`[SECURITY ALERT] Unauthenticated actor attempted role impersonation: ${requestedRole} by ${userName}`);
+      console.warn(`[SECURITY ALERT] Unauthenticated actor attempted role impersonation: ${requestedRole}`);
       verifiedRole = 'candidate';
     }
   } else {
     verifiedRole = 'candidate';
   }
 
-  // Bind candidate email from signed session if present
-  let verifiedEmail = userEmail ? String(userEmail).slice(0, 255).trim() : null;
-  if (req.signedCookies?.evalnium_session) {
-    try {
-      const session = JSON.parse(req.signedCookies.evalnium_session);
-      if (session.email) verifiedEmail = session.email;
-    } catch { }
-  }
+  // Resolve verified identity
+  const verifiedName = isAdmin
+    ? 'Evalnium Admin'
+    : (authenticatedCandidate?.name || (typeof userName === 'string' && userName.trim()) || 'Candidate');
+  
+  const verifiedEmail = isAdmin
+    ? 'evalniumlis@gmail.com'
+    : (authenticatedCandidate?.email || (userEmail ? String(userEmail).slice(0, 255).trim() : null));
 
   // Sanitize attached picture / link (base64 image or url)
   let cleanImageUrl = null;
@@ -4002,19 +4090,41 @@ app.post('/api/discussions/:quizId/:questionId', discussionCommentLimiter, async
   }
 
   try {
+    // Check if this is the original thread question or a subsequent reply
+    const [existingRows] = await pool.query(
+      'SELECT COUNT(*) as count FROM question_discussions WHERE quiz_id = ? AND question_id = ?',
+      [String(quizId).slice(0, 100), String(questionId).slice(0, 100)]
+    );
+    const isReply = (existingRows[0]?.count || 0) > 0;
+
     const [result] = await pool.query(
       `INSERT INTO question_discussions (quiz_id, question_id, user_name, user_email, role, comment, image_url)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         String(quizId).slice(0, 100),
         String(questionId).slice(0, 100),
-        userName.trim().slice(0, 100),
+        verifiedName.slice(0, 100),
         verifiedEmail,
         verifiedRole,
         safeComment || 'Attached image / solution',
         cleanImageUrl
       ]
     );
+
+    // Audit Logging: Record Doubt or Reply in Activity Stream
+    recordAuditLog({
+      eventType: isReply ? 'doubt_reply' : 'doubt_post',
+      severity: 'info',
+      actorName: verifiedName,
+      actorEmail: verifiedEmail,
+      actorRole: verifiedRole === 'admin' ? 'admin' : 'student',
+      actionTitle: isReply
+        ? `💬 Discussion Reply: Q.${String(questionId).slice(0, 30)} (${String(quizId).slice(0, 30)})`
+        : `❓ New Student Doubt: Q.${String(questionId).slice(0, 30)} (${String(quizId).slice(0, 30)})`,
+      detailsText: `"${safeComment.slice(0, 180)}${safeComment.length > 180 ? '...' : ''}" ${cleanImageUrl ? '[Diagram/Photo Attached]' : ''}`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
+
     res.json({ success: true, id: result.insertId });
   } catch (err) {
     res.status(500).json({ error: err.message });

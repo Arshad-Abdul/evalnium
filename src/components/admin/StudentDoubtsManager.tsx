@@ -262,33 +262,30 @@ export const StudentDoubtsManager: React.FC<StudentDoubtsManagerProps> = ({ quiz
             <button
               type="button"
               onClick={() => setFilterRole('all')}
-              className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
-                filterRole === 'all'
+              className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${filterRole === 'all'
                   ? 'bg-slate-900 text-white'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
+                }`}
             >
               All ({discussions.length})
             </button>
             <button
               type="button"
               onClick={() => setFilterRole('candidate')}
-              className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
-                filterRole === 'candidate'
+              className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${filterRole === 'candidate'
                   ? 'bg-slate-900 text-white'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
+                }`}
             >
               Students ({candidateDoubtsCount})
             </button>
             <button
               type="button"
               onClick={() => setFilterRole('faculty')}
-              className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
-                filterRole === 'faculty'
+              className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${filterRole === 'faculty'
                   ? 'bg-slate-900 text-white'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
+                }`}
             >
               Admin ({facultyRepliesCount})
             </button>
@@ -318,13 +315,12 @@ export const StudentDoubtsManager: React.FC<StudentDoubtsManagerProps> = ({ quiz
             return (
               <div
                 key={item.id}
-                className={`p-4 rounded-xl border transition-all space-y-3 ${
-                  item.isPinned
+                className={`p-4 rounded-xl border transition-all space-y-3 ${item.isPinned
                     ? 'bg-amber-50/50 border-amber-200 shadow-2xs'
                     : isFaculty
-                    ? 'bg-indigo-50/40 border-indigo-200 shadow-2xs'
-                    : 'bg-white border-slate-200 shadow-2xs'
-                }`}
+                      ? 'bg-indigo-50/40 border-indigo-200 shadow-2xs'
+                      : 'bg-white border-slate-200 shadow-2xs'
+                  }`}
               >
                 {/* Header row: Author + Exam context + Actions */}
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -370,11 +366,10 @@ export const StudentDoubtsManager: React.FC<StudentDoubtsManagerProps> = ({ quiz
                     <button
                       type="button"
                       onClick={() => handleTogglePin(item.id)}
-                      className={`p-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
-                        item.isPinned
+                      className={`p-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${item.isPinned
                           ? 'bg-amber-100 text-amber-800 border-amber-300'
                           : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'
-                      }`}
+                        }`}
                       title={item.isPinned ? 'Unpin Solution' : 'Pin as Top Solution'}
                     >
                       <Pin className="w-3.5 h-3.5" />
@@ -465,9 +460,8 @@ export const StudentDoubtsManager: React.FC<StudentDoubtsManagerProps> = ({ quiz
                       />
 
                       <label
-                        className={`p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer shrink-0 ${
-                          replyImageUploadingMap[item.id] ? 'opacity-50 pointer-events-none' : ''
-                        }`}
+                        className={`p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer shrink-0 ${replyImageUploadingMap[item.id] ? 'opacity-50 pointer-events-none' : ''
+                          }`}
                         title="Attach Diagram or Screenshot"
                       >
                         <ImageIcon className="w-4 h-4 text-slate-600" />

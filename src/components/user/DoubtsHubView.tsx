@@ -44,12 +44,14 @@ interface DoubtsHubViewProps {
   quizzes: Quiz[];
   onSelectQuiz: (quiz: Quiz) => void;
   onNavigateToCatalog: () => void;
+  onRequireAuth?: () => void;
 }
 
 export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
   quizzes,
   onSelectQuiz,
   onNavigateToCatalog,
+  onRequireAuth,
 }) => {
   const { currentUser } = useAuth();
   const [discussions, setDiscussions] = useState<PublicDiscussionItem[]>([]);
@@ -143,6 +145,12 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
   };
 
   const handlePostReply = async (quizId: string, questionId: string, threadKey: string) => {
+    if (!currentUser) {
+      if (onRequireAuth) onRequireAuth();
+      else alert('Please sign in to reply to doubts.');
+      return;
+    }
+
     const text = (replyInputMap[threadKey] || '').trim();
     const image = replyImageMap[threadKey] || null;
     if (!text && !image) return;
@@ -150,12 +158,9 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
     setSubmittingThreadKey(threadKey);
     try {
       const payload = {
-        userName:
-          currentUser?.role === 'admin'
-            ? 'Evalnium Admin'
-            : currentUser?.name || 'Aspirant Candidate',
-        userEmail: currentUser?.email || null,
-        role: currentUser?.role === 'admin' ? 'admin' : 'candidate',
+        userName: currentUser.role === 'admin' ? 'Evalnium Admin' : currentUser.name,
+        userEmail: currentUser.email || null,
+        role: currentUser.role === 'admin' ? 'admin' : 'candidate',
         comment: text,
         imageUrl: image,
       };
@@ -178,6 +183,9 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
           return updated;
         });
         fetchAllDiscussions();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Failed to post reply.');
       }
     } catch (e) {
       console.error('Failed to post reply:', e);
@@ -188,6 +196,12 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
 
   const handleCreateNewDoubt = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUser) {
+      if (onRequireAuth) onRequireAuth();
+      else alert('Please sign in to ask a doubt.');
+      return;
+    }
+
     if (!newDoubtQuizId) {
       alert('Please select an examination paper.');
       return;
@@ -200,12 +214,9 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
     setSubmittingNewDoubt(true);
     try {
       const payload = {
-        userName:
-          currentUser?.role === 'admin'
-            ? 'Evalnium Admin'
-            : currentUser?.name || 'Aspirant Candidate',
-        userEmail: currentUser?.email || null,
-        role: currentUser?.role === 'admin' ? 'admin' : 'candidate',
+        userName: currentUser.role === 'admin' ? 'Evalnium Admin' : currentUser.name,
+        userEmail: currentUser.email || null,
+        role: currentUser.role === 'admin' ? 'admin' : 'candidate',
         comment: newDoubtComment.trim(),
         imageUrl: newDoubtImage,
       };
@@ -332,6 +343,11 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
           <button
             type="button"
             onClick={() => {
+              if (!currentUser) {
+                if (onRequireAuth) onRequireAuth();
+                else alert('Please sign in to ask a doubt.');
+                return;
+              }
               if (quizzes.length > 0 && !newDoubtQuizId) {
                 setNewDoubtQuizId(quizzes[0].id);
               }
@@ -501,10 +517,13 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
                   )}
                 </div>
 
-                {/* Discussion Items in this Question Thread */}
-                <div className="space-y-2.5">
-                  {thread.items.map((item) => {
-                    const isAdmin = item.role === 'admin' || item.role === 'faculty';
+                {/* Structured Discussion Thread */}
+                {(() => {
+                  const originalPost = thread.items[0];
+                  const adminReplies = thread.items.slice(1).filter((i) => i.role === 'admin' || i.role === 'faculty');
+                  const communityReplies = thread.items.slice(1).filter((i) => i.role !== 'admin' && i.role !== 'faculty');
+
+                  const renderItem = (item: PublicDiscussionItem, isOriginal: boolean, isOfficialAdmin: boolean) => {
                     const isMyComment =
                       currentUser?.email &&
                       item.userEmail &&
@@ -513,41 +532,55 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
                     return (
                       <div
                         key={item.id}
-                        className={`p-3.5 rounded-xl border text-xs space-y-2 transition-all ${
+                        className={`p-3.5 rounded-xl border text-xs space-y-2.5 transition-all ${
                           item.isPinned
-                            ? 'bg-amber-50/60 border-amber-200'
-                            : isAdmin
-                            ? 'bg-slate-50 border-indigo-200 ring-1 ring-indigo-100'
+                            ? 'bg-amber-50/70 border-amber-300 shadow-2xs'
+                            : isOfficialAdmin
+                            ? 'bg-slate-900 text-white border-slate-800 shadow-sm'
+                            : isOriginal
+                            ? 'bg-indigo-50/40 border-indigo-200 shadow-2xs'
                             : isMyComment
-                            ? 'bg-blue-50/30 border-blue-200'
-                            : 'bg-white border-slate-200'
+                            ? 'bg-blue-50/40 border-blue-200'
+                            : 'bg-white border-slate-200 shadow-2xs'
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-900">{item.userName}</span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`font-bold ${isOfficialAdmin ? 'text-white' : 'text-slate-900'}`}>
+                              {item.userName}
+                            </span>
 
-                            {isAdmin ? (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-900 text-white">
-                                <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
-                                <span>Evalnium Admin</span>
+                            {isOfficialAdmin ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                                <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                                <span>Verified Admin Solution</span>
+                              </span>
+                            ) : isOriginal ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                                <span>❓ Question Author</span>
                               </span>
                             ) : (
                               <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                                {isMyComment ? 'You' : 'Candidate'}
+                                Student Reply
+                              </span>
+                            )}
+
+                            {isMyComment && !isOfficialAdmin && (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                                You
                               </span>
                             )}
 
                             {item.isPinned && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800">
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
                                 <Pin className="w-2.5 h-2.5" />
-                                <span>Pinned Solution</span>
+                                <span>Pinned</span>
                               </span>
                             )}
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-mono text-slate-400">
+                            <span className={`text-[10px] font-mono ${isOfficialAdmin ? 'text-slate-400' : 'text-slate-400'}`}>
                               {new Date(item.createdAt).toLocaleDateString([], {
                                 month: 'short',
                                 day: 'numeric',
@@ -560,7 +593,11 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleDelete(item.id)}
-                                className="p-1 rounded text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                                className={`p-1 rounded transition-colors cursor-pointer ${
+                                  isOfficialAdmin
+                                    ? 'text-slate-400 hover:text-rose-400'
+                                    : 'text-slate-400 hover:text-rose-600'
+                                }`}
                                 title="Admin: Delete Comment"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -570,7 +607,7 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
                         </div>
 
                         {/* Comment Content with Clickable Links */}
-                        <div className={`text-xs leading-relaxed ${isAdmin ? 'text-slate-900 font-medium' : 'text-slate-700'}`}>
+                        <div className={`text-xs leading-relaxed ${isOfficialAdmin ? 'text-slate-200' : 'text-slate-800'}`}>
                           {renderTextWithLinks(item.comment)}
                         </div>
 
@@ -594,14 +631,14 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
                           </div>
                         )}
 
-                        <div className="pt-1 flex items-center justify-between text-[11px] text-slate-500">
+                        <div className="pt-1 flex items-center justify-between text-[11px]">
                           <button
                             type="button"
                             onClick={() => handleLike(item.id)}
                             className={`flex items-center gap-1 font-mono transition-colors cursor-pointer ${
                               likedIds.has(item.id)
-                                ? 'text-indigo-600 font-bold'
-                                : 'hover:text-indigo-600 text-slate-500'
+                                ? isOfficialAdmin ? 'text-emerald-400 font-bold' : 'text-indigo-600 font-bold'
+                                : isOfficialAdmin ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-indigo-600'
                             }`}
                           >
                             <ThumbsUp className="w-3 h-3" />
@@ -610,79 +647,136 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
                         </div>
                       </div>
                     );
-                  })}
-                </div>
+                  };
 
-                {/* Reply to this Thread (With Image Attachment) */}
-                <div className="pt-1 space-y-2">
-                  {attachedImageForThread && (
-                    <div className="relative inline-block">
-                      <img
-                        src={attachedImageForThread}
-                        alt="Reply preview"
-                        className="w-16 h-16 object-cover rounded-lg border border-indigo-200 shadow-2xs bg-white"
-                      />
+                  return (
+                    <div className="space-y-3">
+                      {/* 1. Original Student Doubt */}
+                      {originalPost && (
+                        <div className="space-y-1">
+                          <div className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-1">
+                            <span>❓ Original Doubt / Question</span>
+                          </div>
+                          {renderItem(originalPost, true, originalPost.role === 'admin' || originalPost.role === 'faculty')}
+                        </div>
+                      )}
+
+                      {/* 2. Official Faculty Admin Answers */}
+                      {adminReplies.length > 0 && (
+                        <div className="space-y-2 pt-1">
+                          <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Official Admin &amp; Faculty Answers ({adminReplies.length})</span>
+                          </div>
+                          <div className="space-y-2">
+                            {adminReplies.map((item) => renderItem(item, false, true))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 3. Peer Community Replies */}
+                      {communityReplies.length > 0 && (
+                        <div className="space-y-2 pt-1 pl-2 sm:pl-3 border-l-2 border-slate-200">
+                          <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                            <MessageSquare className="w-3 h-3 text-slate-400" />
+                            <span>Peer Discussion &amp; Candidate Solutions ({communityReplies.length})</span>
+                          </div>
+                          <div className="space-y-2">
+                            {communityReplies.map((item) => renderItem(item, false, false))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Reply Form or Login Gate */}
+                {!currentUser ? (
+                  <div className="pt-2">
+                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                      <span className="text-slate-600 font-medium">
+                        🔒 Sign in with your candidate account to answer this doubt or join the discussion.
+                      </span>
                       <button
                         type="button"
-                        onClick={() => {
-                          setReplyImageMap((prev) => {
-                            const updated = { ...prev };
-                            delete updated[thread.key];
-                            return updated;
-                          });
-                        }}
-                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] hover:bg-rose-600 transition-colors cursor-pointer"
+                        onClick={onRequireAuth}
+                        className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors cursor-pointer shrink-0 shadow-2xs"
                       >
-                        <X className="w-2.5 h-2.5" />
+                        Sign In to Reply
                       </button>
                     </div>
-                  )}
-
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      placeholder={`Reply to Question ${thread.questionId} (or share link/explanation)...`}
-                      value={replyInputMap[thread.key] || ''}
-                      onChange={(e) =>
-                        setReplyInputMap((prev) => ({ ...prev, [thread.key]: e.target.value }))
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handlePostReply(thread.quizId, thread.questionId, thread.key);
-                        }
-                      }}
-                      className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:bg-white focus:border-indigo-600 focus:outline-none font-medium"
-                    />
-
-                    {/* Image Attachment Button */}
-                    <label
-                      className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer shrink-0"
-                      title="Attach picture or screenshot"
-                    >
-                      <ImageIcon className="w-4 h-4" />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => handleImagePickForThread(thread.key, e)}
-                      />
-                    </label>
-
-                    <button
-                      type="button"
-                      onClick={() => handlePostReply(thread.quizId, thread.questionId, thread.key)}
-                      disabled={
-                        submittingThreadKey === thread.key ||
-                        (!attachedImageForThread && !(replyInputMap[thread.key] || '').trim())
-                      }
-                      className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
-                    >
-                      <Send className="w-3 h-3" />
-                      <span>{submittingThreadKey === thread.key ? 'Posting...' : 'Reply'}</span>
-                    </button>
                   </div>
-                </div>
+                ) : (
+                  <div className="pt-2 space-y-2">
+                    {attachedImageForThread && (
+                      <div className="relative inline-block">
+                        <img
+                          src={attachedImageForThread}
+                          alt="Reply preview"
+                          className="w-16 h-16 object-cover rounded-lg border border-indigo-200 shadow-2xs bg-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReplyImageMap((prev) => {
+                              const updated = { ...prev };
+                              delete updated[thread.key];
+                              return updated;
+                            });
+                          }}
+                          className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] hover:bg-rose-600 transition-colors cursor-pointer"
+                        >
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder={`Reply to Question ${thread.questionId} as ${currentUser.role === 'admin' ? 'Evalnium Admin' : currentUser.name}...`}
+                        value={replyInputMap[thread.key] || ''}
+                        onChange={(e) =>
+                          setReplyInputMap((prev) => ({ ...prev, [thread.key]: e.target.value }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handlePostReply(thread.quizId, thread.questionId, thread.key);
+                          }
+                        }}
+                        className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:bg-white focus:border-indigo-600 focus:outline-none font-medium"
+                      />
+
+                      {/* Image Attachment Button */}
+                      <label
+                        className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer shrink-0"
+                        title="Attach picture or screenshot"
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleImagePickForThread(thread.key, e)}
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => handlePostReply(thread.quizId, thread.questionId, thread.key)}
+                        disabled={
+                          submittingThreadKey === thread.key ||
+                          (!attachedImageForThread && !(replyInputMap[thread.key] || '').trim())
+                        }
+                        className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
+                      >
+                        <Send className="w-3 h-3" />
+                        <span>{submittingThreadKey === thread.key ? 'Posting...' : 'Reply'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}

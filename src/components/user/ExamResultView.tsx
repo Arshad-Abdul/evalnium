@@ -3,11 +3,17 @@ import type { QuizAttemptResult, Quiz, Question, UserAnswer } from '../../types/
 import { getStoredResults } from '../../utils/storage';
 import { translateToHindi } from '../../utils/translator';
 import { getItemPrefix, cleanItemText } from '../../utils/parsers';
-import { Trophy, AlertCircle, RotateCcw, Home, HelpCircle, BookOpen, Languages, Target, UserCheck, Clock, CheckCircle2, XCircle, Award } from 'lucide-react';
+import { Trophy, AlertCircle, RotateCcw, Home, HelpCircle, BookOpen, Languages, Target, UserCheck, Clock, CheckCircle2, XCircle, Award, Bookmark } from 'lucide-react';
 import { AudioPlayerButton } from '../common/AudioPlayerButton';
 import { FormattedQuestionStem } from '../common/FormattedQuestionStem';
 import { CertificateModal } from './CertificateModal';
 import { QuestionDiscussion } from '../exam/QuestionDiscussion';
+import { useAuth } from '../../context/AuthContext';
+import {
+  saveBookmarkedQuestion,
+  removeBookmarkedQuestion,
+  getStoredSavedEntries,
+} from './RevisionHubModal';
 
 interface ExamResultViewProps {
   result: QuizAttemptResult;
@@ -22,10 +28,15 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
   onRetake,
   onGoHome,
 }) => {
+  const { currentUser } = useAuth();
   const [filterType, setFilterType] = useState<'all' | 'correct' | 'wrong' | 'skipped'>('all');
   const [languageMode, setLanguageMode] = useState<'dual' | 'en' | 'hi'>('dual');
   const [allAttempts, setAllAttempts] = useState<QuizAttemptResult[]>([]);
   const [showCertModal, setShowCertModal] = useState<boolean>(false);
+  const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(() => {
+    const existing = getStoredSavedEntries();
+    return new Set(existing.map((e) => e.id));
+  });
   const [autoHindiMap, setAutoHindiMap] = useState<Record<string, {
     questionText?: string;
     options: Record<string, string>;
@@ -568,7 +579,36 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                     </span>
                   </div>
 
-                  <AudioPlayerButton textToRead={q.questionEnglish || q.questionText} />
+                  <div className="flex items-center space-x-2">
+                    <AudioPlayerButton textToRead={q.questionEnglish || q.questionText} />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (bookmarkedIds.has(q.id)) {
+                          removeBookmarkedQuestion(q.id, currentUser?.uid);
+                          setBookmarkedIds((prev) => {
+                            const next = new Set(prev);
+                            next.delete(q.id);
+                            return next;
+                          });
+                        } else {
+                          saveBookmarkedQuestion(q, currentUser?.uid, result.quizId, result.quizTitle);
+                          setBookmarkedIds((prev) => new Set([...prev, q.id]));
+                        }
+                      }}
+                      className={`px-2.5 py-1 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                        bookmarkedIds.has(q.id)
+                          ? 'bg-amber-100 border-amber-300 text-amber-900 shadow-2xs'
+                          : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600'
+                      }`}
+                      title={bookmarkedIds.has(q.id) ? 'Saved in Revision Bank' : 'Save for Revision'}
+                    >
+                      <Bookmark className={`w-3.5 h-3.5 ${bookmarkedIds.has(q.id) ? 'fill-amber-500 text-amber-600' : 'text-slate-400'}`} />
+                      <span className="text-[11px] font-bold hidden sm:inline">
+                        {bookmarkedIds.has(q.id) ? 'Saved' : 'Save'}
+                      </span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Reading Comprehension Passage */}

@@ -54,12 +54,13 @@ const CandidateDashboard = lazyWithRetry(() => import('./components/user/Candida
 const ExamRunner = lazyWithRetry(() => import('./components/user/ExamRunner').then(m => ({ default: m.ExamRunner })));
 const ExamResultView = lazyWithRetry(() => import('./components/user/ExamResultView').then(m => ({ default: m.ExamResultView })));
 const RevisionHubModal = lazyWithRetry(() => import('./components/user/RevisionHubModal').then(m => ({ default: m.RevisionHubModal })));
+const RevisionHubView = lazyWithRetry(() => import('./components/user/RevisionHubView').then(m => ({ default: m.RevisionHubView })));
 const AboutPage = lazyWithRetry(() => import('./components/common/AboutPage').then(m => ({ default: m.AboutPage })));
 const DoubtsHubView = lazyWithRetry(() => import('./components/user/DoubtsHubView').then(m => ({ default: m.DoubtsHubView })));
 
 function MainAppContent() {
   const { isAdminAuthenticated, logoutAdmin, currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'admin'>('user');
+  const [activeTab, setActiveTab] = useState<'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'saved' | 'admin'>('user');
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [attemptsHistory, setAttemptsHistory] = useState<QuizAttemptResult[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -141,7 +142,7 @@ function MainAppContent() {
       const isAdminSession = Boolean(isAdminAuthenticated || activeTab === 'admin');
       const currentPage = examPhase === 'running' 
         ? `Taking Exam: ${selectedQuiz?.title || 'CBT Assessment'}` 
-        : (activeTab === 'dashboard' ? 'Candidate Dashboard' : (activeTab === 'leaderboard' ? 'Live Rankings' : (activeTab === 'doubts' ? 'Doubts Hub' : (activeTab === 'admin' ? 'Admin Studio' : (activeTab === 'about' ? 'About Portal' : 'Exam Catalog')))));
+        : (activeTab === 'dashboard' ? 'Candidate Dashboard' : (activeTab === 'leaderboard' ? 'Live Rankings' : (activeTab === 'doubts' ? 'Doubts Hub' : (activeTab === 'saved' ? 'Revision Bank' : (activeTab === 'admin' ? 'Admin Studio' : (activeTab === 'about' ? 'About Portal' : 'Exam Catalog'))))));
 
       const body = JSON.stringify({
         clientId,
@@ -239,12 +240,14 @@ function MainAppContent() {
       document.title = 'Candidate Dashboard & Performance | Evalnium';
     } else if (activeTab === 'leaderboard') {
       document.title = 'National & State Rankings | Evalnium Leaderboard';
+    } else if (activeTab === 'saved') {
+      document.title = 'Student Revision Bank & Saved Questions | Evalnium';
     } else {
       document.title = 'Evalnium | Global CBT Examination & Assessment Platform';
     }
   }, [examPhase, selectedQuiz, activeTab]);
 
-  const handleTabChange = (tab: 'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'admin') => {
+  const handleTabChange = (tab: 'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'saved' | 'admin') => {
     if (tab === 'admin') {
       if (!isAdminAuthenticated) {
         setShowAdminLockModal(true);
@@ -453,7 +456,7 @@ function MainAppContent() {
           onAdminLogout={handleAdminLogout}
           onCandidateLogout={handleCandidateLogout}
           totalQuizzesCount={candidateVisibleQuizzes.length}
-          onOpenRevisionHub={() => setShowRevisionHubModal(true)}
+          onOpenRevisionHub={() => setActiveTab('saved')}
         />
       )}
 
@@ -510,6 +513,15 @@ function MainAppContent() {
               quizzes={candidateVisibleQuizzes}
               onSelectQuiz={handleSelectQuiz}
               onNavigateToCatalog={() => setActiveTab('user')}
+              onRequireAuth={() => setShowAuthModal(true)}
+            />
+          ) : activeTab === 'saved' ? (
+            <RevisionHubView
+              quizzes={candidateVisibleQuizzes}
+              onNavigateToCatalog={() => setActiveTab('user')}
+              onSelectQuiz={handleSelectQuiz}
+              onRequireAuth={() => setShowAuthModal(true)}
+              onNavigateToDoubts={() => setActiveTab('doubts')}
             />
           ) : activeTab === 'about' ? (
             <AboutPage
