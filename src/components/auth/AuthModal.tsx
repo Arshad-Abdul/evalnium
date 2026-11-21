@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { User, Mail, X, CheckCircle, ShieldCheck, KeyRound, RefreshCw, ArrowLeft, Loader2, Phone, MapPin, Briefcase, Building2, GraduationCap, AlertTriangle, ExternalLink } from 'lucide-react';
+import { User, Mail, X, CheckCircle, ShieldCheck, KeyRound, RefreshCw, ArrowLeft, Loader2, Phone, MapPin, Briefcase, Building2, GraduationCap, AlertTriangle, ExternalLink, Eye, EyeOff } from 'lucide-react';
 import { LegalPolicyModal, type LegalDocType } from '../common/LegalPolicyModal';
 import { TargetExamSelector, DEFAULT_LIS_EXAM } from './TargetExamSelector';
 import { COUNTRY_CODES } from '../../utils/countryCodes';
@@ -116,11 +116,15 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  initialTab?: 'signin' | 'register' | 'forgot_password';
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess, initialTab = 'signin' }) => {
   const { registerCandidate, loginCandidate, resetPassword, checkCandidateExists } = useAuth();
-  const [tab, setTab] = useState<'signin' | 'register' | 'forgot_password'>('register');
+  const [tab, setTab] = useState<'signin' | 'register' | 'forgot_password'>(initialTab || 'signin');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [showNewPassword, setShowNewPassword] = useState<boolean>(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -165,6 +169,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
     }
     return () => clearInterval(interval);
   }, [step, resendTimer]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTab(initialTab || 'signin');
+      setStep('details');
+      setOtpError(null);
+      setSuccessMsg(null);
+      setShowPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
+    }
+  }, [isOpen, initialTab]);
 
   if (!isOpen) return null;
 
@@ -225,6 +241,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       }
       if (!termsAccepted) {
         setOtpError('Please agree to the Terms & Conditions and Privacy Policy to continue.');
+        return;
+      }
+      if (!password || password.length < 6) {
+        setOtpError('Please choose a password with at least 6 characters.');
         return;
       }
     }
@@ -464,25 +484,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
               <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
                 <button
                   type="button"
-                  onClick={() => setTab('register')}
-                  className={`w-1/2 py-2 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  onClick={() => {
+                    setTab('signin');
+                    setOtpError(null);
+                  }}
+                  className={`w-1/2 py-2 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                    tab === 'signin'
+                      ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTab('register');
+                    setOtpError(null);
+                  }}
+                  className={`w-1/2 py-2 rounded-md text-xs font-bold transition-all cursor-pointer ${
                     tab === 'register'
                       ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   Create Account
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTab('signin')}
-                  className={`w-1/2 py-2 rounded-xl text-xs font-bold transition-all ${
-                    tab === 'signin'
-                      ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Sign In
                 </button>
               </div>
             ) : (
@@ -733,17 +759,46 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
               {tab !== 'forgot_password' && (
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700">Password</label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-700">Password</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer select-none"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? (
+                        <>
+                          <EyeOff className="w-3.5 h-3.5" />
+                          <span>Hide</span>
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Show</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                   <div className="relative">
-                    <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                    <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
                     <input
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Enter your password"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      placeholder={tab === 'register' ? 'Create a secure password (min 6 characters)' : 'Enter your account password'}
+                      className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-2.5 p-0.5 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
               )}
@@ -826,6 +881,43 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                   </>
                 )}
               </button>
+
+              {/* Form Navigation / Quick Switcher */}
+              {tab === 'signin' && (
+                <div className="pt-3 border-t border-slate-100 text-center">
+                  <p className="text-xs text-slate-600">
+                    Don't have an Evalnium account yet?{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTab('register');
+                        setOtpError(null);
+                      }}
+                      className="font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer ml-1"
+                    >
+                      Create Candidate Account
+                    </button>
+                  </p>
+                </div>
+              )}
+
+              {tab === 'register' && (
+                <div className="pt-3 border-t border-slate-100 text-center">
+                  <p className="text-xs text-slate-600">
+                    Already registered with Evalnium?{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTab('signin');
+                        setOtpError(null);
+                      }}
+                      className="font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer ml-1"
+                    >
+                      Sign In to Account
+                    </button>
+                  </p>
+                </div>
+              )}
             </form>
           </>
         )}
@@ -1021,32 +1113,90 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             )}
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700">New Password</label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-slate-700">New Password</label>
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer select-none"
+                  tabIndex={-1}
+                >
+                  {showNewPassword ? (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5" />
+                      <span>Hide</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Show</span>
+                    </>
+                  )}
+                </button>
+              </div>
               <div className="relative">
-                <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
                 <input
-                  type="password"
+                  type={showNewPassword ? 'text' : 'password'}
                   required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="At least 6 characters"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-3 top-2.5 p-0.5 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                  title={showNewPassword ? 'Hide password' : 'Show password'}
+                  tabIndex={-1}
+                >
+                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700">Confirm New Password</label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-slate-700">Confirm New Password</label>
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer select-none"
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5" />
+                      <span>Hide</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Show</span>
+                    </>
+                  )}
+                </button>
+              </div>
               <div className="relative">
-                <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
                 <input
-                  type="password"
+                  type={showConfirmPassword ? 'text' : 'password'}
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Re-enter new password"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-2.5 p-0.5 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                  title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 

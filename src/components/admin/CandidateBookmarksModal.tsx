@@ -206,3 +206,4 @@ export const CandidateBookmarksModal: React.FC<CandidateBookmarksModalProps> = (
     </div>
   );
 };
+
