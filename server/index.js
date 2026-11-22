@@ -4233,7 +4233,7 @@ app.post('/api/admin/discussions/:id/pin', authenticateAdmin, async (req, res) =
   const { id } = req.params;
   try {
     await pool.query('UPDATE question_discussions SET is_pinned = NOT is_pinned WHERE id = ?', [id]);
-    
+
     // Audit Log: Solution Pinned / Unpinned
     recordAuditLog({
       eventType: 'admin_action',
@@ -4320,7 +4320,7 @@ app.post('/api/discussions/:quizId/:questionId', discussionCommentLimiter, async
   const verifiedName = isAdmin
     ? 'Evalnium Admin'
     : (authenticatedCandidate?.name || (typeof userName === 'string' && userName.trim()) || 'Candidate');
-  
+
   const verifiedEmail = isAdmin
     ? 'evalniumlis@gmail.com'
     : (authenticatedCandidate?.email || (userEmail ? String(userEmail).slice(0, 255).trim() : null));
