@@ -62,6 +62,10 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
 
   const totalCorrectCount = myAttempts.reduce((acc, curr) => acc + (curr.correctAnswers || 0), 0);
   const totalAttemptedQuestionsCount = myAttempts.reduce((acc, curr) => acc + ((curr.correctAnswers || 0) + (curr.wrongAnswers || 0)), 0);
+  const totalQuestionsCount = myAttempts.reduce((acc, curr) => {
+    const qCount = curr.totalQuestions || ((curr.correctAnswers || 0) + (curr.wrongAnswers || 0) + (curr.skippedQuestions || 0));
+    return acc + qCount;
+  }, 0);
   const accuracyRate = totalAttemptedQuestionsCount > 0 ? Math.round((totalCorrectCount / totalAttemptedQuestionsCount) * 100) : 0;
 
   const platformScoreSum = attemptsHistory.reduce((acc, curr) => acc + curr.percentage, 0);
@@ -195,11 +199,32 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
           </div>
         </div>
 
-        <div className="p-4 sm:p-5 space-y-1">
+        <div
+          className="p-4 sm:p-5 space-y-1"
+          title={
+            totalAttemptedQuestionsCount > 0
+              ? `${accuracyRate}% attempt precision: ${totalCorrectCount} correct out of ${totalAttemptedQuestionsCount} answered questions (${totalQuestionsCount > totalAttemptedQuestionsCount ? `${totalQuestionsCount - totalAttemptedQuestionsCount} skipped` : '0 skipped'})`
+              : 'No questions answered yet'
+          }
+        >
           <span className="text-xs font-medium text-slate-500 block">Accuracy</span>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-bold text-emerald-700 tabular-nums">{accuracyRate}%</span>
-            <span className="text-xs text-slate-400">correct</span>
+            <span
+              className={`text-2xl sm:text-3xl font-bold tabular-nums ${
+                totalAttemptedQuestionsCount === 0
+                  ? 'text-slate-400'
+                  : accuracyRate >= 70 && averagePercentage >= 35
+                  ? 'text-emerald-700'
+                  : accuracyRate >= 50
+                  ? 'text-amber-700'
+                  : 'text-rose-700'
+              }`}
+            >
+              {accuracyRate}%
+            </span>
+            <span className="text-xs text-slate-400">
+              {totalAttemptedQuestionsCount > 0 ? `${totalCorrectCount}/${totalAttemptedQuestionsCount} answered` : '0 answered'}
+            </span>
           </div>
         </div>
 
@@ -360,7 +385,7 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
         <div className="portal-card p-5 sm:p-6 space-y-4">
           <div className="border-b border-slate-100 pb-3">
             <h2 className="text-sm font-bold text-slate-900">Subject Breakdown</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Average accuracy by topic</p>
+            <p className="text-xs text-slate-500 mt-0.5">Average score by topic</p>
           </div>
 
           <div className="space-y-3">
