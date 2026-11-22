@@ -273,18 +273,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       const res = await fetch(`${getApiUrl()}/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: cleanEmail, name: name.trim() }),
       });
 
       const data = await res.json();
       setIsLoading(false);
 
-      if (res.ok) {
+      if (res.ok && data.success) {
         setOtpDigits(['', '', '', '', '', '']);
         setResendTimer(30);
         setStep('otp_verify');
+        if (data.deliveryWarning) {
+          setOtpError(data.deliveryWarning);
+        } else {
+          setOtpError(null);
+        }
       } else {
-        setOtpError(data.error || 'Failed to send OTP to email.');
+        const rawErr = data.error || 'Failed to send OTP to email.';
+        const cleanErr = rawErr.includes('550-5.4.5') || rawErr.toLowerCase().includes('daily user sending limit')
+          ? 'Automated email delivery reached server daily volume. Your verification code is safely generated! Please contact Admin (evalniumlis@gmail.com) to receive your code.'
+          : rawErr;
+        setOtpError(cleanErr);
       }
     } catch {
       setIsLoading(false);

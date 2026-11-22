@@ -132,7 +132,7 @@ export const CandidateResponseModal: React.FC<CandidateResponseModalProps> = ({ 
       userAnswers[String(idx)];
 
     let status: 'correct' | 'wrong' | 'skipped' = 'skipped';
-    
+
     const isMSQ = q.questionType === 'multiple_select';
     const hasMultipleAnswers = Array.isArray(answer?.selectedOptionIds) && answer.selectedOptionIds.length > 0;
     const hasSingleAnswer = answer?.selectedOptionId !== null && answer?.selectedOptionId !== undefined && answer?.selectedOptionId !== '';
@@ -209,7 +209,7 @@ export const CandidateResponseModal: React.FC<CandidateResponseModalProps> = ({ 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex flex-col p-3 sm:p-6 animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-w-5xl w-full mx-auto h-full overflow-hidden">
-        
+
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 rounded-t-2xl flex-shrink-0">
           <div>
@@ -244,13 +244,13 @@ export const CandidateResponseModal: React.FC<CandidateResponseModalProps> = ({ 
           </div>
           <div className="flex items-center gap-4">
             <span className="flex items-center space-x-1.5 bg-emerald-950/80 border border-emerald-500/40 px-2 py-0.5 rounded text-emerald-300" title="Correct">
-              <Check className="w-3.5 h-3.5 text-emerald-400"/> <span>{attemptResult.correctAnswers}</span>
+              <Check className="w-3.5 h-3.5 text-emerald-400" /> <span>{attemptResult.correctAnswers}</span>
             </span>
             <span className="flex items-center space-x-1.5 bg-rose-950/80 border border-rose-500/40 px-2 py-0.5 rounded text-rose-300" title="Wrong">
-              <XCircle className="w-3.5 h-3.5 text-rose-400"/> <span>{attemptResult.wrongAnswers}</span>
+              <XCircle className="w-3.5 h-3.5 text-rose-400" /> <span>{attemptResult.wrongAnswers}</span>
             </span>
             <span className="flex items-center space-x-1.5 bg-amber-950/80 border border-amber-500/40 px-2 py-0.5 rounded text-amber-300" title="Skipped">
-              <MinusCircle className="w-3.5 h-3.5 text-amber-400"/> <span>{attemptResult.skippedQuestions}</span>
+              <MinusCircle className="w-3.5 h-3.5 text-amber-400" /> <span>{attemptResult.skippedQuestions}</span>
             </span>
           </div>
         </div>
@@ -258,21 +258,18 @@ export const CandidateResponseModal: React.FC<CandidateResponseModalProps> = ({ 
         {/* Responses List */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 bg-slate-100/70">
           {responseData.map(({ q, answer, status, idx, candidateChoiceLabel, correctKeyLabel }) => (
-            <div key={q.id || idx} className={`rounded-2xl border shadow-sm bg-white overflow-hidden ${
-              status === 'correct' ? 'border-emerald-300 ring-1 ring-emerald-200' :
-              status === 'wrong' ? 'border-rose-300 ring-1 ring-rose-200' : 'border-amber-300'
-            }`}>
-              
-              {/* Question Header */}
-              <div className={`px-4 py-2.5 border-b flex justify-between items-center ${
-                status === 'correct' ? 'bg-emerald-50/90 border-emerald-200' :
-                status === 'wrong' ? 'bg-rose-50/90 border-rose-200' : 'bg-amber-50/90 border-amber-200'
+            <div key={q.id || idx} className={`rounded-2xl border shadow-sm bg-white overflow-hidden ${status === 'correct' ? 'border-emerald-300 ring-1 ring-emerald-200' :
+                status === 'wrong' ? 'border-rose-300 ring-1 ring-rose-200' : 'border-amber-300'
               }`}>
+
+              {/* Question Header */}
+              <div className={`px-4 py-2.5 border-b flex justify-between items-center ${status === 'correct' ? 'bg-emerald-50/90 border-emerald-200' :
+                  status === 'wrong' ? 'bg-rose-50/90 border-rose-200' : 'bg-amber-50/90 border-amber-200'
+                }`}>
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs font-black uppercase tracking-wider ${
-                    status === 'correct' ? 'text-emerald-900' :
-                    status === 'wrong' ? 'text-rose-900' : 'text-amber-900'
-                  }`}>
+                  <span className={`text-xs font-black uppercase tracking-wider ${status === 'correct' ? 'text-emerald-900' :
+                      status === 'wrong' ? 'text-rose-900' : 'text-amber-900'
+                    }`}>
                     Question {idx + 1}
                   </span>
                   {q.questionType === 'multiple_select' && (
@@ -286,11 +283,10 @@ export const CandidateResponseModal: React.FC<CandidateResponseModalProps> = ({ 
                     </span>
                   )}
                 </div>
-                
-                <span className={`px-2.5 py-0.5 rounded text-[11px] font-extrabold border flex items-center space-x-1.5 shadow-2xs ${
-                  status === 'correct' ? 'bg-emerald-100 border-emerald-300 text-emerald-900' :
-                  status === 'wrong' ? 'bg-rose-100 border-rose-300 text-rose-900' : 'bg-amber-100 border-amber-300 text-amber-900'
-                }`}>
+
+                <span className={`px-2.5 py-0.5 rounded text-[11px] font-extrabold border flex items-center space-x-1.5 shadow-2xs ${status === 'correct' ? 'bg-emerald-100 border-emerald-300 text-emerald-900' :
+                    status === 'wrong' ? 'bg-rose-100 border-rose-300 text-rose-900' : 'bg-amber-100 border-amber-300 text-amber-900'
+                  }`}>
                   {status === 'correct' && <Check className="w-3.5 h-3.5 text-emerald-700" />}
                   {status === 'wrong' && <XCircle className="w-3.5 h-3.5 text-rose-700" />}
                   {status === 'skipped' && <MinusCircle className="w-3.5 h-3.5 text-amber-700" />}
@@ -362,11 +358,10 @@ export const CandidateResponseModal: React.FC<CandidateResponseModalProps> = ({ 
                 )}
 
                 {/* Prominent Candidate Choice vs Correct Answer Audit Banner */}
-                <div className={`p-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3 text-xs shadow-2xs ${
-                  status === 'correct' ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950' :
-                  status === 'wrong' ? 'bg-rose-50/90 border-rose-300 text-rose-950' :
-                  'bg-amber-50/90 border-amber-300 text-amber-950'
-                }`}>
+                <div className={`p-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3 text-xs shadow-2xs ${status === 'correct' ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950' :
+                    status === 'wrong' ? 'bg-rose-50/90 border-rose-300 text-rose-950' :
+                      'bg-amber-50/90 border-amber-300 text-amber-950'
+                  }`}>
                   <div className="flex flex-wrap items-center gap-3">
                     {status === 'skipped' ? (
                       <div className="flex items-center gap-1.5 font-bold text-amber-800">
@@ -381,11 +376,10 @@ export const CandidateResponseModal: React.FC<CandidateResponseModalProps> = ({ 
                           <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
                         )}
                         <span>Candidate Selected:</span>
-                        <span className={`px-2.5 py-0.5 rounded-lg font-mono font-black text-xs shadow-2xs border ${
-                          status === 'correct'
+                        <span className={`px-2.5 py-0.5 rounded-lg font-mono font-black text-xs shadow-2xs border ${status === 'correct'
                             ? 'bg-emerald-200 border-emerald-400 text-emerald-950'
                             : 'bg-rose-200 border-rose-400 text-rose-950'
-                        }`}>
+                          }`}>
                           {candidateChoiceLabel}
                         </span>
                       </div>
@@ -447,13 +441,12 @@ export const CandidateResponseModal: React.FC<CandidateResponseModalProps> = ({ 
                     return (
                       <div key={opt.id || optIdx} className={`flex flex-col justify-between p-3.5 rounded-xl border transition-all ${bgClass}`}>
                         <div className="flex items-start gap-3">
-                          <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-black border shrink-0 ${
-                            isRightAnswer
+                          <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-black border shrink-0 ${isRightAnswer
                               ? 'bg-emerald-600 text-white border-emerald-600'
                               : isCandidateChoice
                                 ? 'bg-rose-600 text-white border-rose-600'
                                 : 'bg-white border-slate-300 text-slate-700'
-                          }`}>
+                            }`}>
                             {displayLetter}
                           </span>
                           <div className="text-sm font-medium pt-0.5 leading-snug flex-1">

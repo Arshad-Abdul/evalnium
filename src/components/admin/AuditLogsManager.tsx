@@ -265,16 +265,42 @@ export const AuditLogsManager: React.FC = () => {
 
   const getEventTypeBadge = (type: string) => {
     switch (type) {
+      case 'otp_sent':
+        return <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200 font-mono">📨 OTP SENT</span>;
+      case 'otp_send_failed':
+        return <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 font-mono">🚨 OTP FAIL</span>;
+      case 'otp_verified':
+        return <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-mono">✅ OTP VERIFIED</span>;
+      case 'otp_verify_failed':
+        return <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-mono">⚠️ OTP WRONG</span>;
+      case 'otp_expired':
+        return <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-mono">⏰ OTP EXPIRED</span>;
+      case 'otp_lockout':
+        return <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 font-mono">🚫 OTP LOCKED</span>;
+      case 'user_register':
+        return <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 font-mono">👤 REGISTER</span>;
+      case 'user_register_failed':
+        return <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 font-mono">❌ REG FAIL</span>;
+      case 'user_login':
+        return <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 font-mono">🔑 LOGIN</span>;
+      case 'user_login_failed':
+        return <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 font-mono">🔒 LOGIN FAIL</span>;
+      case 'password_reset':
+        return <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200 font-mono">🔑 PWD RESET</span>;
+      case 'bookmark_add':
+        return <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-mono">🔖 SAVED</span>;
+      case 'bookmark_remove':
+        return <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-300 font-mono">🗑️ REMOVED</span>;
+      case 'doubt_post':
+        return <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 font-mono">❓ DOUBT</span>;
+      case 'doubt_reply':
+        return <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-mono">💬 REPLY</span>;
       case 'exam_submit':
         return <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-mono">🎯 SUBMIT</span>;
       case 'exam_start':
         return <span className="text-[10px] font-bold text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200 font-mono">📝 START</span>;
       case 'proctoring_alert':
         return <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 font-mono">🚨 PROCTOR</span>;
-      case 'user_login':
-        return <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 font-mono">🔑 LOGIN</span>;
-      case 'user_register':
-        return <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 font-mono">👤 REGISTER</span>;
       case 'admin_action':
         return <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-300 font-mono">🛠️ ADMIN</span>;
       default:
@@ -497,14 +523,16 @@ export const AuditLogsManager: React.FC = () => {
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Event Type:</span>
               {[
                 { id: 'all', label: 'All Categories' },
+                { id: 'auth_all', label: '🔐 Candidate Auth & OTPs' },
+                { id: 'otp_issues', label: '⚠️ OTP & Login Issues' },
+                { id: 'user_register', label: '👤 Registrations' },
+                { id: 'user_login', label: '🔑 User Logins' },
                 { id: 'exam_submit', label: '🎯 Exam Submissions' },
                 { id: 'exam_start', label: '📝 Exam Starts' },
                 { id: 'doubt_post', label: '❓ Student Doubts' },
                 { id: 'doubt_reply', label: '💬 Doubts Replies' },
                 { id: 'bookmark_add', label: '🔖 Saved Bookmarks' },
                 { id: 'proctoring_alert', label: '🚨 Proctor Alerts' },
-                { id: 'user_login', label: '🔑 User Logins' },
-                { id: 'user_register', label: '👤 Registrations' },
                 { id: 'admin_action', label: '🛠️ Admin Operations' },
               ].map((t) => (
                 <button

@@ -241,12 +241,20 @@ function logActivityEvent(type, message) {
 }
 
 
-function createMailTransporter() {
-  const user = process.env.SMTP_USER;
-  const pass = (process.env.SMTP_PASS || '').replace(/\s+/g, '');
+function createMailTransporter(useFallback = false) {
+  const user = useFallback
+    ? (process.env.SMTP_FALLBACK_USER || process.env.SMTP_SECONDARY_USER)
+    : process.env.SMTP_USER;
+  const pass = (
+    useFallback
+      ? (process.env.SMTP_FALLBACK_PASS || process.env.SMTP_SECONDARY_PASS || '')
+      : (process.env.SMTP_PASS || '')
+  ).replace(/\s+/g, '');
 
   if (!user || !pass) {
-    throw new Error('SMTP credentials (SMTP_USER and SMTP_PASS) are not configured in environment.');
+    throw new Error(useFallback
+      ? 'Fallback SMTP credentials (SMTP_FALLBACK_USER / SMTP_FALLBACK_PASS) are not configured in environment.'
+      : 'SMTP credentials (SMTP_USER and SMTP_PASS) are not configured in environment.');
   }
 
   return nodemailer.createTransport({
@@ -399,26 +407,52 @@ async function sendTemplatedEmail({
       </html>
     `;
 
-    // 4. Send via Nodemailer Transporter
-    const transporter = createMailTransporter();
+    // 4. Send via Nodemailer Transporter with Automated Fallback Support
     const senderEmail = process.env.SMTP_USER || 'evalniumlis@gmail.com';
     const isUrgentOtp = templateId === 'otp_verification';
+    const emailHeaders = isUrgentOtp ? {
+      'X-Priority': '1',
+      'X-MSMail-Priority': 'High',
+      'Importance': 'high',
+    } : {
+      'List-Unsubscribe': `<mailto:${senderEmail}?subject=Unsubscribe>`,
+      'X-Mailer': 'Evalnium Notification Engine v2.0'
+    };
 
-    const info = await transporter.sendMail({
-      from: `"Evalnium Assessment Portal" <${senderEmail}>`,
-      to: to,
-      subject: finalSubject,
-      html: htmlEmail,
-      priority: isUrgentOtp ? 'high' : 'normal',
-      headers: isUrgentOtp ? {
-        'X-Priority': '1',
-        'X-MSMail-Priority': 'High',
-        'Importance': 'high',
-      } : {
-        'List-Unsubscribe': `<mailto:${senderEmail}?subject=Unsubscribe>`,
-        'X-Mailer': 'Evalnium Notification Engine v2.0'
-      },
-    });
+    let info;
+    const hasFallback = Boolean(
+      (process.env.SMTP_FALLBACK_USER || process.env.SMTP_SECONDARY_USER) &&
+      (process.env.SMTP_FALLBACK_PASS || process.env.SMTP_SECONDARY_PASS)
+    );
+
+    try {
+      const transporter = createMailTransporter(false);
+      info = await transporter.sendMail({
+        from: `"Evalnium Assessment Portal" <${senderEmail}>`,
+        to: to,
+        subject: finalSubject,
+        html: htmlEmail,
+        priority: isUrgentOtp ? 'high' : 'normal',
+        headers: emailHeaders,
+      });
+    } catch (primaryErr) {
+      if (hasFallback) {
+        console.warn(`[SMTP FAILOVER] Primary SMTP failed (${primaryErr.message}). Retrying via secondary fallback transporter...`);
+        const fallbackTransporter = createMailTransporter(true);
+        const fallbackSender = process.env.SMTP_FALLBACK_USER || process.env.SMTP_SECONDARY_USER;
+        info = await fallbackTransporter.sendMail({
+          from: `"Evalnium Assessment Portal" <${fallbackSender}>`,
+          to: to,
+          subject: finalSubject,
+          html: htmlEmail,
+          priority: isUrgentOtp ? 'high' : 'normal',
+          headers: emailHeaders,
+        });
+        console.log(`[SMTP FAILOVER DELIVERED] ✅ Sent "${templateId}" to ${to} via fallback SMTP. MessageID: ${info.messageId}`);
+      } else {
+        throw primaryErr;
+      }
+    }
 
     console.log(`[TEMPLATED EMAIL DELIVERED] ✅ Sent "${templateId}" to ${to}. MessageID: ${info.messageId}`);
 
@@ -1145,7 +1179,7 @@ const otpIpLimiter = createRateLimiter({
 
 app.post('/api/auth/send-otp', otpIpLimiter, async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, name: candidateName } = req.body;
     if (!email) return res.status(400).json({ error: 'Email address is required' });
 
     const key = email.toLowerCase().trim();
@@ -1194,24 +1228,73 @@ app.post('/api/auth/send-otp', otpIpLimiter, async (req, res) => {
     otpStore.set(key, { otp, expiresAt, attempts: 0 });
     console.log(`[REAL EMAIL DISPATCH] 📩 Sending 6-digit OTP code to ${email}...`);
 
-    await sendTemplatedEmail({
-      to: email,
-      templateId: 'otp_verification',
-      templateData: {
-        otp: otp
-      },
-      fallbackSubject: 'Your Evalnium Verification Code',
-      fallbackHeading: 'Confirm Your Candidate Account',
-      fallbackBody: `Dear Candidate,\n\nYour one-time security code to verify your Evalnium account is:\n\n{{otp}}\n\nThis code will expire in 5 minutes. If you did not initiate this request, please ignore this email.`
-    });
+    let emailDispatched = true;
+    let deliveryWarning = null;
+
+    try {
+      await sendTemplatedEmail({
+        to: email,
+        templateId: 'otp_verification',
+        templateData: {
+          otp: otp,
+          candidate_name: candidateName || 'Candidate'
+        },
+        fallbackSubject: 'Your Evalnium Verification Code',
+        fallbackHeading: 'Confirm Your Candidate Account',
+        fallbackBody: `Dear Candidate,\n\nYour one-time security code to verify your Evalnium account is:\n\n{{otp}}\n\nThis code will expire in 5 minutes. If you did not initiate this request, please ignore this email.`
+      });
+
+      // Audit Log: OTP Dispatched Successfully
+      recordAuditLog({
+        eventType: 'otp_sent',
+        severity: 'info',
+        actorName: candidateName || 'Candidate',
+        actorEmail: key,
+        actorRole: 'candidate',
+        actionTitle: `📨 OTP Dispatched: Verification code sent to ${key}`,
+        detailsText: `6-digit email OTP generated and delivered. Domain: @${domain}. Valid for 5 minutes.`,
+        ipAddress: req.ip || '127.0.0.1'
+      });
+    } catch (sendErr) {
+      emailDispatched = false;
+      const isDailyLimit = String(sendErr.message || '').includes('550-5.4.5') ||
+        String(sendErr.message || '').toLowerCase().includes('daily user sending limit');
+
+      console.error('❌ Error sending OTP email via Gmail SMTP:', sendErr.message);
+
+      // Audit Log: Failure to Deliver (Danger severity)
+      recordAuditLog({
+        eventType: 'otp_send_failed',
+        severity: 'danger',
+        actorName: candidateName || 'Candidate',
+        actorEmail: key,
+        actorRole: 'candidate',
+        actionTitle: `🚨 OTP Delivery Failed: ${key}`,
+        detailsText: `Gmail SMTP Error: ${sendErr.message || 'Failed to dispatch email'}. (Note: OTP code ${otp} is active for 5 minutes and accessible in Emergency Live OTP panel).`,
+        ipAddress: req.ip || '127.0.0.1'
+      });
+
+      deliveryWarning = isDailyLimit
+        ? 'Automated email delivery reached Google daily limit. Your verification code is safely generated! Contact Admin or support (evalniumlis@gmail.com) for your 6-digit code.'
+        : `Temporary delay delivering verification email: ${sendErr.message || 'Failed to dispatch'}. Your code is safely generated and valid for 5 minutes.`;
+
+      // Allow candidate to proceed to OTP verification screen so Admin can provide code via Live OTP Support
+      return res.json({
+        success: true,
+        emailSent: false,
+        deliveryWarning: deliveryWarning,
+        message: deliveryWarning,
+      });
+    }
 
     res.json({
       success: true,
+      emailSent: true,
       message: 'Verification OTP code dispatched to candidate email address.',
     });
   } catch (err) {
-    console.error('❌ Error sending OTP email via Gmail SMTP:', err);
-    res.status(500).json({ error: `Gmail SMTP Error: ${err.message || 'Failed to send OTP'}` });
+    console.error('❌ Error in send-otp endpoint:', err);
+    res.status(500).json({ error: err.message || 'Failed to process OTP request.' });
   }
 });
 
@@ -1223,18 +1306,48 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     const key = email.toLowerCase().trim();
     const record = otpStore.get(key);
     if (!record) {
+      recordAuditLog({
+        eventType: 'otp_expired',
+        severity: 'warning',
+        actorName: 'Candidate',
+        actorEmail: key,
+        actorRole: 'candidate',
+        actionTitle: `⚠️ No Active OTP Found for ${key}`,
+        detailsText: 'Verification code was not found or has already expired. Candidate must request a new code.',
+        ipAddress: req.ip || '127.0.0.1'
+      });
       return res.status(400).json({ error: 'No OTP found or expired. Please request a new code.' });
     }
 
     if (Date.now() > record.expiresAt) {
       otpStore.delete(key);
-      return res.status(400).json({ error: 'OTP expired. Please request a new code.' });
+      recordAuditLog({
+        eventType: 'otp_expired',
+        severity: 'warning',
+        actorName: 'Candidate',
+        actorEmail: key,
+        actorRole: 'candidate',
+        actionTitle: `⏰ OTP Code Expired: ${key}`,
+        detailsText: 'Candidate attempted to enter verification code after the 5-minute validity window expired.',
+        ipAddress: req.ip || '127.0.0.1'
+      });
+      return res.status(400).json({ error: 'Verification code has expired (5-minute limit). Please request a new code.' });
     }
 
     // Enforce brute-force attempt quota: maximum 5 attempts per OTP code (CWE-307)
     record.attempts = (record.attempts || 0) + 1;
     if (record.attempts > 5) {
       otpStore.delete(key);
+      recordAuditLog({
+        eventType: 'otp_lockout',
+        severity: 'danger',
+        actorName: 'Candidate',
+        actorEmail: key,
+        actorRole: 'candidate',
+        actionTitle: `🚨 OTP Brute-Force Lockout: ${key}`,
+        detailsText: 'Too many failed verification attempts (5 exceeded). Verification code revoked.',
+        ipAddress: req.ip || '127.0.0.1'
+      });
       return res.status(429).json({
         error: 'Too many failed verification attempts. For your security, this verification code has been revoked. Please request a new code.'
       });
@@ -1246,18 +1359,51 @@ app.post('/api/auth/verify-otp', async (req, res) => {
       const remaining = 5 - record.attempts;
       if (remaining <= 0) {
         otpStore.delete(key);
+        recordAuditLog({
+          eventType: 'otp_lockout',
+          severity: 'danger',
+          actorName: 'Candidate',
+          actorEmail: key,
+          actorRole: 'candidate',
+          actionTitle: `🚨 OTP Revoked (All Attempts Exhausted): ${key}`,
+          detailsText: 'Candidate exhausted all 5 attempts with incorrect codes.',
+          ipAddress: req.ip || '127.0.0.1'
+        });
         return res.status(429).json({
           error: 'Too many failed verification attempts. This verification code has been revoked. Please request a new code.'
         });
       }
+      recordAuditLog({
+        eventType: 'otp_verify_failed',
+        severity: 'warning',
+        actorName: 'Candidate',
+        actorEmail: key,
+        actorRole: 'candidate',
+        actionTitle: `⚠️ Invalid OTP Entered: ${key} (Attempt ${record.attempts}/5)`,
+        detailsText: `Candidate entered incorrect OTP code. ${remaining} attempt(s) remaining.`,
+        ipAddress: req.ip || '127.0.0.1'
+      });
       return res.status(400).json({
         error: `Incorrect OTP code entered. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`
       });
     }
 
     // OTP Verified successfully! Issue short-lived verification token for register / reset-password
+    const attemptsCount = record.attempts;
     otpStore.delete(key);
     const verificationToken = issueVerifiedEmailToken(key);
+
+    recordAuditLog({
+      eventType: 'otp_verified',
+      severity: 'success',
+      actorName: 'Candidate',
+      actorEmail: key,
+      actorRole: 'candidate',
+      actionTitle: `✅ OTP Verified: ${key}`,
+      detailsText: `Candidate email successfully verified via 6-digit code in ${attemptsCount} attempt(s).`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
+
     res.json({ success: true, message: 'OTP verified successfully!', verificationToken });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1388,6 +1534,16 @@ app.post('/api/users/register', candidateRegistrationLimiter, async (req, res) =
     // Prevent overwriting an already-registered passworded account via /register
     const [existingRows] = await pool.query('SELECT uid, password_hash FROM users WHERE email = ?', [normalizedEmail]);
     if (existingRows.length > 0 && existingRows[0].password_hash) {
+      recordAuditLog({
+        eventType: 'user_register_failed',
+        severity: 'warning',
+        actorName: cleanName,
+        actorEmail: normalizedEmail,
+        actorRole: 'candidate',
+        actionTitle: `🚫 Duplicate Registration Blocked: ${normalizedEmail}`,
+        detailsText: `Candidate "${cleanName}" attempted to register with email "${normalizedEmail}" which is already an active registered candidate account.`,
+        ipAddress: req.ip || '127.0.0.1'
+      });
       return res.status(409).json({
         error: 'An account with this email already exists. Please sign in or use Forgot Password.'
       });
@@ -1522,6 +1678,16 @@ app.post('/api/users/login', candidateLoginLimiter, async (req, res) => {
     const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
 
     if (rows.length === 0) {
+      recordAuditLog({
+        eventType: 'user_login_failed',
+        severity: 'warning',
+        actorName: 'Unknown Candidate',
+        actorEmail: normalizedEmail,
+        actorRole: 'anonymous',
+        actionTitle: `🔒 Login Failed (Account Not Found): ${normalizedEmail}`,
+        detailsText: 'Attempted login with an email address not found in Evalnium database.',
+        ipAddress: req.ip || '127.0.0.1'
+      });
       return res.status(404).json({ error: 'Account not found. Please create an account first.' });
     }
 
@@ -1529,12 +1695,32 @@ app.post('/api/users/login', candidateLoginLimiter, async (req, res) => {
 
     // Handle old users who don't have a password set yet
     if (!user.password_hash) {
+      recordAuditLog({
+        eventType: 'user_login_failed',
+        severity: 'warning',
+        actorName: user.name,
+        actorEmail: normalizedEmail,
+        actorRole: user.role || 'candidate',
+        actionTitle: `🔒 Login Blocked (Password Not Set): ${normalizedEmail}`,
+        detailsText: 'Legacy account attempted login without having set a password yet.',
+        ipAddress: req.ip || '127.0.0.1'
+      });
       return res.status(403).json({ error: 'Your account does not have a password set yet. Please use the "Create Account" tab to verify your email and create a password. (Your existing exam history will be preserved).' });
     }
 
     // Verify password
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
+      recordAuditLog({
+        eventType: 'user_login_failed',
+        severity: 'warning',
+        actorName: user.name,
+        actorEmail: normalizedEmail,
+        actorRole: user.role || 'candidate',
+        actionTitle: `🔒 Login Failed (Incorrect Password): ${normalizedEmail}`,
+        detailsText: `Invalid password entered for candidate "${user.name}".`,
+        ipAddress: req.ip || '127.0.0.1'
+      });
       return res.status(401).json({ error: 'Incorrect password entered.' });
     }
 
@@ -1648,6 +1834,17 @@ app.post('/api/users/reset-password', resetPasswordLimiter, async (req, res) => 
     // Verification succeeded! Hash new password and save
     const passwordHash = await bcrypt.hash(newPassword, 10);
     await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [passwordHash, normalizedEmail]);
+
+    recordAuditLog({
+      eventType: 'password_reset',
+      severity: 'success',
+      actorName: rows[0]?.name || 'Candidate',
+      actorEmail: normalizedEmail,
+      actorRole: rows[0]?.role || 'candidate',
+      actionTitle: `🔑 Password Reset Successfully: ${rows[0]?.name || normalizedEmail}`,
+      detailsText: 'Candidate successfully changed their account password via verified OTP code.',
+      ipAddress: req.ip || '127.0.0.1'
+    });
 
     res.json({ success: true, message: 'Password reset successfully!' });
   } catch (err) {
@@ -2843,8 +3040,18 @@ app.get('/api/admin/audit-logs', async (req, res) => {
 
     // Filter by Event Type
     if (eventType && eventType !== 'all') {
-      whereConditions.push('event_type = ?');
-      queryParams.push(eventType);
+      if (eventType === 'auth_all') {
+        whereConditions.push("event_type IN ('otp_sent', 'otp_send_failed', 'otp_verified', 'otp_verify_failed', 'otp_expired', 'otp_lockout', 'user_register', 'user_register_failed', 'user_login', 'user_login_failed', 'password_reset')");
+      } else if (eventType === 'otp_issues') {
+        whereConditions.push("event_type IN ('otp_send_failed', 'otp_expired', 'otp_lockout', 'otp_verify_failed', 'user_register_failed', 'user_login_failed')");
+      } else if (eventType === 'user_register') {
+        whereConditions.push("event_type IN ('user_register', 'user_register_failed')");
+      } else if (eventType === 'user_login') {
+        whereConditions.push("event_type IN ('user_login', 'user_login_failed')");
+      } else {
+        whereConditions.push('event_type = ?');
+        queryParams.push(eventType);
+      }
     }
 
     // Filter by Severity
@@ -2922,7 +3129,7 @@ app.get('/api/admin/audit-logs', async (req, res) => {
         SUM(IF(event_type = 'exam_submit', 1, 0)) as examSubmitCount,
         SUM(IF(event_type = 'exam_start', 1, 0)) as examStartCount,
         SUM(IF(event_type = 'proctoring_alert', 1, 0)) as proctoringCount,
-        SUM(IF(event_type IN ('user_login', 'user_register'), 1, 0)) as authCount
+        SUM(IF(event_type IN ('user_login', 'user_register', 'user_login_failed', 'user_register_failed', 'otp_sent', 'otp_send_failed', 'otp_verified', 'otp_verify_failed', 'otp_expired', 'otp_lockout', 'password_reset'), 1, 0)) as authCount
       FROM activity_audit_logs
     `);
 
