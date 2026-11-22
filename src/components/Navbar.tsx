@@ -115,7 +115,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     isAdminAuthenticated &&
     (!currentUser || currentUser.role === 'admin');
 
-  const navigateTo = (tab: 'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'admin') => {
+  const navigateTo = (tab: 'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'saved' | 'admin') => {
     setActiveTab(tab);
     setMobileMenuOpen(false);
   };
@@ -242,10 +242,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
 
             {/* Saved Bookmarks (Desktop) - Strictly visible for signed-in candidates */}
-            {currentUser && onOpenRevisionHub && (
+            {currentUser && (
               <button
                 type="button"
-                onClick={onOpenRevisionHub}
+                onClick={() => {
+                  navigateTo('saved');
+                  onOpenRevisionHub?.();
+                }}
                 className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
                   activeTab === 'saved'
                     ? 'bg-amber-50 border-amber-300 text-amber-900 shadow-2xs'
@@ -337,13 +340,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <span>Edit Profile</span>
                       </button>
 
-                      {onOpenRevisionHub && (
+                      {currentUser && (
                         <button
                           type="button"
                           role="menuitem"
                           onClick={() => {
                             setShowUserDropdown(false);
-                            onOpenRevisionHub();
+                            navigateTo('saved');
+                            onOpenRevisionHub?.();
                           }}
                           className="w-full lg:hidden px-2.5 py-2 rounded-lg text-left text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2 transition-colors cursor-pointer"
                         >
@@ -503,12 +507,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </span>
                 </button>
 
-                {currentUser && onOpenRevisionHub && (
+                {currentUser && (
                   <button
                     type="button"
                     onClick={() => {
-                      setMobileMenuOpen(false);
-                      onOpenRevisionHub();
+                      navigateTo('saved');
+                      onOpenRevisionHub?.();
                     }}
                     className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                   >

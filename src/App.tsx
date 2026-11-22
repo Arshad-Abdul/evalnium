@@ -86,7 +86,6 @@ function MainAppContent() {
   const [candidateName, setCandidateName] = useState('Candidate');
   const [lastResult, setLastResult] = useState<QuizAttemptResult | null>(null);
   const [pendingExamRouteId, setPendingExamRouteId] = useState<string | null>(null);
-  const [initialRouteResolved, setInitialRouteResolved] = useState<boolean>(false);
 
   // Synchronous state refs to prevent re-entrant router feedback loops
   const examPhaseRef = useRef(examPhase);
@@ -234,10 +233,7 @@ function MainAppContent() {
     const cloudQuizzes = await syncQuizzesFromMySQL();
     if (cloudQuizzes) {
       setQuizzes(cloudQuizzes);
-      if (!initialRouteResolved) {
-        setInitialRouteResolved(true);
-        applyRouteFromUrl(cloudQuizzes);
-      }
+      quizzesRef.current = cloudQuizzes;
     }
 
     const cloudResults = await syncResultsFromMySQL();
@@ -248,9 +244,14 @@ function MainAppContent() {
   };
 
   useEffect(() => {
-    setQuizzes(getStoredQuizzes());
+    const stored = getStoredQuizzes();
+    setQuizzes(stored);
+    quizzesRef.current = stored;
     setAttemptsHistory(getStoredResults());
     setAnnouncements(getStoredAnnouncements());
+
+    // Resolve initial URL route on page mount
+    applyRouteFromUrl(stored);
 
     // Fetch initial data from MySQL database server
     refreshDataFromMySQL();
@@ -258,7 +259,7 @@ function MainAppContent() {
     // Auto-poll MySQL server every 3 seconds for real-time multi-computer sync
     const timer = setInterval(refreshDataFromMySQL, 3000);
     return () => clearInterval(timer);
-  }, []);
+  }, [applyRouteFromUrl]);
 
   useEffect(() => {
     if (currentUser?.name) {
@@ -690,7 +691,7 @@ function MainAppContent() {
           onAdminLogout={handleAdminLogout}
           onCandidateLogout={handleCandidateLogout}
           totalQuizzesCount={candidateVisibleQuizzes.length}
-          onOpenRevisionHub={() => setActiveTab('saved')}
+          onOpenRevisionHub={() => handleTabChange('saved')}
         />
       )}
 
@@ -734,32 +735,32 @@ function MainAppContent() {
               quizzes={candidateVisibleQuizzes}
               attemptsHistory={attemptsHistory}
               onSelectQuiz={handleSelectQuiz}
-              onNavigateToCatalog={() => setActiveTab('user')}
+              onNavigateToCatalog={() => handleTabChange('user')}
             />
           ) : activeTab === 'leaderboard' ? (
             <LeaderboardView
               quizzes={quizzes}
               attemptsHistory={attemptsHistory}
-              onNavigateToCatalog={() => setActiveTab('user')}
+              onNavigateToCatalog={() => handleTabChange('user')}
             />
           ) : activeTab === 'doubts' ? (
             <DoubtsHubView
               quizzes={candidateVisibleQuizzes}
               onSelectQuiz={handleSelectQuiz}
-              onNavigateToCatalog={() => setActiveTab('user')}
+              onNavigateToCatalog={() => handleTabChange('user')}
               onRequireAuth={() => setShowAuthModal(true)}
             />
           ) : activeTab === 'saved' ? (
             <RevisionHubView
               quizzes={candidateVisibleQuizzes}
-              onNavigateToCatalog={() => setActiveTab('user')}
+              onNavigateToCatalog={() => handleTabChange('user')}
               onSelectQuiz={handleSelectQuiz}
               onRequireAuth={() => setShowAuthModal(true)}
-              onNavigateToDoubts={() => setActiveTab('doubts')}
+              onNavigateToDoubts={() => handleTabChange('doubts')}
             />
           ) : activeTab === 'about' ? (
             <AboutPage
-              onNavigateToCatalog={() => setActiveTab('user')}
+              onNavigateToCatalog={() => handleTabChange('user')}
             />
           ) : (
             <>
@@ -928,7 +929,7 @@ function MainAppContent() {
             <div className="flex flex-wrap items-center gap-2.5 text-slate-400 font-mono text-[11px] justify-center md:justify-end">
               <button
                 type="button"
-                onClick={() => setActiveTab('doubts')}
+                onClick={() => handleTabChange('doubts')}
                 className="text-slate-500 hover:text-slate-900 font-medium transition-colors cursor-pointer"
               >
                 Doubts Hub
@@ -936,7 +937,7 @@ function MainAppContent() {
               <span>·</span>
               <button
                 type="button"
-                onClick={() => setActiveTab('about')}
+                onClick={() => handleTabChange('about')}
                 className="text-slate-500 hover:text-slate-900 font-medium transition-colors cursor-pointer"
               >
                 About Portal
@@ -964,7 +965,7 @@ function MainAppContent() {
                   <span>·</span>
                   <button
                     type="button"
-                    onClick={() => setActiveTab('admin')}
+                    onClick={() => handleTabChange('admin')}
                     className="text-slate-500 hover:text-slate-900 font-semibold transition-colors cursor-pointer"
                   >
                     Admin Studio
