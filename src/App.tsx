@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import type { Quiz, QuizAttemptResult } from './types/quiz';
 import type { Announcement } from './types/announcement';
 import {
@@ -88,6 +88,16 @@ function MainAppContent() {
   const [pendingExamRouteId, setPendingExamRouteId] = useState<string | null>(null);
   const [initialRouteResolved, setInitialRouteResolved] = useState<boolean>(false);
 
+  // Synchronous state refs to prevent re-entrant router feedback loops
+  const examPhaseRef = useRef(examPhase);
+  examPhaseRef.current = examPhase;
+
+  const quizzesRef = useRef(quizzes);
+  quizzesRef.current = quizzes;
+
+  const isAdminAuthRef = useRef(isAdminAuthenticated);
+  isAdminAuthRef.current = isAdminAuthenticated;
+
   // Synchronize browser URL bar without page reload (HTML5 History API)
   const syncUrl = (targetPath: string, replace = false) => {
     if (typeof window === 'undefined') return;
@@ -120,7 +130,7 @@ function MainAppContent() {
 
     // 1. Admin
     if (pathname === '/admin' || hash === '#/admin') {
-      if (isAdminAuthenticated) {
+      if (isAdminAuthRef.current) {
         setActiveTab('admin');
         setShowAdminLockModal(false);
       } else {
@@ -132,30 +142,35 @@ function MainAppContent() {
     // 2. Main tabs
     if (pathname === '/dashboard' || hash === '#/dashboard') {
       setActiveTab('dashboard');
+      examPhaseRef.current = 'catalog';
       setExamPhase('catalog');
       setSelectedQuiz(null);
       return;
     }
     if (pathname === '/rankings' || pathname === '/leaderboard' || hash === '#/rankings' || hash === '#/leaderboard') {
       setActiveTab('leaderboard');
+      examPhaseRef.current = 'catalog';
       setExamPhase('catalog');
       setSelectedQuiz(null);
       return;
     }
     if (pathname === '/doubts' || hash === '#/doubts') {
       setActiveTab('doubts');
+      examPhaseRef.current = 'catalog';
       setExamPhase('catalog');
       setSelectedQuiz(null);
       return;
     }
     if (pathname === '/about' || hash === '#/about') {
       setActiveTab('about');
+      examPhaseRef.current = 'catalog';
       setExamPhase('catalog');
       setSelectedQuiz(null);
       return;
     }
     if (pathname === '/saved' || hash === '#/saved') {
       setActiveTab('saved');
+      examPhaseRef.current = 'catalog';
       setExamPhase('catalog');
       setSelectedQuiz(null);
       return;
@@ -164,14 +179,20 @@ function MainAppContent() {
     // 3. Direct Exam Paper Route (/exam/:quizId)
     const examMatch = pathname.match(/^\/exam\/([^/]+)/) || hash.match(/^#\/exam\/([^/]+)/);
     if (examMatch && examMatch[1]) {
+      // If user is actively taking the exam or viewing final scorecard, never reset back to instructions!
+      if (examPhaseRef.current === 'running' || examPhaseRef.current === 'results') {
+        return;
+      }
+
       const quizId = decodeURIComponent(examMatch[1]);
-      const available = (quizList && quizList.length > 0) ? quizList : quizzes;
+      const available = (quizList && quizList.length > 0) ? quizList : quizzesRef.current;
       if (available.length > 0) {
         const found = available.find(q => q.id === quizId);
         if (found) {
-          if (found.isPublished || isAdminAuthenticated) {
+          if (found.isPublished || isAdminAuthRef.current) {
             setSelectedQuiz(found);
             setActiveTab('user');
+            examPhaseRef.current = 'instructions';
             setExamPhase('instructions');
             if (found.hasAccessCode || found.accessCode) {
               setPendingPasscodeQuiz(found);
@@ -179,6 +200,7 @@ function MainAppContent() {
           } else {
             setPortalNotice(`The exam "${found.title}" is currently unpublished or scheduled for a later date.`);
             setActiveTab('user');
+            examPhaseRef.current = 'catalog';
             setExamPhase('catalog');
             setSelectedQuiz(null);
             syncUrl('/', true);
@@ -186,6 +208,7 @@ function MainAppContent() {
         } else {
           setPortalNotice('The requested mock assessment is currently unavailable, unpublished, or does not exist.');
           setActiveTab('user');
+          examPhaseRef.current = 'catalog';
           setExamPhase('catalog');
           setSelectedQuiz(null);
           syncUrl('/', true);
@@ -199,12 +222,13 @@ function MainAppContent() {
     // 4. Default Home / Catalog
     if (pathname === '/' || pathname === '/exams' || hash === '#/' || hash === '#/exams') {
       setActiveTab('user');
-      if (examPhase !== 'running') {
+      if (examPhaseRef.current !== 'running' && examPhaseRef.current !== 'results') {
+        examPhaseRef.current = 'catalog';
         setExamPhase('catalog');
         setSelectedQuiz(null);
       }
     }
-  }, [isAdminAuthenticated, quizzes, examPhase]);
+  }, []);
 
   const refreshDataFromMySQL = async () => {
     const cloudQuizzes = await syncQuizzesFromMySQL();
@@ -383,7 +407,6 @@ function MainAppContent() {
       applyRouteFromUrl();
     };
     window.addEventListener('popstate', handlePopState);
-    applyRouteFromUrl();
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
@@ -600,6 +623,7 @@ function MainAppContent() {
 
   const handleStartExam = (name: string) => {
     setCandidateName(name || currentUser?.name || 'Candidate');
+    examPhaseRef.current = 'running';
     setExamPhase('running');
     if (selectedQuiz) {
       syncUrl(`/exam/${encodeURIComponent(selectedQuiz.id)}`);
@@ -610,6 +634,7 @@ function MainAppContent() {
     const updatedHistory = saveResult(result);
     setAttemptsHistory(updatedHistory);
     setLastResult(result);
+    examPhaseRef.current = 'results';
     setExamPhase('results');
     if (selectedQuiz) {
       syncUrl(`/exam/${encodeURIComponent(selectedQuiz.id)}`);
@@ -618,12 +643,14 @@ function MainAppContent() {
 
   const handleRetakeExam = () => {
     if (selectedQuiz) {
+      examPhaseRef.current = 'instructions';
       setExamPhase('instructions');
       syncUrl(`/exam/${encodeURIComponent(selectedQuiz.id)}`);
     }
   };
 
   const handleGoHome = () => {
+    examPhaseRef.current = 'catalog';
     setSelectedQuiz(null);
     setLastResult(null);
     setExamPhase('catalog');
@@ -631,6 +658,7 @@ function MainAppContent() {
   };
 
   const handleCandidateLogout = () => {
+    examPhaseRef.current = 'catalog';
     setSelectedQuiz(null);
     setLastResult(null);
     setExamPhase('catalog');
@@ -756,7 +784,12 @@ function MainAppContent() {
                   quiz={selectedQuiz}
                   defaultCandidateName={currentUser?.name || candidateName}
                   onStartExam={handleStartExam}
-                  onCancel={() => setExamPhase('catalog')}
+                  onCancel={() => {
+                    examPhaseRef.current = 'catalog';
+                    setExamPhase('catalog');
+                    setSelectedQuiz(null);
+                    syncUrl('/');
+                  }}
                   onRequireAuth={() => setShowAuthModal(true)}
                 />
               )}
