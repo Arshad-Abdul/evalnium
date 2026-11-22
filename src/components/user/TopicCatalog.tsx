@@ -1,6 +1,6 @@
 import React, { useState, lazy, Suspense } from 'react';
 import type { Quiz, QuizAttemptResult } from '../../types/quiz';
-import { Search, BookOpen, Clock, Play, History, X, Lock, Award, AlertCircle, LayoutGrid, List, Calendar } from 'lucide-react';
+import { Search, BookOpen, Clock, Play, History, X, Lock, Award, AlertCircle, LayoutGrid, List, Calendar, Share2, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { HeroBannerCarousel } from '../home/HeroBannerCarousel';
 import { CatalogAdCard } from './CatalogAdCard';
@@ -32,6 +32,35 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
   const [selectedCertAttempt, setSelectedCertAttempt] = useState<QuizAttemptResult | null>(null);
+  const [copiedQuizId, setCopiedQuizId] = useState<string | null>(null);
+
+  const handleCopyQuizLink = (e: React.MouseEvent, quizId: string) => {
+    e.stopPropagation();
+    const url = `${window.location.origin}/exam/${encodeURIComponent(quizId)}`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        setCopiedQuizId(quizId);
+        setTimeout(() => setCopiedQuizId(null), 2500);
+      }).catch(() => fallbackCopy(url, quizId));
+    } else {
+      fallbackCopy(url, quizId);
+    }
+  };
+
+  const fallbackCopy = (text: string, quizId: string) => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopiedQuizId(quizId);
+      setTimeout(() => setCopiedQuizId(null), 2500);
+    } catch {}
+  };
 
   const handleStartExamAttempt = (quiz: Quiz) => {
     if (!currentUser) {
@@ -355,7 +384,26 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                   </div>
                 </div>
 
-                {renderQuizAction(quiz, quizAttempts, true)}
+                <div className="flex items-center gap-2">
+                  {renderQuizAction(quiz, quizAttempts, true)}
+                  <button
+                    type="button"
+                    onClick={(e) => handleCopyQuizLink(e, quiz.id)}
+                    title="Copy Direct Exam Link (Share on WhatsApp/Telegram)"
+                    className={`p-2 rounded-lg border transition-all cursor-pointer shrink-0 flex items-center justify-center ${
+                      copiedQuizId === quiz.id
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300 ring-2 ring-emerald-200'
+                        : 'bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 border-slate-200'
+                    }`}
+                    aria-label="Copy Direct Exam Link"
+                  >
+                    {copiedQuizId === quiz.id ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    ) : (
+                      <Share2 className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -470,7 +518,28 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                       </div>
                     </div>
 
-                    {renderQuizAction(quiz, quizAttempts)}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        {renderQuizAction(quiz, quizAttempts)}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => handleCopyQuizLink(e, quiz.id)}
+                        title="Copy Direct Exam Link (Share on WhatsApp/Telegram)"
+                        className={`p-2.5 rounded-lg border transition-all cursor-pointer shrink-0 flex items-center justify-center ${
+                          copiedQuizId === quiz.id
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-300 ring-2 ring-emerald-200'
+                            : 'bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 border-slate-200'
+                        }`}
+                        aria-label="Copy Direct Exam Link"
+                      >
+                        {copiedQuizId === quiz.id ? (
+                          <Check className="w-4 h-4 text-emerald-600" />
+                        ) : (
+                          <Share2 className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </React.Fragment>
@@ -565,6 +634,14 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
             onClose={() => setSelectedCertAttempt(null)}
           />
         </Suspense>
+      )}
+
+      {/* Link Copied Floating Notification */}
+      {copiedQuizId && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2.5 border border-slate-700 text-xs font-semibold animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <Check className="w-4 h-4 text-emerald-400" />
+          <span>Direct exam link copied! Ready to share on WhatsApp & Telegram.</span>
+        </div>
       )}
     </div>
   );

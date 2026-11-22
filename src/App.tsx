@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import type { Quiz, QuizAttemptResult } from './types/quiz';
 import type { Announcement } from './types/announcement';
 import {
@@ -85,10 +85,136 @@ function MainAppContent() {
   const [examPhase, setExamPhase] = useState<'catalog' | 'instructions' | 'running' | 'results'>('catalog');
   const [candidateName, setCandidateName] = useState('Candidate');
   const [lastResult, setLastResult] = useState<QuizAttemptResult | null>(null);
+  const [pendingExamRouteId, setPendingExamRouteId] = useState<string | null>(null);
+  const [initialRouteResolved, setInitialRouteResolved] = useState<boolean>(false);
+
+  // Synchronize browser URL bar without page reload (HTML5 History API)
+  const syncUrl = (targetPath: string, replace = false) => {
+    if (typeof window === 'undefined') return;
+    const currentFull = window.location.pathname;
+    if (currentFull === targetPath) return;
+    if (replace) {
+      window.history.replaceState({ path: targetPath }, '', targetPath);
+    } else {
+      window.history.pushState({ path: targetPath }, '', targetPath);
+    }
+  };
+
+  const getPathForTab = (tab: 'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'saved' | 'admin') => {
+    switch (tab) {
+      case 'dashboard': return '/dashboard';
+      case 'leaderboard': return '/rankings';
+      case 'doubts': return '/doubts';
+      case 'about': return '/about';
+      case 'saved': return '/saved';
+      case 'admin': return '/admin';
+      case 'user':
+      default: return '/';
+    }
+  };
+
+  const applyRouteFromUrl = useCallback((quizList?: Quiz[]) => {
+    if (typeof window === 'undefined') return;
+    const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
+    const hash = window.location.hash || '';
+
+    // 1. Admin
+    if (pathname === '/admin' || hash === '#/admin') {
+      if (isAdminAuthenticated) {
+        setActiveTab('admin');
+        setShowAdminLockModal(false);
+      } else {
+        setShowAdminLockModal(true);
+      }
+      return;
+    }
+
+    // 2. Main tabs
+    if (pathname === '/dashboard' || hash === '#/dashboard') {
+      setActiveTab('dashboard');
+      setExamPhase('catalog');
+      setSelectedQuiz(null);
+      return;
+    }
+    if (pathname === '/rankings' || pathname === '/leaderboard' || hash === '#/rankings' || hash === '#/leaderboard') {
+      setActiveTab('leaderboard');
+      setExamPhase('catalog');
+      setSelectedQuiz(null);
+      return;
+    }
+    if (pathname === '/doubts' || hash === '#/doubts') {
+      setActiveTab('doubts');
+      setExamPhase('catalog');
+      setSelectedQuiz(null);
+      return;
+    }
+    if (pathname === '/about' || hash === '#/about') {
+      setActiveTab('about');
+      setExamPhase('catalog');
+      setSelectedQuiz(null);
+      return;
+    }
+    if (pathname === '/saved' || hash === '#/saved') {
+      setActiveTab('saved');
+      setExamPhase('catalog');
+      setSelectedQuiz(null);
+      return;
+    }
+
+    // 3. Direct Exam Paper Route (/exam/:quizId)
+    const examMatch = pathname.match(/^\/exam\/([^/]+)/) || hash.match(/^#\/exam\/([^/]+)/);
+    if (examMatch && examMatch[1]) {
+      const quizId = decodeURIComponent(examMatch[1]);
+      const available = (quizList && quizList.length > 0) ? quizList : quizzes;
+      if (available.length > 0) {
+        const found = available.find(q => q.id === quizId);
+        if (found) {
+          if (found.isPublished || isAdminAuthenticated) {
+            setSelectedQuiz(found);
+            setActiveTab('user');
+            setExamPhase('instructions');
+            if (found.hasAccessCode || found.accessCode) {
+              setPendingPasscodeQuiz(found);
+            }
+          } else {
+            setPortalNotice(`The exam "${found.title}" is currently unpublished or scheduled for a later date.`);
+            setActiveTab('user');
+            setExamPhase('catalog');
+            setSelectedQuiz(null);
+            syncUrl('/', true);
+          }
+        } else {
+          setPortalNotice('The requested mock assessment is currently unavailable, unpublished, or does not exist.');
+          setActiveTab('user');
+          setExamPhase('catalog');
+          setSelectedQuiz(null);
+          syncUrl('/', true);
+        }
+      } else {
+        setPendingExamRouteId(quizId);
+      }
+      return;
+    }
+
+    // 4. Default Home / Catalog
+    if (pathname === '/' || pathname === '/exams' || hash === '#/' || hash === '#/exams') {
+      setActiveTab('user');
+      if (examPhase !== 'running') {
+        setExamPhase('catalog');
+        setSelectedQuiz(null);
+      }
+    }
+  }, [isAdminAuthenticated, quizzes, examPhase]);
 
   const refreshDataFromMySQL = async () => {
     const cloudQuizzes = await syncQuizzesFromMySQL();
-    if (cloudQuizzes) setQuizzes(cloudQuizzes);
+    if (cloudQuizzes) {
+      setQuizzes(cloudQuizzes);
+      if (!initialRouteResolved) {
+        setInitialRouteResolved(true);
+        applyRouteFromUrl(cloudQuizzes);
+      }
+    }
 
     const cloudResults = await syncResultsFromMySQL();
     if (cloudResults) setAttemptsHistory(cloudResults);
@@ -226,12 +352,49 @@ function MainAppContent() {
     };
   }, [isAdminAuthenticated, currentUser]);
 
-  // Dynamic Document Title based on current active view/exam
+  // Resolve pending exam route when quizzes arrive from MySQL or cache
+  useEffect(() => {
+    if (pendingExamRouteId && quizzes.length > 0) {
+      const targetId = pendingExamRouteId;
+      setPendingExamRouteId(null);
+      const found = quizzes.find(q => q.id === targetId);
+      if (found) {
+        if (found.isPublished || isAdminAuthenticated) {
+          setSelectedQuiz(found);
+          setActiveTab('user');
+          setExamPhase('instructions');
+          if (found.hasAccessCode || found.accessCode) {
+            setPendingPasscodeQuiz(found);
+          }
+        } else {
+          setPortalNotice(`The exam "${found.title}" is currently unpublished or scheduled for a later date.`);
+          syncUrl('/', true);
+        }
+      } else {
+        setPortalNotice('The requested mock assessment is currently unavailable, unpublished, or does not exist.');
+        syncUrl('/', true);
+      }
+    }
+  }, [quizzes, pendingExamRouteId, isAdminAuthenticated]);
+
+  // Handle browser back and forward navigation (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      applyRouteFromUrl();
+    };
+    window.addEventListener('popstate', handlePopState);
+    applyRouteFromUrl();
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [applyRouteFromUrl]);
+
+  // Dynamic Document Title and SEO Canonical Tag based on current active view/exam
   useEffect(() => {
     if (examPhase === 'running' && selectedQuiz) {
       document.title = `[Live CBT] ${selectedQuiz.title} | Evalnium`;
     } else if (examPhase === 'instructions' && selectedQuiz) {
-      document.title = `Instructions: ${selectedQuiz.title} | Evalnium`;
+      document.title = `Exam: ${selectedQuiz.title} | Evalnium`;
     } else if (examPhase === 'results' && selectedQuiz) {
       document.title = `Scorecard: ${selectedQuiz.title} | Evalnium`;
     } else if (activeTab === 'admin') {
@@ -240,38 +403,73 @@ function MainAppContent() {
       document.title = 'Candidate Dashboard & Performance | Evalnium';
     } else if (activeTab === 'leaderboard') {
       document.title = 'National & State Rankings | Evalnium Leaderboard';
+    } else if (activeTab === 'doubts') {
+      document.title = 'Candidate Doubts & Discussion Hub | Evalnium';
     } else if (activeTab === 'saved') {
       document.title = 'Student Revision Bank & Saved Questions | Evalnium';
+    } else if (activeTab === 'about') {
+      document.title = 'About Evalnium Assessment Portal | Evalnium';
     } else {
       document.title = 'Evalnium | Global CBT Examination & Assessment Platform';
     }
+
+    // Dynamic Canonical Link
+    try {
+      let canonical = document.querySelector("link[rel='canonical']") as HTMLLinkElement | null;
+      if (!canonical) {
+        canonical = document.createElement('link');
+        canonical.rel = 'canonical';
+        document.head.appendChild(canonical);
+      }
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://evalnium.com';
+      let path = '/';
+      if (selectedQuiz && (examPhase === 'instructions' || examPhase === 'running' || examPhase === 'results')) {
+        path = `/exam/${encodeURIComponent(selectedQuiz.id)}`;
+      } else if (activeTab === 'leaderboard') {
+        path = '/rankings';
+      } else if (activeTab === 'doubts') {
+        path = '/doubts';
+      } else if (activeTab === 'about') {
+        path = '/about';
+      } else if (activeTab === 'saved') {
+        path = '/saved';
+      } else if (activeTab === 'dashboard') {
+        path = '/dashboard';
+      }
+      canonical.href = `${origin}${path}`;
+    } catch {}
   }, [examPhase, selectedQuiz, activeTab]);
 
-  const handleTabChange = (tab: 'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'saved' | 'admin') => {
+  const handleTabChange = (tab: 'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'saved' | 'admin', skipUrlSync = false) => {
     if (tab === 'admin') {
       if (!isAdminAuthenticated) {
         setShowAdminLockModal(true);
       } else {
         setActiveTab('admin');
+        if (!skipUrlSync) syncUrl('/admin');
       }
     } else if (tab === 'user') {
       setActiveTab('user');
       setExamPhase('catalog');
       setSelectedQuiz(null);
+      if (!skipUrlSync) syncUrl('/');
     } else {
       setActiveTab(tab);
+      if (!skipUrlSync) syncUrl(getPathForTab(tab));
     }
   };
 
   const handleUnlockAdmin = () => {
     setShowAdminLockModal(false);
     setActiveTab('admin');
+    syncUrl('/admin');
     clearAdminUrlTrigger();
   };
 
   const handleAdminLogout = () => {
     logoutAdmin();
     setActiveTab('user');
+    syncUrl('/');
   };
 
   const handleSaveQuiz = (quiz: Quiz) => {
@@ -331,14 +529,11 @@ function MainAppContent() {
 
   // Exam handlers
   const handleSelectQuiz = (quiz: Quiz) => {
-    if (!currentUser) {
-      setShowAuthModal(true);
-      return;
-    }
     if (quiz.hasAccessCode || quiz.accessCode) {
       setPendingPasscodeQuiz(quiz);
       setPasscodeInput('');
       setPasscodeError('');
+      syncUrl(`/exam/${encodeURIComponent(quiz.id)}`);
       return;
     }
     if (quiz.questions.length === 0) {
@@ -351,7 +546,9 @@ function MainAppContent() {
 
   const proceedWithQuizStart = (quiz: Quiz) => {
     setSelectedQuiz(quiz);
+    setActiveTab('user');
     setExamPhase('instructions');
+    syncUrl(`/exam/${encodeURIComponent(quiz.id)}`);
   };
 
   const handleVerifyGlobalPasscode = async () => {
@@ -404,6 +601,9 @@ function MainAppContent() {
   const handleStartExam = (name: string) => {
     setCandidateName(name || currentUser?.name || 'Candidate');
     setExamPhase('running');
+    if (selectedQuiz) {
+      syncUrl(`/exam/${encodeURIComponent(selectedQuiz.id)}`);
+    }
   };
 
   const handleFinishExam = (result: QuizAttemptResult) => {
@@ -411,11 +611,15 @@ function MainAppContent() {
     setAttemptsHistory(updatedHistory);
     setLastResult(result);
     setExamPhase('results');
+    if (selectedQuiz) {
+      syncUrl(`/exam/${encodeURIComponent(selectedQuiz.id)}`);
+    }
   };
 
   const handleRetakeExam = () => {
     if (selectedQuiz) {
       setExamPhase('instructions');
+      syncUrl(`/exam/${encodeURIComponent(selectedQuiz.id)}`);
     }
   };
 
@@ -423,6 +627,7 @@ function MainAppContent() {
     setSelectedQuiz(null);
     setLastResult(null);
     setExamPhase('catalog');
+    syncUrl('/');
   };
 
   const handleCandidateLogout = () => {
@@ -430,6 +635,7 @@ function MainAppContent() {
     setLastResult(null);
     setExamPhase('catalog');
     setActiveTab('user');
+    syncUrl('/');
   };
 
   const candidateVisibleQuizzes = quizzes.filter(q => {

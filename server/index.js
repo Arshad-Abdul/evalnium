@@ -8,9 +8,15 @@ import nodemailer from 'nodemailer';
 import bcrypt from 'bcryptjs';
 import os from 'os';
 import http from 'http';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { authenticateAdmin, isAdminAuthenticatedRequest, safeCompareSecret } from './middleware/auth.js';
 import { createRateLimiter } from './middleware/rateLimiter.js';
 import crypto from 'crypto';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function getNetworkIp() {
   const interfaces = os.networkInterfaces();
@@ -31,6 +37,10 @@ const allowedOrigins = new Set([
   'http://127.0.0.1:5175',
   'http://localhost:5050',
   'http://127.0.0.1:5050',
+  'https://evalnium.com',
+  'http://evalnium.com',
+  'https://www.evalnium.com',
+  'http://www.evalnium.com',
 ]);
 
 const networkIp = getNetworkIp();
@@ -4939,6 +4949,18 @@ app.get('/api/admin/email/logs', async (req, res) => {
   }
 });
 
+
+// Serve static client build if present (SPA fallback for direct routes like /exam/:id, /about, /rankings, etc.)
+const distPath = path.join(__dirname, '..', 'dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && !req.path.startsWith('/api')) {
+      return res.sendFile(path.join(distPath, 'index.html'));
+    }
+    next();
+  });
+}
 
 // Global Zero-Trust Error Sanitization Middleware (CWE-209)
 app.use((err, req, res, next) => {

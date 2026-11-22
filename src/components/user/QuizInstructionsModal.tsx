@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import type { Quiz } from '../../types/quiz';
 import { 
   Clock, HelpCircle, Award, ShieldAlert, Play, ArrowLeft, User, Trophy, RefreshCw, BookOpen,
-  AlertTriangle, RotateCcw, Calendar, Shield, FileCheck, Shuffle, Globe, CheckCircle2, Lock
+  AlertTriangle, RotateCcw, Calendar, Shield, FileCheck, Shuffle, Globe, CheckCircle2, Lock,
+  Share2, Check
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -50,6 +51,34 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
     return false;
   });
 
+  const [copiedLink, setCopiedLink] = useState(false);
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}/exam/${encodeURIComponent(quiz.id)}`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2500);
+      }).catch(() => fallbackCopy(url));
+    } else {
+      fallbackCopy(url);
+    }
+  };
+
+  const fallbackCopy = (text: string) => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    } catch {}
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white max-w-3xl w-full p-5 sm:p-6 rounded-2xl border border-slate-200 space-y-5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 my-8 max-h-[90vh] flex flex-col">
@@ -65,14 +94,29 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
               <p className="text-xs text-slate-500 mt-1 line-clamp-2">{quiz.description}</p>
             )}
           </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
-            aria-label="Back to catalog"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                copiedLink
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300 ring-2 ring-emerald-200'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+              }`}
+              title="Copy direct shareable link for WhatsApp & Telegram"
+            >
+              {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5 text-blue-600" />}
+              <span>{copiedLink ? 'Copied Link' : 'Share Exam'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+              aria-label="Back to catalog"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable Content Body */}
@@ -340,7 +384,6 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  onCancel();
                   onRequireAuth?.();
                 }}
                 className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shrink-0 transition-colors cursor-pointer"

@@ -136,7 +136,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center gap-6 lg:gap-8 min-w-0">
             <button
               type="button"
-              onClick={() => navigateTo(currentUser ? 'dashboard' : 'user')}
+              onClick={() => navigateTo('user')}
               className="text-left focus:outline-none cursor-pointer shrink-0"
               aria-label="Go to Evalnium home"
             >

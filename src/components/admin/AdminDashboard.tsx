@@ -11,7 +11,7 @@ import { EmailManager } from './EmailManager';
 import { StudentDoubtsManager } from './StudentDoubtsManager';
 import { CandidateBookmarksModal } from './CandidateBookmarksModal';
 import { ConfirmModal } from '../common/ConfirmModal';
-import { Plus, Trash2, FileDown, Layers, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, EyeOff, Trophy, LogOut, Globe, Radio, Laptop, Smartphone, Monitor, ShieldCheck, UserCheck, Search, Filter, RefreshCw, Compass, MapPin, Download, Image as ImageIcon, BarChart2, Calendar, TrendingUp, History, Terminal, Mail, Phone, Briefcase, Building2, GraduationCap, KeyRound, Copy, ExternalLink, ShieldAlert, Bookmark } from 'lucide-react';
+import { Plus, Trash2, FileDown, Layers, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, EyeOff, Trophy, LogOut, Globe, Radio, Laptop, Smartphone, Monitor, ShieldCheck, UserCheck, Search, Filter, RefreshCw, Compass, MapPin, Download, Image as ImageIcon, BarChart2, Calendar, TrendingUp, History, Terminal, Mail, Phone, Briefcase, Building2, GraduationCap, KeyRound, Copy, ExternalLink, ShieldAlert, Bookmark, Share2, Check } from 'lucide-react';
 import { getStoredResults, fetchResultsFromServer } from '../../utils/storage';
 
 export type AdminSubTab = 'overview' | 'import' | 'manage' | 'exam_responses' | 'candidates' | 'announcements' | 'mysql' | 'live' | 'users' | 'visitors' | 'banners' | 'audit' | 'emails' | 'discussions';
@@ -57,6 +57,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   }>>([]);
   const [expandedCandidate, setExpandedCandidate] = useState<string | null>(null);
   const [deletedResultIds, setDeletedResultIds] = useState<Set<string>>(new Set());
+  const [copiedQuizId, setCopiedQuizId] = useState<string | null>(null);
+
+  const handleCopyQuizLink = (quizId: string) => {
+    const url = `${window.location.origin}/exam/${encodeURIComponent(quizId)}`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        setCopiedQuizId(quizId);
+        setTimeout(() => setCopiedQuizId(null), 2500);
+      });
+    } else {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        setCopiedQuizId(quizId);
+        setTimeout(() => setCopiedQuizId(null), 2500);
+      } catch {}
+    }
+  };
 
   // Visitor Telemetry State
   const [visitorsData, setVisitorsData] = useState<{
@@ -2698,6 +2722,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
 
                       <div className="flex items-center space-x-2">
+                        {/* Copy Direct Shareable Exam Link */}
+                        <button
+                          type="button"
+                          onClick={() => handleCopyQuizLink(quiz.id)}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-300 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                          title="Copy direct shareable link for students (WhatsApp / Telegram)"
+                        >
+                          {copiedQuizId === quiz.id ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              <span className="text-emerald-700">Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Share2 className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Copy Link</span>
+                            </>
+                          )}
+                        </button>
+
                         {/* Edit Quiz Button (Addressing Point #4!) */}
                         <button
                           onClick={() => handleEditQuizClick(quiz)}
