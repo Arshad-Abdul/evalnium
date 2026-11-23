@@ -443,7 +443,7 @@ function MainAppContent() {
       document.title = 'Evalnium | Global CBT Examination & Assessment Platform';
     }
 
-    // Dynamic Canonical Link
+    // Dynamic Canonical Link & Meta Description
     try {
       let canonical = document.querySelector("link[rel='canonical']") as HTMLLinkElement | null;
       if (!canonical) {
@@ -453,20 +453,37 @@ function MainAppContent() {
       }
       const origin = typeof window !== 'undefined' ? window.location.origin : 'https://evalnium.com';
       let path = '/';
+      let metaDescText = 'Evalnium is India\'s dedicated Computer-Based Testing (CBT) mock exam portal for Library & Information Science competitive examinations.';
+
       if (selectedQuiz && (examPhase === 'instructions' || examPhase === 'running' || examPhase === 'results')) {
-        path = `/exam/${encodeURIComponent(selectedQuiz.id)}`;
+        path = `/exam/${encodeURIComponent(selectedQuiz.slug || selectedQuiz.id)}`;
+        metaDescText = `${selectedQuiz.title} - ${selectedQuiz.questions?.length || 0} MCQs · ${selectedQuiz.timeLimitMinutes > 0 ? `${selectedQuiz.timeLimitMinutes} Mins` : 'Untimed'} · Topic: ${selectedQuiz.topic}. Authentic CBT practice test with instant scorecards on Evalnium.`;
       } else if (activeTab === 'leaderboard') {
         path = '/rankings';
+        metaDescText = 'Explore real-time state and national competitive rankings, candidate percentiles, and completion speeds on Evalnium.';
       } else if (activeTab === 'doubts') {
         path = '/doubts';
+        metaDescText = 'Participate in the Library and Information Science community doubts hub, discuss answer keys, and learn with peers.';
       } else if (activeTab === 'about') {
         path = '/about';
+        metaDescText = 'Learn about Evalnium — authentic NTA-style CBT exam simulation and document-to-MCQ studio for LIS aspirants.';
       } else if (activeTab === 'saved') {
         path = '/saved';
+        metaDescText = 'Access your personal revision bank, review bookmarked questions, and master tricky library science concepts.';
       } else if (activeTab === 'dashboard') {
         path = '/dashboard';
+        metaDescText = 'Track your exam attempts, accuracy strike-rates, subject performance breakdown, and learning streaks.';
       }
+
       canonical.href = `${origin}${path}`;
+
+      let metaDesc = document.querySelector("meta[name='description']") as HTMLMetaElement | null;
+      if (!metaDesc) {
+        metaDesc = document.createElement('meta');
+        metaDesc.name = 'description';
+        document.head.appendChild(metaDesc);
+      }
+      metaDesc.content = metaDescText;
     } catch { }
   }, [examPhase, selectedQuiz, activeTab]);
 

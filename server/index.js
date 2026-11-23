@@ -5031,6 +5031,28 @@ app.get('/exam/:identifier', async (req, res, next) => {
         .replace(/<meta\s+name=["']twitter:url["']\s+content=["'].*?["']\s*\/?>/i, `<meta name="twitter:url" content="${escapeHtmlMeta(canonicalUrl)}" />`)
         .replace(/<link\s+rel=["']canonical["']\s+href=["'].*?["']\s*\/?>/i, `<link rel="canonical" href="${escapeHtmlMeta(canonicalUrl)}" />`);
 
+      // Inject Schema.org Quiz JSON-LD for Google Rich Results
+      const quizSchema = {
+        '@context': 'https://schema.org',
+        '@type': 'Quiz',
+        'name': quiz.title,
+        'description': examDesc,
+        'about': {
+          '@type': 'Thing',
+          'name': quiz.topic || 'Library and Information Science'
+        },
+        'educationalLevel': 'Higher Education / UGC NET / SET',
+        'timeRequired': Number(quiz.time_limit_minutes) > 0 ? `PT${quiz.time_limit_minutes}M` : undefined,
+        'provider': {
+          '@type': 'Organization',
+          'name': 'Evalnium',
+          'url': 'https://evalnium.com/'
+        }
+      };
+
+      const quizSchemaScript = `<script type="application/ld+json">\n${JSON.stringify(quizSchema, null, 2)}\n</script>\n</head>`;
+      html = html.replace('</head>', quizSchemaScript);
+
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       return res.send(html);
     }
@@ -5039,6 +5061,47 @@ app.get('/exam/:identifier', async (req, res, next) => {
   } catch (err) {
     console.error('Error rendering dynamic exam meta tags:', err);
     next();
+  }
+});
+
+// Dynamic SEO Sitemap Endpoint (/sitemap.xml)
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const [publishedQuizzes] = await pool.query(
+      'SELECT id, slug, updated_at FROM quizzes WHERE is_published = 1 ORDER BY updated_at DESC'
+    );
+
+    const staticRoutes = [
+      { loc: 'https://evalnium.com/', changefreq: 'daily', priority: '1.0' },
+      { loc: 'https://evalnium.com/exams', changefreq: 'daily', priority: '0.9' },
+      { loc: 'https://evalnium.com/rankings', changefreq: 'hourly', priority: '0.9' },
+      { loc: 'https://evalnium.com/doubts', changefreq: 'daily', priority: '0.8' },
+      { loc: 'https://evalnium.com/about', changefreq: 'monthly', priority: '0.7' },
+      { loc: 'https://evalnium.com/saved', changefreq: 'weekly', priority: '0.6' },
+      { loc: 'https://evalnium.com/dashboard', changefreq: 'daily', priority: '0.7' },
+    ];
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
+
+    const todayDate = new Date().toISOString().split('T')[0];
+    for (const r of staticRoutes) {
+      xml += `  <url>\n    <loc>${r.loc}</loc>\n    <lastmod>${todayDate}</lastmod>\n    <changefreq>${r.changefreq}</changefreq>\n    <priority>${r.priority}</priority>\n  </url>\n`;
+    }
+
+    for (const q of publishedQuizzes) {
+      const slugOrId = q.slug || q.id;
+      const modDate = q.updated_at ? new Date(q.updated_at).toISOString().split('T')[0] : todayDate;
+      xml += `  <url>\n    <loc>https://evalnium.com/exam/${encodeURIComponent(slugOrId)}</loc>\n    <lastmod>${modDate}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.85</priority>\n  </url>\n`;
+    }
+
+    xml += `</urlset>`;
+
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.send(xml);
+  } catch (err) {
+    console.error('Error generating dynamic sitemap:', err);
+    res.sendFile(path.join(distPath, 'sitemap.xml'));
   }
 });
 
