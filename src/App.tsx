@@ -432,9 +432,9 @@ function MainAppContent() {
     } else if (activeTab === 'dashboard') {
       document.title = 'Candidate Dashboard & Performance | Evalnium';
     } else if (activeTab === 'leaderboard') {
-      document.title = 'National & State Rankings | Evalnium Leaderboard';
+      document.title = 'Rankings & Leaderboard | Evalnium';
     } else if (activeTab === 'doubts') {
-      document.title = 'Candidate Doubts & Discussion Hub | Evalnium';
+      document.title = 'Doubts & Discussion Hub | Evalnium';
     } else if (activeTab === 'saved') {
       document.title = 'Student Revision Bank & Saved Questions | Evalnium';
     } else if (activeTab === 'about') {
