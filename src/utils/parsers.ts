@@ -781,73 +781,105 @@ export function parseCSV(csvContent: string): ParseResult {
 
   const cleanCSVContent = fixMojibake(csvContent).replace(/^\uFEFF/, '').replace(/\uFEFF/g, '');
 
-  // Helper to safely fetch value by column header name
-  const getValueByHeader = (row: Record<string, string>, candidateHeaders: string[]): string => {
-    const normalizedCandidates = candidateHeaders.map(h => h.toLowerCase().replace(/[\uFEFF\s\_\-\.]/g, ''));
-    for (const key of Object.keys(row)) {
-      const trimmedKey = key.replace(/^\uFEFF/, '').replace(/^["']|["']$/g, '').trim();
-      // Skip PapaParse auto-renamed duplicate blank headers like "_1", "_2", "_3"
-      if (!trimmedKey || /^_\d+$/.test(trimmedKey) || trimmedKey.startsWith('__parsed_extra')) continue;
-
-      const normKey = trimmedKey.toLowerCase().replace(/[\uFEFF\s\_\-\.]/g, '');
-      if (normalizedCandidates.includes(normKey)) {
-        return fixMojibake((row[key] || '').trim());
-      }
-    }
-    return '';
-  };
-
-  // PASS 1: Try Header-Based Parsing
-  const parsedHeader = safePapaParse(cleanCSVContent, {
-    header: true,
+  const parsedRaw = safePapaParse(cleanCSVContent, {
+    header: false,
     skipEmptyLines: 'greedy',
     delimiter: '',
-    transformHeader: (h: string) => h.replace(/^\uFEFF/, '').replace(/^["']|["']$/g, '').trim(),
   });
 
-  if (parsedHeader.data && parsedHeader.data.length > 0) {
-    parsedHeader.data.forEach((row: any, idx: number) => {
-      let questionEnglish = getValueByHeader(row, ['question_english', 'questionenglish', 'english_question', 'english', 'eng_question', 'q_english']);
-      let questionHindi = getValueByHeader(row, ['question_hindi', 'questionhindi', 'hindi_question', 'hindi', 'hin_question', 'q_hindi']);
-      let questionText = getValueByHeader(row, [
-        'question', 'question_text', 'questiontext', 'prompt', 'question_statement', 'questionstatement', 'statement', 'question_title', 'questiontitle', 'q_text', 'qtext', 'stem', 'problem', 'questions', 'mcq', 'item', 'query'
-      ]);
+  const allRows: string[][] = (parsedRaw.data || []).map((r: any) => 
+    (r || []).map((cell: any) => fixMojibake(String(cell || '').trim()))
+  );
 
-      const optA = getValueByHeader(row, ['option_a', 'optiona', 'opta', 'option1', 'option_1', 'choice_a', 'choicea', 'choice1', 'opt1', 'ans_a', 'ansa', 'a']);
-      const optB = getValueByHeader(row, ['option_b', 'optionb', 'optb', 'option2', 'option_2', 'choice_b', 'choiceb', 'choice2', 'opt2', 'ans_b', 'ansb', 'b']);
-      const optC = getValueByHeader(row, ['option_c', 'optionc', 'optc', 'option3', 'option_3', 'choice_c', 'choicec', 'choice3', 'opt3', 'ans_c', 'ansc', 'c']);
-      const optD = getValueByHeader(row, ['option_d', 'optiond', 'optd', 'option4', 'option_4', 'choice_d', 'choiced', 'choice4', 'opt4', 'ans_d', 'ansd', 'd']);
+  if (allRows.length === 0) {
+    return { questions: [], rawText: csvContent, errors: ['File or text is empty.'] };
+  }
 
-      // Positional Column Fallback if named headers missed (preserve cell positions)
-      const rawCells = Object.values(row).map((v: any) => fixMojibake(String(v || '').trim()));
-      const filledCells = rawCells.filter(Boolean);
+  // Detect header row index by scoring the first 5 rows
+  const getHeaderScore = (row: string[]): number => {
+    const text = row.join(' ').toLowerCase();
+    let score = 0;
+    if (/\b(?:question|statement|prompt|mcq|item|q_text|qtext|question_english|question_hindi)\b/.test(text)) score += 4;
+    if (/\b(?:option\s*[a-d1-4]|opt\s*[a-d1-4]|choice\s*[a-d1-4]|option_a|option_b)\b/.test(text)) score += 5;
+    if (/\b(?:correct\s*answer|answer|key|correct\s*option|ans|answer_key)\b/.test(text)) score += 4;
+    if (/\b(?:explanation|rationale|solution|reason)\b/.test(text)) score += 2;
+    // Penalize if row contains long question stem (> 40 chars with question words or question mark)
+    const hasLongStem = row.some(cell => cell.length > 50 || /\?$/.test(cell.trim()) || /which of the following|arrange the|who among|given below/i.test(cell));
+    if (hasLongStem) score -= 10;
+    return score;
+  };
 
-      if (!questionText && filledCells.length >= 3) {
-        if (/^\d+$/.test(filledCells[0]) && filledCells.length >= 4) {
-          questionText = filledCells[1];
-        } else {
-          questionText = filledCells[0];
-        }
+  let headerRowIndex = -1;
+  let bestScore = 0;
+  for (let i = 0; i < Math.min(allRows.length, 5); i++) {
+    const score = getHeaderScore(allRows[i]);
+    if (score >= 4 && score > bestScore) {
+      bestScore = score;
+      headerRowIndex = i;
+    }
+  }
+
+  if (headerRowIndex !== -1) {
+    // PASS 1: Header-Based Parsing
+    const headerRow = allRows[headerRowIndex];
+    const normHeaders = headerRow.map(h => h.toLowerCase().replace(/[\uFEFF\s\_\-\.]/g, ''));
+
+    const colMap = {
+      qEng: -1,
+      qHin: -1,
+      qText: -1,
+      optA: -1,
+      optB: -1,
+      optC: -1,
+      optD: -1,
+      answer: -1,
+      expEng: -1,
+      expHin: -1,
+      exp: -1,
+    };
+
+    normHeaders.forEach((h, idx) => {
+      if (/^(?:questionenglish|englishquestion|qenglish|engquestion)$/.test(h)) colMap.qEng = idx;
+      else if (/^(?:questionhindi|hindiquestion|qhindi|hinquestion)$/.test(h)) colMap.qHin = idx;
+      else if (/^(?:question|questiontext|prompt|questionstatement|statement|qtext|stem|problem|questions|mcq|item)$/.test(h)) colMap.qText = idx;
+      else if (/^(?:optiona|opta|option1|choicea|choice1|opt1)$/.test(h)) colMap.optA = idx;
+      else if (/^(?:optionb|optb|option2|choiceb|choice2|opt2)$/.test(h)) colMap.optB = idx;
+      else if (/^(?:optionc|optc|option3|choicec|choice3|opt3)$/.test(h)) colMap.optC = idx;
+      else if (/^(?:optiond|optd|option4|choiced|choice4|opt4)$/.test(h)) colMap.optD = idx;
+      else if (/^(?:correctanswer|answer|correctoption|key|ans|correct|answerkey|correctkey)$/.test(h)) colMap.answer = idx;
+      else if (/^(?:explanationenglish)$/.test(h)) colMap.expEng = idx;
+      else if (/^(?:explanationhindi)$/.test(h)) colMap.expHin = idx;
+      else if (/^(?:explanation|exp|reason|rationale|solution|comment)$/.test(h)) colMap.exp = idx;
+    });
+
+    for (let r = 0; r < allRows.length; r++) {
+      if (r === headerRowIndex) continue;
+      const row = allRows[r];
+      if (row.filter(Boolean).length < 2) continue;
+
+      let qEng = colMap.qEng !== -1 ? row[colMap.qEng] : '';
+      let qHin = colMap.qHin !== -1 ? row[colMap.qHin] : '';
+      let qText = colMap.qText !== -1 ? row[colMap.qText] : '';
+
+      if (!qText && !qEng) {
+        qText = row[0] || '';
       }
 
-      if (questionEnglish && questionHindi) {
-        questionText = `English: ${questionEnglish}\n\nहिन्दी: ${questionHindi}`;
-      } else if (questionEnglish && !questionText) {
-        questionText = questionEnglish;
-      } else if (questionHindi && !questionText) {
-        questionText = questionHindi;
+      if (qEng && qHin) {
+        qText = `English: ${qEng}\n\nहिन्दी: ${qHin}`;
+      } else if (qEng && !qText) {
+        qText = qEng;
+      } else if (qHin && !qText) {
+        qText = qHin;
       }
 
-      let startOptIdx = 1;
-      if (rawCells.length >= 5 && /^\d+$/.test(rawCells[0])) startOptIdx = 2;
+      let optA = colMap.optA !== -1 ? row[colMap.optA] : (row[1] || '');
+      let optB = colMap.optB !== -1 ? row[colMap.optB] : (row[2] || '');
+      let optC = colMap.optC !== -1 ? row[colMap.optC] : (row[3] || '');
+      let optD = colMap.optD !== -1 ? row[colMap.optD] : (row[4] || '');
 
-      const finalOptA = optA || rawCells[startOptIdx] || (filledCells.length > startOptIdx ? filledCells[startOptIdx] : '');
-      const finalOptB = optB || rawCells[startOptIdx + 1] || (filledCells.length > startOptIdx + 1 ? filledCells[startOptIdx + 1] : '');
-      const finalOptC = optC || rawCells[startOptIdx + 2] || (filledCells.length > startOptIdx + 2 ? filledCells[startOptIdx + 2] : '');
-      const finalOptD = optD || rawCells[startOptIdx + 3] || (filledCells.length > startOptIdx + 3 ? filledCells[startOptIdx + 3] : '');
-
-      let answer = getValueByHeader(row, ['correct_answer', 'correctanswer', 'answer', 'correct_option', 'correctoption', 'key', 'ans', 'correct', 'correct_key', 'answer_key']).toUpperCase();
-      if (answer.startsWith('OPTION ')) answer = answer.replace('OPTION ', '').trim();
+      let rawAns = colMap.answer !== -1 ? row[colMap.answer] : (row[5] || '');
+      let answer = rawAns.toUpperCase().replace('OPTION ', '').trim();
       if (['1', '2', '3', '4'].includes(answer)) {
         answer = String.fromCharCode(64 + parseInt(answer, 10));
       }
@@ -855,29 +887,28 @@ export function parseCSV(csvContent: string): ParseResult {
         answer = 'A';
       }
 
-      const explanationEnglish = getValueByHeader(row, ['explanation_english', 'explanationenglish']);
-      const explanationHindi = getValueByHeader(row, ['explanation_hindi', 'explanationhindi']);
-      let explanation = getValueByHeader(row, ['explanation', 'exp', 'reason', 'rationale', 'solution', 'comment']);
-
-      if (explanationEnglish && explanationHindi) {
-        explanation = `English: ${explanationEnglish}\n\nहिन्दी: ${explanationHindi}`;
-      } else if (explanationEnglish && !explanation) {
-        explanation = explanationEnglish;
-      } else if (explanationHindi && !explanation) {
-        explanation = explanationHindi;
+      let expEng = colMap.expEng !== -1 ? row[colMap.expEng] : '';
+      let expHin = colMap.expHin !== -1 ? row[colMap.expHin] : '';
+      let exp = colMap.exp !== -1 ? row[colMap.exp] : (row[6] || '');
+      if (expEng && expHin) {
+        exp = `English: ${expEng}\n\nहिन्दी: ${expHin}`;
+      } else if (expEng && !exp) {
+        exp = expEng;
+      } else if (expHin && !exp) {
+        exp = expHin;
       }
 
       const options: { id: string; text: string }[] = [];
-      if (finalOptA) options.push({ id: 'A', text: cleanOptionText(finalOptA, 'A') });
-      if (finalOptB) options.push({ id: 'B', text: cleanOptionText(finalOptB, 'B') });
-      if (finalOptC) options.push({ id: 'C', text: cleanOptionText(finalOptC, 'C') });
-      if (finalOptD) options.push({ id: 'D', text: cleanOptionText(finalOptD, 'D') });
+      if (optA) options.push({ id: 'A', text: cleanOptionText(optA, 'A') });
+      if (optB) options.push({ id: 'B', text: cleanOptionText(optB, 'B') });
+      if (optC) options.push({ id: 'C', text: cleanOptionText(optC, 'C') });
+      if (optD) options.push({ id: 'D', text: cleanOptionText(optD, 'D') });
 
       const safeOptions = options.length >= 2 ? options : [
-        { id: 'A', text: cleanOptionText(finalOptA, 'A') || 'Option A' },
-        { id: 'B', text: cleanOptionText(finalOptB, 'B') || 'Option B' },
-        { id: 'C', text: cleanOptionText(finalOptC, 'C') || 'Option C' },
-        { id: 'D', text: cleanOptionText(finalOptD, 'D') || 'Option D' }
+        { id: 'A', text: cleanOptionText(optA, 'A') || 'Option A' },
+        { id: 'B', text: cleanOptionText(optB, 'B') || 'Option B' },
+        { id: 'C', text: cleanOptionText(optC, 'C') || 'Option C' },
+        { id: 'D', text: cleanOptionText(optD, 'D') || 'Option D' }
       ].filter(o => Boolean(o.text));
 
       const correctOpt = safeOptions.find(o => o.id === answer);
@@ -885,12 +916,12 @@ export function parseCSV(csvContent: string): ParseResult {
         ? `Option (${answer}): "${correctOpt.text}" is the correct answer.`
         : `Option (${answer}) is the correct answer.`;
 
-      const finalExplanation = explanation || defaultExp;
+      const finalExplanation = exp || defaultExp;
 
       // Smart Auto-Detection for Match the Following Lists
-      const matchData = detectAndExtractMatchFollowing(questionText || questionEnglish || '');
-      let effectiveQuestionText = questionText;
-      let effectiveQuestionEnglish = questionEnglish;
+      const matchData = detectAndExtractMatchFollowing(qText || qEng || '');
+      let effectiveQuestionText = qText;
+      let effectiveQuestionEnglish = qEng;
       let questionType: 'mcq' | 'multiple_select' | 'match_following' = 'mcq';
       let listI: string[] | undefined = undefined;
       let listII: string[] | undefined = undefined;
@@ -923,15 +954,15 @@ export function parseCSV(csvContent: string): ParseResult {
       // Smart Auto-Formatting for Multi-Statement / Premise questions (A. ... B. ... C. ... D. ...)
       effectiveQuestionText = formatPremiseStatements(effectiveQuestionText);
       if (effectiveQuestionEnglish) effectiveQuestionEnglish = formatPremiseStatements(effectiveQuestionEnglish);
-      if (questionHindi) questionHindi = formatPremiseStatements(questionHindi);
+      if (qHin) qHin = formatPremiseStatements(qHin);
 
       if (effectiveQuestionText || safeOptions.length >= 1) {
         questions.push({
-          tempId: `csv_${idx}_${Date.now()}`,
-          questionText: effectiveQuestionText || `Question ${idx + 1}`,
+          tempId: `csv_${r}_${Date.now()}`,
+          questionText: effectiveQuestionText || `Question ${r + 1}`,
           passage,
-          questionEnglish: effectiveQuestionEnglish || (effectiveQuestionText && !questionHindi ? effectiveQuestionText : undefined),
-          questionHindi: questionHindi || undefined,
+          questionEnglish: effectiveQuestionEnglish || (effectiveQuestionText && !qHin ? effectiveQuestionText : undefined),
+          questionHindi: qHin || undefined,
           questionType,
           listI,
           listII,
@@ -948,109 +979,104 @@ export function parseCSV(csvContent: string): ParseResult {
           isValid: true,
         });
       }
-    });
-  }
+    }
+  } else {
+    // PASS 2: Positional Array Parsing Fallback (For Headerless CSVs/TSVs)
+    for (let r = 0; r < allRows.length; r++) {
+      const row = allRows[r];
+      if (row.filter(Boolean).length < 3) continue;
 
-  // PASS 2: Positional Array Parsing Fallback (For Headerless CSVs)
-  if (questions.length === 0) {
-    const parsedRows = safePapaParse(cleanCSVContent, {
-      header: false,
-      skipEmptyLines: 'greedy',
-      delimiter: '',
-    });
-
-    if (parsedRows.data && parsedRows.data.length > 0) {
-      let startIndex = 0;
-      // Skip header row if line 0 contains words like "Question" or "Option"
-      const firstRowStr = (parsedRows.data[0] || []).join(' ').toLowerCase();
-      if (firstRowStr.includes('question') || firstRowStr.includes('option') || firstRowStr.includes('answer')) {
-        startIndex = 1;
+      let startOptIdx = 1;
+      let qText = row[0] || '';
+      if (/^\d+$/.test(row[0]) && row.length >= 6) {
+        qText = row[1] || '';
+        startOptIdx = 2;
       }
 
-      for (let i = startIndex; i < parsedRows.data.length; i++) {
-        const row = (parsedRows.data[i] as any[]).map((v: any) => fixMojibake(String(v || '').trim())).filter(Boolean);
-        if (row.length < 3) continue;
+      const optA = row[startOptIdx] || '';
+      const optB = row[startOptIdx + 1] || '';
+      const optC = row[startOptIdx + 2] || '';
+      const optD = row[startOptIdx + 3] || '';
 
-        let qText = row[0];
-        let optStart = 1;
+      let rawAns = row[startOptIdx + 4] || '';
+      let answer = rawAns.toUpperCase().replace('OPTION ', '').trim();
+      if (['1', '2', '3', '4'].includes(answer)) {
+        answer = String.fromCharCode(64 + parseInt(answer, 10));
+      }
+      if (!['A', 'B', 'C', 'D'].includes(answer)) {
+        answer = 'A';
+      }
 
-        // If Col 0 is Question Number e.g. "1"
-        if (/^\d+$/.test(row[0]) && row.length >= 4) {
-          qText = row[1];
-          optStart = 2;
-        }
+      const exp = row[startOptIdx + 5] || '';
 
-        const opts: { id: string; text: string }[] = [];
-        let optLetter = 65; // 'A'
-        for (let j = optStart; j < row.length && opts.length < 4; j++) {
-          const val = row[j];
-          // Check if last cell is single letter answer e.g. "A" or "1"
-          if (j === row.length - 1 && /^[A-D1-4]$/i.test(val) && opts.length >= 2) {
-            break;
-          }
-          const char = String.fromCharCode(optLetter++);
-          opts.push({ id: char, text: cleanOptionText(val, char) });
-        }
+      const options: { id: string; text: string }[] = [];
+      if (optA) options.push({ id: 'A', text: cleanOptionText(optA, 'A') });
+      if (optB) options.push({ id: 'B', text: cleanOptionText(optB, 'B') });
+      if (optC) options.push({ id: 'C', text: cleanOptionText(optC, 'C') });
+      if (optD) options.push({ id: 'D', text: cleanOptionText(optD, 'D') });
 
-        let ansKey = 'A';
-        const lastVal = row[row.length - 1]?.toUpperCase();
-        if (lastVal && ['A', 'B', 'C', 'D'].includes(lastVal)) {
-          ansKey = lastVal;
-        } else if (lastVal && ['1', '2', '3', '4'].includes(lastVal)) {
-          ansKey = String.fromCharCode(64 + parseInt(lastVal, 10));
-        }
+      const safeOptions = options.length >= 2 ? options : [
+        { id: 'A', text: cleanOptionText(optA, 'A') || 'Option A' },
+        { id: 'B', text: cleanOptionText(optB, 'B') || 'Option B' },
+        { id: 'C', text: cleanOptionText(optC, 'C') || 'Option C' },
+        { id: 'D', text: cleanOptionText(optD, 'D') || 'Option D' }
+      ].filter(o => Boolean(o.text));
 
-        // Auto-detect match-the-following lists if present
-        const matchData = detectAndExtractMatchFollowing(qText);
-        let effectiveQText = qText;
-        let questionType: 'mcq' | 'multiple_select' | 'match_following' = 'mcq';
-        let listI: string[] | undefined = undefined;
-        let listII: string[] | undefined = undefined;
-        let listITitle: string | undefined = undefined;
-        let listIITitle: string | undefined = undefined;
-        let listIOrder: ListOrderStyle | undefined = undefined;
-        let listIIOrder: ListOrderStyle | undefined = undefined;
+      const correctOpt = safeOptions.find(o => o.id === answer);
+      const defaultExp = correctOpt
+        ? `Option (${answer}): "${correctOpt.text}" is the correct answer.`
+        : `Option (${answer}) is the correct answer.`;
 
-        if (matchData) {
-          questionType = 'match_following';
-          effectiveQText = matchData.cleanStem;
-          listI = matchData.listI;
-          listII = matchData.listII;
-          listITitle = matchData.listITitle;
-          listIITitle = matchData.listIITitle;
-          listIOrder = matchData.listIOrder;
-          listIIOrder = matchData.listIIOrder;
-        }
+      // Auto-detect match-the-following lists if present
+      const matchData = detectAndExtractMatchFollowing(qText);
+      let effectiveQText = qText;
+      let questionType: 'mcq' | 'multiple_select' | 'match_following' = 'mcq';
+      let listI: string[] | undefined = undefined;
+      let listII: string[] | undefined = undefined;
+      let listITitle: string | undefined = undefined;
+      let listIITitle: string | undefined = undefined;
+      let listIOrder: ListOrderStyle | undefined = undefined;
+      let listIIOrder: ListOrderStyle | undefined = undefined;
 
-        // Smart Auto-Detection for Reading Comprehension Passage
-        const compData = extractComprehensionPassage(effectiveQText);
-        let passage: string | undefined = undefined;
-        if (compData) {
-          passage = compData.passage;
-          effectiveQText = compData.question;
-        }
+      if (matchData) {
+        questionType = 'match_following';
+        effectiveQText = matchData.cleanStem;
+        listI = matchData.listI;
+        listII = matchData.listII;
+        listITitle = matchData.listITitle;
+        listIITitle = matchData.listIITitle;
+        listIOrder = matchData.listIOrder;
+        listIIOrder = matchData.listIIOrder;
+      }
 
-        // Smart Auto-Formatting for Multi-Statement / Premise questions (A. ... B. ... C. ... D. ...)
-        effectiveQText = formatPremiseStatements(effectiveQText);
+      // Smart Auto-Detection for Reading Comprehension Passage
+      const compData = extractComprehensionPassage(effectiveQText);
+      let passage: string | undefined = undefined;
+      if (compData) {
+        passage = compData.passage;
+        effectiveQText = compData.question;
+      }
 
-        if (effectiveQText && opts.length >= 2) {
-          questions.push({
-            tempId: `csv_pos_${i}_${Date.now()}`,
-            questionText: effectiveQText,
-            passage,
-            questionType,
-            listI,
-            listII,
-            listITitle,
-            listIITitle,
-            listIOrder,
-            listIIOrder,
-            options: opts,
-            correctOptionId: ansKey,
-            explanation: `Option (${ansKey}) is the correct answer.`,
-            isValid: true,
-          });
-        }
+      // Smart Auto-Formatting for Multi-Statement / Premise questions (A. ... B. ... C. ... D. ...)
+      effectiveQText = formatPremiseStatements(effectiveQText);
+
+      if (effectiveQText && safeOptions.length >= 2) {
+        questions.push({
+          tempId: `csv_pos_${r}_${Date.now()}`,
+          questionText: effectiveQText,
+          passage,
+          questionType,
+          listI,
+          listII,
+          listITitle,
+          listIITitle,
+          listIOrder,
+          listIIOrder,
+          options: safeOptions,
+          correctOptionId: answer,
+          explanation: exp || defaultExp,
+          isValid: true,
+        });
       }
     }
   }

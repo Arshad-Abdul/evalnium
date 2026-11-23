@@ -88,7 +88,20 @@ export const QuizImporter: React.FC<QuizImporterProps> = ({ onParsedResult }) =>
     setIsProcessing(true);
     setErrorMsg(null);
     setTimeout(() => {
-      const parseRes = parsePlainText(pastedText);
+      let parseRes: ParseResult = { questions: [], errors: [] };
+      // 1. If pasted text has tabs (Excel copy-paste) or comma-separated lines, try CSV/TSV parser first!
+      if (pastedText.includes('\t') || (pastedText.includes(',') && pastedText.split('\n').length > 1)) {
+        parseRes = parseCSV(pastedText);
+      }
+      // 2. If no questions detected yet, try plain text parser (handles Q1. A) B) C) D) format)
+      if (!parseRes.questions || parseRes.questions.length === 0) {
+        parseRes = parsePlainText(pastedText);
+      }
+      // 3. Fallback to CSV parser if plain text also didn't match
+      if (!parseRes.questions || parseRes.questions.length === 0) {
+        parseRes = parseCSV(pastedText);
+      }
+
       if (!parseRes.questions || parseRes.questions.length === 0) {
         setErrorMsg('No MCQs found in pasted text. Click "Format Guide" to see exact copy-paste examples.');
       } else {

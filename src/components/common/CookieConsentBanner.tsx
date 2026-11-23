@@ -30,14 +30,14 @@ export const CookieConsentBanner: React.FC<CookieConsentBannerProps> = ({
   const handleAccept = () => {
     try {
       localStorage.setItem(COOKIE_CONSENT_KEY, 'accepted');
-    } catch {}
+    } catch { }
     setVisible(false);
   };
 
   if (!visible) return null;
 
   return (
-    <aside 
+    <aside
       aria-label="Cookie consent banner"
       className="fixed bottom-3 sm:bottom-4 left-3 right-3 sm:left-auto sm:right-4 sm:max-w-md z-[100] animate-in slide-in-from-bottom-5 duration-300"
     >
