@@ -193,6 +193,9 @@ function MainAppContent() {
             setActiveTab('user');
             examPhaseRef.current = 'instructions';
             setExamPhase('instructions');
+            if (found.slug && quizId !== found.slug) {
+              syncUrl(`/exam/${encodeURIComponent(found.slug)}`, true);
+            }
             if (found.hasAccessCode || found.accessCode) {
               setPendingPasscodeQuiz(found);
             }
@@ -388,6 +391,9 @@ function MainAppContent() {
           setSelectedQuiz(found);
           setActiveTab('user');
           setExamPhase('instructions');
+          if (found.slug && targetId !== found.slug) {
+            syncUrl(`/exam/${encodeURIComponent(found.slug)}`, true);
+          }
           if (found.hasAccessCode || found.accessCode) {
             setPendingPasscodeQuiz(found);
           }

@@ -34,16 +34,17 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
   const [selectedCertAttempt, setSelectedCertAttempt] = useState<QuizAttemptResult | null>(null);
   const [copiedQuizId, setCopiedQuizId] = useState<string | null>(null);
 
-  const handleCopyQuizLink = (e: React.MouseEvent, quizId: string) => {
+  const handleCopyQuizLink = (e: React.MouseEvent, quiz: Quiz) => {
     e.stopPropagation();
-    const url = `${window.location.origin}/exam/${encodeURIComponent(quizId)}`;
+    const slugOrId = quiz.slug || quiz.id;
+    const url = `${window.location.origin}/exam/${encodeURIComponent(slugOrId)}`;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(url).then(() => {
-        setCopiedQuizId(quizId);
+        setCopiedQuizId(quiz.id);
         setTimeout(() => setCopiedQuizId(null), 2500);
-      }).catch(() => fallbackCopy(url, quizId));
+      }).catch(() => fallbackCopy(url, quiz.id));
     } else {
-      fallbackCopy(url, quizId);
+      fallbackCopy(url, quiz.id);
     }
   };
 
@@ -388,7 +389,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                   {renderQuizAction(quiz, quizAttempts, true)}
                   <button
                     type="button"
-                    onClick={(e) => handleCopyQuizLink(e, quiz.id)}
+                    onClick={(e) => handleCopyQuizLink(e, quiz)}
                     title="Copy Direct Exam Link (Share on WhatsApp/Telegram)"
                     className={`p-2 rounded-lg border transition-all cursor-pointer shrink-0 flex items-center justify-center ${
                       copiedQuizId === quiz.id
@@ -524,7 +525,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                       </div>
                       <button
                         type="button"
-                        onClick={(e) => handleCopyQuizLink(e, quiz.id)}
+                        onClick={(e) => handleCopyQuizLink(e, quiz)}
                         title="Copy Direct Exam Link (Share on WhatsApp/Telegram)"
                         className={`p-2.5 rounded-lg border transition-all cursor-pointer shrink-0 flex items-center justify-center ${
                           copiedQuizId === quiz.id
