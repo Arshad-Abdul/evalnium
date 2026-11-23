@@ -2239,6 +2239,32 @@ function getUnlockedQuizIds(req) {
   }
 }
 
+function slugifyQuizTitle(text) {
+  return String(text || '')
+    .toLowerCase()
+    .trim()
+    .replace(/['’]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/[^\w\-]+/g, '')
+    .replace(/\-\-+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '');
+}
+
+async function ensureUniqueQuizSlug(conn, desiredSlug, quizId) {
+  let base = slugifyQuizTitle(desiredSlug) || `exam-${Date.now().toString(36)}`;
+  let candidate = base;
+  let counter = 1;
+  while (true) {
+    const [existing] = await conn.query('SELECT id FROM quizzes WHERE slug = ? AND id != ? LIMIT 1', [candidate, quizId]);
+    if (existing.length === 0) {
+      return candidate;
+    }
+    candidate = `${base}-${counter}`;
+    counter++;
+  }
+}
+
 // 1. Quizzes (with Granular Admin Settings & Rules)
 app.get('/api/quizzes', async (req, res) => {
   try {
@@ -2323,6 +2349,7 @@ app.get('/api/quizzes', async (req, res) => {
 
       quizzes.push({
         id: q.id,
+        slug: q.slug || undefined,
         title: q.title,
         description: q.description,
         topic: q.topic,
@@ -2450,26 +2477,28 @@ app.post('/api/quizzes', authenticateAdmin, async (req, res) => {
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
+    const finalSlug = await ensureUniqueQuizSlug(connection, q.slug || q.title, q.id);
+
     // Insert or update quiz
     await connection.query(
       `INSERT INTO quizzes (
-        id, title, description, topic, category, difficulty, time_limit_minutes, passing_percentage, negative_marks, quiz_type, scheduled_start_datetime, scheduled_end_datetime, is_published, created_at, updated_at, author,
+        id, slug, title, description, topic, category, difficulty, time_limit_minutes, passing_percentage, negative_marks, quiz_type, scheduled_start_datetime, scheduled_end_datetime, is_published, created_at, updated_at, author,
         enable_certificate, enable_anti_cheating, timing_mode, sectional_config_json, question_time_limit_seconds, prevent_prev_section, prevent_early_next_section, prevent_prev_question, prevent_early_next_question,
         shuffle_questions, shuffle_options, enable_practice_mode, default_language_mode, access_code, allowed_emails, question_view_mode, max_attempts, allow_manual_early_move, result_announcement_datetime, auto_email_results, max_tab_switches, prevent_question_copy, prevent_screenshot, enable_watermark,
         publish_at, custom_badge, badge_expires_at, show_badge, show_timer, show_dates
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE 
-        title=?, description=?, topic=?, category=?, difficulty=?, time_limit_minutes=?, passing_percentage=?, negative_marks=?, quiz_type=?, scheduled_start_datetime=?, scheduled_end_datetime=?, is_published=?, updated_at=?,
+        slug=?, title=?, description=?, topic=?, category=?, difficulty=?, time_limit_minutes=?, passing_percentage=?, negative_marks=?, quiz_type=?, scheduled_start_datetime=?, scheduled_end_datetime=?, is_published=?, updated_at=?,
         enable_certificate=?, enable_anti_cheating=?, timing_mode=?, sectional_config_json=?, question_time_limit_seconds=?, prevent_prev_section=?, prevent_early_next_section=?, prevent_prev_question=?, prevent_early_next_question=?,
         shuffle_questions=?, shuffle_options=?, enable_practice_mode=?, default_language_mode=?, access_code=?, allowed_emails=?, question_view_mode=?, max_attempts=?, allow_manual_early_move=?, result_announcement_datetime=?, auto_email_results=?, max_tab_switches=?, prevent_question_copy=?, prevent_screenshot=?, enable_watermark=?,
         publish_at=?, custom_badge=?, badge_expires_at=?, show_badge=?, show_timer=?, show_dates=?`,
       [
-        q.id, q.title, q.description, normalizedTopic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.scheduledStartDateTime || null, q.scheduledEndDateTime || null, q.isPublished ? 1 : 0, q.createdAt, q.updatedAt, q.author || 'Admin',
+        q.id, finalSlug, q.title, q.description, normalizedTopic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.scheduledStartDateTime || null, q.scheduledEndDateTime || null, q.isPublished ? 1 : 0, q.createdAt, q.updatedAt, q.author || 'Admin',
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
         q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3, q.preventQuestionCopy !== false ? 1 : 0, q.preventScreenshot !== false ? 1 : 0, q.enableWatermark !== false ? 1 : 0,
         q.publishAt || null, q.customBadge || null, q.badgeExpiresAt || null, q.showBadge !== false ? 1 : 0, q.showCountdown !== false ? 1 : 0, q.showDates !== false ? 1 : 0,
 
-        q.title, q.description, normalizedTopic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.scheduledStartDateTime || null, q.scheduledEndDateTime || null, q.isPublished ? 1 : 0, q.updatedAt,
+        finalSlug, q.title, q.description, normalizedTopic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.scheduledStartDateTime || null, q.scheduledEndDateTime || null, q.isPublished ? 1 : 0, q.updatedAt,
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
         q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3, q.preventQuestionCopy !== false ? 1 : 0, q.preventScreenshot !== false ? 1 : 0, q.enableWatermark !== false ? 1 : 0,
         q.publishAt || null, q.customBadge || null, q.badgeExpiresAt || null, q.showBadge !== false ? 1 : 0, q.showCountdown !== false ? 1 : 0, q.showDates !== false ? 1 : 0
@@ -4950,8 +4979,70 @@ app.get('/api/admin/email/logs', async (req, res) => {
 });
 
 
-// Serve static client build if present (SPA fallback for direct routes like /exam/:id, /about, /rankings, etc.)
+// Serve dynamic Open Graph meta tags for exam direct links (/exam/:identifier)
 const distPath = path.join(__dirname, '..', 'dist');
+
+function escapeHtmlMeta(val) {
+  return String(val ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+app.get('/exam/:identifier', async (req, res, next) => {
+  try {
+    const identifier = req.params.identifier;
+    const [quizRows] = await pool.query(
+      `SELECT q.*, 
+        (SELECT COUNT(*) FROM questions WHERE quiz_id = q.id) AS question_count 
+       FROM quizzes q 
+       WHERE q.id = ? OR q.slug = ? 
+       LIMIT 1`,
+      [identifier, identifier]
+    );
+
+    const indexPath = fs.existsSync(path.join(distPath, 'index.html'))
+      ? path.join(distPath, 'index.html')
+      : path.join(__dirname, '..', 'index.html');
+
+    if (!fs.existsSync(indexPath)) {
+      return next();
+    }
+
+    let html = fs.readFileSync(indexPath, 'utf8');
+
+    if (quizRows.length > 0) {
+      const quiz = quizRows[0];
+      const qCount = quiz.question_count || 0;
+      const durationStr = Number(quiz.time_limit_minutes) > 0 ? `${quiz.time_limit_minutes} Mins` : 'Untimed';
+      const examTitle = `${quiz.title} | Evalnium CBT Exam`;
+      const examDesc = `${qCount} MCQs · ${durationStr} · Topic: ${quiz.topic || 'Library & Information Science'} · Official CBT Mock Assessment Practice on Evalnium`;
+      const canonicalUrl = `https://evalnium.com/exam/${encodeURIComponent(quiz.slug || quiz.id)}`;
+
+      html = html
+        .replace(/<title>.*?<\/title>/i, `<title>${escapeHtmlMeta(examTitle)}</title>`)
+        .replace(/<meta\s+property=["']og:title["']\s+content=["'].*?["']\s*\/?>/i, `<meta property="og:title" content="${escapeHtmlMeta(examTitle)}" />`)
+        .replace(/<meta\s+property=["']og:description["']\s+content=["'].*?["']\s*\/?>/i, `<meta property="og:description" content="${escapeHtmlMeta(examDesc)}" />`)
+        .replace(/<meta\s+property=["']og:url["']\s+content=["'].*?["']\s*\/?>/i, `<meta property="og:url" content="${escapeHtmlMeta(canonicalUrl)}" />`)
+        .replace(/<meta\s+name=["']twitter:title["']\s+content=["'].*?["']\s*\/?>/i, `<meta name="twitter:title" content="${escapeHtmlMeta(examTitle)}" />`)
+        .replace(/<meta\s+name=["']twitter:description["']\s+content=["'].*?["']\s*\/?>/i, `<meta name="twitter:description" content="${escapeHtmlMeta(examDesc)}" />`)
+        .replace(/<meta\s+name=["']twitter:url["']\s+content=["'].*?["']\s*\/?>/i, `<meta name="twitter:url" content="${escapeHtmlMeta(canonicalUrl)}" />`)
+        .replace(/<link\s+rel=["']canonical["']\s+href=["'].*?["']\s*\/?>/i, `<link rel="canonical" href="${escapeHtmlMeta(canonicalUrl)}" />`);
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(html);
+    }
+
+    return res.sendFile(indexPath);
+  } catch (err) {
+    console.error('Error rendering dynamic exam meta tags:', err);
+    next();
+  }
+});
+
+// Serve static client build if present (SPA fallback for direct routes like /exam/:id, /about, /rankings, etc.)
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
   app.use((req, res, next) => {

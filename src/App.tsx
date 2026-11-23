@@ -70,11 +70,11 @@ function MainAppContent() {
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [portalNotice, setPortalNotice] = useState<string | null>(null);
   const [legalDoc, setLegalDoc] = useState<'terms' | 'privacy' | null>(null);
-  
+
   // Real-Time Visitor & Heartbeat Stats
   const [totalVisitors, setTotalVisitors] = useState<number>(0);
   const [activeVisitorsCount, setActiveVisitorsCount] = useState<number>(0);
-  
+
   // Passcode Protection Global State
   const [pendingPasscodeQuiz, setPendingPasscodeQuiz] = useState<Quiz | null>(null);
   const [passcodeInput, setPasscodeInput] = useState('');
@@ -186,7 +186,7 @@ function MainAppContent() {
       const quizId = decodeURIComponent(examMatch[1]);
       const available = (quizList && quizList.length > 0) ? quizList : quizzesRef.current;
       if (available.length > 0) {
-        const found = available.find(q => q.id === quizId);
+        const found = available.find(q => q.id === quizId || (q.slug && q.slug === quizId));
         if (found) {
           if (found.isPublished || isAdminAuthRef.current) {
             setSelectedQuiz(found);
@@ -284,15 +284,15 @@ function MainAppContent() {
         const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
         return fetch(`http://${host}:5050/api/site/visit`, { method: 'POST' });
       });
-    } catch {}
+    } catch { }
   };
 
   const sendHeartbeat = async () => {
     try {
       const clientId = getClientId();
       const isAdminSession = Boolean(isAdminAuthenticated || activeTab === 'admin');
-      const currentPage = examPhase === 'running' 
-        ? `Taking Exam: ${selectedQuiz?.title || 'CBT Assessment'}` 
+      const currentPage = examPhase === 'running'
+        ? `Taking Exam: ${selectedQuiz?.title || 'CBT Assessment'}`
         : (activeTab === 'dashboard' ? 'Candidate Dashboard' : (activeTab === 'leaderboard' ? 'Live Rankings' : (activeTab === 'doubts' ? 'Doubts Hub' : (activeTab === 'saved' ? 'Revision Bank' : (activeTab === 'admin' ? 'Admin Studio' : (activeTab === 'about' ? 'About Portal' : 'Exam Catalog'))))));
 
       const body = JSON.stringify({
@@ -324,7 +324,7 @@ function MainAppContent() {
         setTotalVisitors(data.totalVisitors || 0);
         setActiveVisitorsCount(data.activeVisitorsCount || 0);
       }
-    } catch {}
+    } catch { }
   };
 
   // Log visit and run heartbeat
@@ -382,7 +382,7 @@ function MainAppContent() {
     if (pendingExamRouteId && quizzes.length > 0) {
       const targetId = pendingExamRouteId;
       setPendingExamRouteId(null);
-      const found = quizzes.find(q => q.id === targetId);
+      const found = quizzes.find(q => q.id === targetId || (q.slug && q.slug === targetId));
       if (found) {
         if (found.isPublished || isAdminAuthenticated) {
           setSelectedQuiz(found);
@@ -461,7 +461,7 @@ function MainAppContent() {
         path = '/dashboard';
       }
       canonical.href = `${origin}${path}`;
-    } catch {}
+    } catch { }
   }, [examPhase, selectedQuiz, activeTab]);
 
   const handleTabChange = (tab: 'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'saved' | 'admin', skipUrlSync = false) => {
@@ -572,7 +572,7 @@ function MainAppContent() {
     setSelectedQuiz(quiz);
     setActiveTab('user');
     setExamPhase('instructions');
-    syncUrl(`/exam/${encodeURIComponent(quiz.id)}`);
+    syncUrl(`/exam/${encodeURIComponent(quiz.slug || quiz.id)}`);
   };
 
   const handleVerifyGlobalPasscode = async () => {
@@ -837,10 +837,10 @@ function MainAppContent() {
       )}
 
       {showAuthModal && (
-        <AuthModal 
-          isOpen={showAuthModal} 
-          onClose={() => setShowAuthModal(false)} 
-          onSuccess={() => setShowAuthModal(false)} 
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={() => setShowAuthModal(false)}
         />
       )}
 
@@ -856,7 +856,7 @@ function MainAppContent() {
               <h3 className="text-lg font-black text-slate-900">Protected Exam</h3>
               <p className="text-xs font-semibold text-slate-600 mt-1">{pendingPasscodeQuiz.title}</p>
             </div>
-            
+
             <div className="p-6 space-y-4">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-700 uppercase">Enter Access Passcode</label>
@@ -876,7 +876,7 @@ function MainAppContent() {
                   <p className="text-xs font-bold text-rose-600 text-center">{passcodeError}</p>
                 )}
               </div>
-              
+
               <div className="flex space-x-3 pt-2">
                 <button
                   onClick={() => setPendingPasscodeQuiz(null)}
@@ -907,110 +907,110 @@ function MainAppContent() {
       )}
 
       {!isExamRunning && (
-      <footer className="bg-white border-t border-slate-200 py-6 text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-            {/* Copyright */}
-            <div className="text-xs text-center md:text-left text-slate-500">
-              <span>© 2026 <strong className="font-semibold text-slate-700">Evalnium Portal</strong>. All Rights Reserved.</span>
+        <footer className="bg-white border-t border-slate-200 py-6 text-slate-500">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+              {/* Copyright */}
+              <div className="text-xs text-center md:text-left text-slate-500">
+                <span>© 2026 <strong className="font-semibold text-slate-700">Evalnium Portal</strong>. All Rights Reserved.</span>
+              </div>
+
+              {/* Live Activity Summary */}
+              <div className="flex items-center justify-center gap-3 text-xs text-slate-600 font-mono tabular-nums">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span>{activeVisitorsCount || 1} active</span>
+                </span>
+                <span className="text-slate-300">·</span>
+                <span>{totalVisitors ? totalVisitors.toLocaleString() : '1'} visits</span>
+              </div>
+
+              {/* Platform Version, Legal Links & Authenticated Admin Studio Shortcut */}
+              <div className="flex flex-wrap items-center gap-2.5 text-slate-400 font-mono text-[11px] justify-center md:justify-end">
+                <button
+                  type="button"
+                  onClick={() => handleTabChange('doubts')}
+                  className="text-slate-500 hover:text-slate-900 font-medium transition-colors cursor-pointer"
+                >
+                  Doubts Hub
+                </button>
+                <span>·</span>
+                <button
+                  type="button"
+                  onClick={() => handleTabChange('about')}
+                  className="text-slate-500 hover:text-slate-900 font-medium transition-colors cursor-pointer"
+                >
+                  About Portal
+                </button>
+                <span>·</span>
+                <button
+                  type="button"
+                  onClick={() => setLegalDoc('terms')}
+                  className="text-slate-500 hover:text-slate-900 font-medium transition-colors cursor-pointer"
+                >
+                  Terms
+                </button>
+                <span>·</span>
+                <button
+                  type="button"
+                  onClick={() => setLegalDoc('privacy')}
+                  className="text-slate-500 hover:text-slate-900 font-medium transition-colors cursor-pointer"
+                >
+                  Privacy
+                </button>
+                <span>·</span>
+                <span>Evalnium v2.0</span>
+                {isAdminAuthenticated && (!currentUser || currentUser.role === 'admin') && (
+                  <>
+                    <span>·</span>
+                    <button
+                      type="button"
+                      onClick={() => handleTabChange('admin')}
+                      className="text-slate-500 hover:text-slate-900 font-semibold transition-colors cursor-pointer"
+                    >
+                      Admin Studio
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
-            {/* Live Activity Summary */}
-            <div className="flex items-center justify-center gap-3 text-xs text-slate-600 font-mono tabular-nums">
-              <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>{activeVisitorsCount || 1} active</span>
-              </span>
+            {/* Candidate Community & Support Links */}
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs font-medium text-slate-600 border-t border-slate-100 pt-3">
+              <a
+                href="https://forms.gle/VCGQKcT5yAuYNkrg6"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-indigo-600 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <span>📄 Submit Previous Papers</span>
+              </a>
               <span className="text-slate-300">·</span>
-              <span>{totalVisitors ? totalVisitors.toLocaleString() : '1'} visits</span>
+              <a
+                href="https://forms.gle/r1K6pgTie8TaiyYG8"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-indigo-600 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <span>💬 Platform Feedback</span>
+              </a>
+              <span className="text-slate-300">·</span>
+              <a
+                href="mailto:evalniumlis@gmail.com"
+                className="hover:text-indigo-600 flex items-center gap-1.5 transition-colors cursor-pointer font-mono text-[11px]"
+              >
+                <span>✉️ evalniumlis@gmail.com</span>
+              </a>
             </div>
 
-            {/* Platform Version, Legal Links & Authenticated Admin Studio Shortcut */}
-            <div className="flex flex-wrap items-center gap-2.5 text-slate-400 font-mono text-[11px] justify-center md:justify-end">
-              <button
-                type="button"
-                onClick={() => handleTabChange('doubts')}
-                className="text-slate-500 hover:text-slate-900 font-medium transition-colors cursor-pointer"
-              >
-                Doubts Hub
-              </button>
-              <span>·</span>
-              <button
-                type="button"
-                onClick={() => handleTabChange('about')}
-                className="text-slate-500 hover:text-slate-900 font-medium transition-colors cursor-pointer"
-              >
-                About Portal
-              </button>
-              <span>·</span>
-              <button
-                type="button"
-                onClick={() => setLegalDoc('terms')}
-                className="text-slate-500 hover:text-slate-900 font-medium transition-colors cursor-pointer"
-              >
-                Terms
-              </button>
-              <span>·</span>
-              <button
-                type="button"
-                onClick={() => setLegalDoc('privacy')}
-                className="text-slate-500 hover:text-slate-900 font-medium transition-colors cursor-pointer"
-              >
-                Privacy
-              </button>
-              <span>·</span>
-              <span>Evalnium v2.0</span>
-              {isAdminAuthenticated && (!currentUser || currentUser.role === 'admin') && (
-                <>
-                  <span>·</span>
-                  <button
-                    type="button"
-                    onClick={() => handleTabChange('admin')}
-                    className="text-slate-500 hover:text-slate-900 font-semibold transition-colors cursor-pointer"
-                  >
-                    Admin Studio
-                  </button>
-                </>
-              )}
+            {/* Legal Non-Affiliation Disclaimer */}
+            <div className="border-t border-slate-100 pt-3 text-center">
+              <p className="text-[11px] text-slate-400 leading-relaxed max-w-4xl mx-auto">
+                Evalnium is an independent educational quiz and practice platform and is not affiliated with or endorsed by NTA, UGC, or any government examination authority. Examination names and trademarks belong to their respective owners and are used strictly for educational identification.
+              </p>
             </div>
           </div>
-
-          {/* Candidate Community & Support Links */}
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs font-medium text-slate-600 border-t border-slate-100 pt-3">
-            <a
-              href="https://forms.gle/VCGQKcT5yAuYNkrg6"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-indigo-600 flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <span>📄 Submit Previous Papers</span>
-            </a>
-            <span className="text-slate-300">·</span>
-            <a
-              href="https://forms.gle/r1K6pgTie8TaiyYG8"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-indigo-600 flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <span>💬 Platform Feedback</span>
-            </a>
-            <span className="text-slate-300">·</span>
-            <a
-              href="mailto:evalniumlis@gmail.com"
-              className="hover:text-indigo-600 flex items-center gap-1.5 transition-colors cursor-pointer font-mono text-[11px]"
-            >
-              <span>✉️ evalniumlis@gmail.com</span>
-            </a>
-          </div>
-
-          {/* Legal Non-Affiliation Disclaimer */}
-          <div className="border-t border-slate-100 pt-3 text-center">
-            <p className="text-[11px] text-slate-400 leading-relaxed max-w-4xl mx-auto">
-              Evalnium is an independent educational quiz and practice platform and is not affiliated with or endorsed by NTA, UGC, or any government examination authority. Examination names and trademarks belong to their respective owners and are used strictly for educational identification.
-            </p>
-          </div>
-        </div>
-      </footer>
+        </footer>
       )}
 
       <ScrollToTopButton />

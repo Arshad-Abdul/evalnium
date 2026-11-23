@@ -52,15 +52,30 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
   });
 
   const [copiedLink, setCopiedLink] = useState(false);
-  const handleCopyLink = () => {
-    const url = `${window.location.origin}/exam/${encodeURIComponent(quiz.id)}`;
+  const examShareUrl = `${window.location.origin}/exam/${encodeURIComponent(quiz.slug || quiz.id)}`;
+  const shareMessageText = `📝 *${quiz.title}*\n📊 ${quiz.questions.length} MCQs | ⏱️ ${quiz.timeLimitMinutes > 0 ? `${quiz.timeLimitMinutes} Mins` : 'Untimed'} | 📚 ${quiz.topic}\n🎯 Free CBT Mock Test on Evalnium\n👉 Attempt Now: ${examShareUrl}`;
+
+  const handleShareExam = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${quiz.title} | Evalnium CBT Exam`,
+          text: shareMessageText,
+          url: examShareUrl
+        });
+        return;
+      } catch {
+        // Fallback to clipboard if user dismissed or native share failed
+      }
+    }
+
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(url).then(() => {
+      navigator.clipboard.writeText(examShareUrl).then(() => {
         setCopiedLink(true);
         setTimeout(() => setCopiedLink(false), 2500);
-      }).catch(() => fallbackCopy(url));
+      }).catch(() => fallbackCopy(examShareUrl));
     } else {
-      fallbackCopy(url);
+      fallbackCopy(examShareUrl);
     }
   };
 
@@ -95,15 +110,24 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={`https://api.whatsapp.com/send?text=${encodeURIComponent(shareMessageText)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+              title="Share directly to WhatsApp"
+            >
+              <span>📲 WhatsApp</span>
+            </a>
             <button
               type="button"
-              onClick={handleCopyLink}
+              onClick={handleShareExam}
               className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                 copiedLink
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-300 ring-2 ring-emerald-200'
                   : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
               }`}
-              title="Copy direct shareable link for WhatsApp & Telegram"
+              title="Share exam link (WhatsApp / Telegram / Native Share)"
             >
               {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5 text-blue-600" />}
               <span>{copiedLink ? 'Copied Link' : 'Share Exam'}</span>

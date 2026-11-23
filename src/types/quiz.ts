@@ -34,6 +34,7 @@ export interface Question {
 
 export interface Quiz {
   id: string;
+  slug?: string;
   title: string;
   description: string;
   topic: string;
@@ -130,6 +131,7 @@ export interface QuizAttemptResult {
 
 export interface ParseResult {
   existingQuizId?: string;
+  slug?: string;
   isPublished?: boolean;
   createdAt?: string;
   title?: string;

@@ -59,11 +59,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [deletedResultIds, setDeletedResultIds] = useState<Set<string>>(new Set());
   const [copiedQuizId, setCopiedQuizId] = useState<string | null>(null);
 
-  const handleCopyQuizLink = (quizId: string) => {
-    const url = `${window.location.origin}/exam/${encodeURIComponent(quizId)}`;
+  const handleCopyQuizLink = (quiz: Quiz) => {
+    const slugOrId = quiz.slug || quiz.id;
+    const url = `${window.location.origin}/exam/${encodeURIComponent(slugOrId)}`;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(url).then(() => {
-        setCopiedQuizId(quizId);
+        setCopiedQuizId(quiz.id);
         setTimeout(() => setCopiedQuizId(null), 2500);
       });
     } else {
@@ -76,7 +77,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         ta.select();
         document.execCommand('copy');
         document.body.removeChild(ta);
-        setCopiedQuizId(quizId);
+        setCopiedQuizId(quiz.id);
         setTimeout(() => setCopiedQuizId(null), 2500);
       } catch {}
     }
@@ -656,6 +657,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleEditQuizClick = (quiz: Quiz) => {
     const parseRes: ParseResult = {
       existingQuizId: quiz.id,
+      slug: quiz.slug,
       isPublished: quiz.isPublished,
       createdAt: quiz.createdAt,
       title: quiz.title,
@@ -2722,12 +2724,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
 
                       <div className="flex items-center space-x-2">
+                        {/* WhatsApp Direct Share */}
+                        <a
+                          href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                            `📝 *${quiz.title}*\n📊 ${quiz.questions.length} MCQs | ⏱️ ${quiz.timeLimitMinutes > 0 ? `${quiz.timeLimitMinutes} Mins` : 'Untimed'} | 📚 ${quiz.topic}\n🎯 Free CBT Mock Test on Evalnium\n👉 Attempt Now: ${window.location.origin}/exam/${encodeURIComponent(quiz.slug || quiz.id)}`
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                          title="Share direct formatted message to WhatsApp"
+                        >
+                          <span>📲 WhatsApp</span>
+                        </a>
+
                         {/* Copy Direct Shareable Exam Link */}
                         <button
                           type="button"
-                          onClick={() => handleCopyQuizLink(quiz.id)}
+                          onClick={() => handleCopyQuizLink(quiz)}
                           className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-300 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
-                          title="Copy direct shareable link for students (WhatsApp / Telegram)"
+                          title="Copy clean shareable link for students (WhatsApp / Telegram)"
                         >
                           {copiedQuizId === quiz.id ? (
                             <>

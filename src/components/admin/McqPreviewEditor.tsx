@@ -24,6 +24,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   registeredEmails = [],
 }) => {
   const [title, setTitle] = useState(parseResult.title || sourceFileName.replace(/\.[^/.]+$/, ''));
+  const [slug, setSlug] = useState<string>(parseResult.slug || '');
   const [topic, setTopic] = useState(parseResult.topic || 'General Knowledge');
   const existingTopics = useMemo(
     () =>
@@ -455,6 +456,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
 
     const finalQuiz: Quiz = {
       id: parseResult.existingQuizId || `quiz_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      slug: (slug || '').trim() || undefined,
       title: title.trim() || 'Untitled Quiz',
       description: description.trim(),
       topic: topic.trim() || 'General Knowledge',
@@ -861,6 +863,26 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
               ))}
             </datalist>
           </div>
+        </div>
+
+        {/* Custom Exam URL Slug Field with Live Link Preview */}
+        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+          <label className="block text-xs font-bold text-slate-700">
+            Custom Exam URL Slug <span className="text-slate-400 font-normal">(Optional - auto-generated from title)</span>
+          </label>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono text-slate-400 select-none hidden sm:inline">https://evalnium.com/exam/</span>
+            <input
+              type="text"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\-]/g, ''))}
+              className="flex-1 p-2 rounded-lg bg-white border border-slate-200 text-slate-900 text-xs font-mono font-semibold focus:border-indigo-500 focus:outline-none"
+              placeholder={title ? title.toLowerCase().trim().replace(/['’]/g, '').replace(/\s+/g, '-').replace(/[^\w\-]/g, '') : 'e.g. five-laws-of-lis'}
+            />
+          </div>
+          <p className="text-[11px] text-slate-500 font-mono truncate">
+            🔗 Shareable Link: <span className="text-indigo-600 font-semibold">{typeof window !== 'undefined' ? window.location.origin : 'https://evalnium.com'}/exam/{slug || (title ? title.toLowerCase().trim().replace(/['’]/g, '').replace(/\s+/g, '-').replace(/[^\w\-]/g, '') : 'exam-slug')}</span>
+          </p>
         </div>
 
         <div>
