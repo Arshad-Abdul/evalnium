@@ -115,7 +115,7 @@ export const QuizImporter: React.FC<QuizImporterProps> = ({ onParsedResult }) =>
     const csvContent = `"Question","Option A","Option B","Option C","Option D","Correct Answer","Explanation"
 "Who coined the term 'Bibliometrics' in 1969?","Paul Otlet","Alan Pritchard","S.R. Ranganathan","Vassily Nalimov","B","Alan Pritchard coined Bibliometrics in 1969."
 "What does PMEST stand for in Colon Classification?","Personality Matter Energy Space Time","Print Media Electronic System Text","Process Method Entity Source Topic","Primary Main Element Secondary Tertiary","A","PMEST stands for Personality, Matter, Energy, Space, Time."`;
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -129,7 +129,7 @@ export const QuizImporter: React.FC<QuizImporterProps> = ({ onParsedResult }) =>
     const csvContent = `"Question_Number","Question_English","Question_Hindi","Option_A","Option_B","Option_C","Option_D","Correct_Answer","Explanation_English","Explanation_Hindi"
 "1","Who coined the term 'Bibliometrics' in 1969?","1969 में बिब्लियोमेट्रिक्स शब्द का प्रतिपादन किसने किया था?","Paul Otlet (पॉल ओटलेट)","Alan Pritchard (एलन प्रिचर्ड)","S.R. Ranganathan (एस.आर. रंगनाथन)","Vassily Nalimov (वसीली नलीमोव)","B","Alan Pritchard coined Bibliometrics in 1969.","एलन प्रिचर्ड ने 1969 में यह शब्द दिया।"
 "2","Paul Otlet first utilized 'bibliométrie' in which publication?","पॉल ओटलेट ने 1934 में किस पुस्तक में 'bibliométrie' लिखा?","Traité de Documentation","Classification Décimale Universelle","Manuel de la Documentation","Sciences de l'information","A","Paul Otlet used it in Traité de Documentation (1934).","पॉल ओटलेट ने ट्रेट डी डॉक्यूमेंटेशन (1934) में इसका प्रयोग किया।"`;
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -218,21 +218,19 @@ Explanation: Paul Otlet used 'bibliométrie' in Traité de Documentation (1934).
             <div className="flex items-center space-x-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
               <button
                 onClick={() => setActiveInputType('file')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                  activeInputType === 'file'
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${activeInputType === 'file'
                     ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
                     : 'text-slate-600 hover:text-slate-900'
-                }`}
+                  }`}
               >
                 Upload Document File
               </button>
               <button
                 onClick={() => setActiveInputType('paste')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                  activeInputType === 'paste'
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${activeInputType === 'paste'
                     ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
                     : 'text-slate-600 hover:text-slate-900'
-                }`}
+                  }`}
               >
                 Paste Raw Text
               </button>
@@ -338,11 +336,10 @@ Explanation: Paul Otlet used 'bibliométrie' in Traité de Documentation (1934).
           onDragLeave={handleDrag}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`bg-white border-2 border-dashed p-10 rounded-2xl text-center cursor-pointer transition-all duration-150 ${
-            dragActive
+          className={`bg-white border-2 border-dashed p-10 rounded-2xl text-center cursor-pointer transition-all duration-150 ${dragActive
               ? 'border-indigo-500 bg-indigo-50/50 scale-[1.01]'
               : 'border-slate-200 hover:border-indigo-400 hover:bg-slate-50/60'
-          }`}
+            }`}
         >
           <input
             ref={fileInputRef}
@@ -459,7 +456,7 @@ Answer: C`}
             </div>
 
             <div className="overflow-y-auto flex-1 space-y-6 pr-2 text-xs sm:text-sm text-slate-700">
-              
+
               {/* Single Language CSV Format */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
                 <div className="flex items-center justify-between">
@@ -477,7 +474,7 @@ Answer: C`}
                 </div>
                 <p className="text-slate-500 text-xs">Headers: <code className="font-mono bg-white border px-1 rounded">Question, Option A, Option B, Option C, Option D, Correct Answer, Explanation</code></p>
                 <pre className="p-3 bg-white rounded-xl border border-slate-200 font-mono text-[11px] overflow-x-auto text-slate-800">
-{`Question,Option A,Option B,Option C,Option D,Correct Answer,Explanation
+                  {`Question,Option A,Option B,Option C,Option D,Correct Answer,Explanation
 Who coined Bibliometrics?,Paul Otlet,Alan Pritchard,S.R. Ranganathan,Vassily Nalimov,B,Alan Pritchard coined Bibliometrics in 1969.
 What is PMEST?,Personality Matter Energy Space Time,Print Media,Process Method,Primary Main,A,PMEST is Ranganathan's 5 categories.`}
                 </pre>
@@ -500,7 +497,7 @@ What is PMEST?,Personality Matter Energy Space Time,Print Media,Process Method,P
                 </div>
                 <p className="text-slate-500 text-xs">Headers: <code className="font-mono bg-white border px-1 rounded">Question_Number, Question_English, Question_Hindi, Option_A, Option_B, Option_C, Option_D, Correct_Answer, Explanation_English, Explanation_Hindi</code></p>
                 <pre className="p-3 bg-white rounded-xl border border-slate-200 font-mono text-[11px] overflow-x-auto text-slate-800">
-{`Question_Number,Question_English,Question_Hindi,Option_A,Option_B,Option_C,Option_D,Correct_Answer,Explanation_English,Explanation_Hindi
+                  {`Question_Number,Question_English,Question_Hindi,Option_A,Option_B,Option_C,Option_D,Correct_Answer,Explanation_English,Explanation_Hindi
 1,Who coined Bibliometrics?,1969 में बिब्लियोमेट्रिक्स शब्द किसने दिया?,Paul Otlet,Alan Pritchard,S.R. Ranganathan,Vassily Nalimov,B,Coined in 1969.,1969 में प्रतिपादन किया।`}
                 </pre>
               </div>
@@ -513,7 +510,7 @@ What is PMEST?,Personality Matter Energy Space Time,Print Media,Process Method,P
                 </h4>
                 <p className="text-slate-500 text-xs">Use <code className="font-mono bg-white border px-1 rounded">Question 1</code>, options <code className="font-mono bg-white border px-1 rounded">A) B) C) D)</code>, and <code className="font-mono bg-white border px-1 rounded">Answer: B</code> inline.</p>
                 <pre className="p-3 bg-white rounded-xl border border-slate-200 font-mono text-[11px] overflow-x-auto text-slate-800">
-{`Question 1
+                  {`Question 1
 Who coined the term 'Bibliometrics' in 1969?
 
 Options:

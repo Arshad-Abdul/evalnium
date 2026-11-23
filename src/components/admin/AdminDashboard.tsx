@@ -2708,7 +2708,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <span>{quiz.timeLimitMinutes} Mins</span>
                           </span>
                           <span>•</span>
-                          <span>Pass: {quiz.passingPercentage}%</span>
+                          <span>{Number(quiz.passingPercentage) > 0 ? `Pass: ${quiz.passingPercentage}%` : 'No Cutoff (Practice)'}</span>
                           {quiz.negativeMarks ? <span className="text-rose-600 font-bold">• Neg: -{quiz.negativeMarks}</span> : null}
                           {(() => {
                             const quizResults = allAttemptResults.filter(r => r.quizId === quiz.id);
@@ -2976,7 +2976,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 </span>
                               </div>
                               <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                                Pass Mark: {q.passingPercentage}% | Time: {q.timeLimitMinutes}m
+                                {Number(q.passingPercentage) > 0 ? `Pass Mark: ${q.passingPercentage}%` : 'No Cutoff (Practice)'} | Time: {Number(q.timeLimitMinutes) > 0 ? `${q.timeLimitMinutes}m` : 'Untimed'}
                               </p>
                             </div>
                           </div>

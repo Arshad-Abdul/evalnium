@@ -375,7 +375,11 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                     <span>·</span>
                     <span>{Number(quiz.timeLimitMinutes) > 0 ? `${quiz.timeLimitMinutes} min` : 'Untimed Practice'}</span>
                     <span>·</span>
-                    <span>Pass: {quiz.passingPercentage ?? 40}%</span>
+                    {Number(quiz.passingPercentage) > 0 ? (
+                      <span>Pass: {quiz.passingPercentage}%</span>
+                    ) : (
+                      <span className="text-emerald-600 font-semibold">No Cutoff</span>
+                    )}
                     {Number(quiz.negativeMarks) > 0 && (
                       <>
                         <span>·</span>
@@ -512,7 +516,13 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                       </div>
 
                       <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                        <span>Pass {quiz.passingPercentage ?? 40}%</span>
+                        {Number(quiz.passingPercentage) > 0 ? (
+                          <span>Pass {quiz.passingPercentage}%</span>
+                        ) : (
+                          <span className="text-emerald-700 bg-emerald-50 border border-emerald-200/60 font-semibold px-1.5 py-0.5 rounded text-[10px]">
+                            No Cutoff
+                          </span>
+                        )}
                         {Number(quiz.negativeMarks) > 0 && (
                           <span className="text-rose-600 font-semibold">-{quiz.negativeMarks} neg</span>
                         )}

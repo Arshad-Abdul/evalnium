@@ -182,7 +182,7 @@ export function cleanOptionText(text: string, expectedOptionId?: string): string
   trimmed = healOptionText(trimmed, expectedOptionId);
 
   // 1. MATCH-THE-FOLLOWING CHECK: NEVER strip pairings!
-  const isMatchPairing = 
+  const isMatchPairing =
     /[\(\[]?[A-Ea-e][\)\]]?\s*[\-\–—\:\=→]\s*[\(\[]?[IVX0-9a-z]+[\)\]]?[\s\,]+[\(\[]?[B-Eb-e][\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed) ||
     /^[\(\[]?[A-Ea-e][\)\]]?\s*[\-\–—\:\=→]\s*[\(\[]?(?:[IVX]+|\d+|[a-z]+)[\)\]]?/i.test(trimmed) ||
     (/[\(\[]?B[\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed) && /[\(\[]?C[\)\]]?\s*[\-\–—\:\=→]/i.test(trimmed));
@@ -193,7 +193,7 @@ export function cleanOptionText(text: string, expectedOptionId?: string): string
 
   // 2. MULTI-STATEMENT COMBINATION CHECK: NEVER strip statement combinations!
   // e.g. "(A), (B), (C) Only", "(B), (C), (D) Only", "(A) and (B) Only", "A, B and C only"
-  const isStatementCombination = 
+  const isStatementCombination =
     /(?:\([A-Ea-eक-ङ]\)|\b[A-Ea-eक-ङ]\b(?!\w))\s*(?:[\,]|and|और|\&)\s*(?:\([A-Ea-eक-ङ]\)|\b[A-Ea-eक-ङ]\b(?!\w))/i.test(trimmed) ||
     (/\b(?:Only|केवल)[\s\.]*$/i.test(trimmed) && /(?:\([A-Ea-eक-ङ]\)|\b[A-Ea-eक-ङ]\b(?!\w))/.test(trimmed)) ||
     /^(?:\([A-Ea-eक-ङ]\)|\b[A-Ea-eक-ङ]\b(?!\w))\s*(?:Only|केवल)[\s\.]*$/i.test(trimmed) ||
@@ -787,7 +787,7 @@ export function parseCSV(csvContent: string): ParseResult {
     delimiter: '',
   });
 
-  const allRows: string[][] = (parsedRaw.data || []).map((r: any) => 
+  const allRows: string[][] = (parsedRaw.data || []).map((r: any) =>
     (r || []).map((cell: any) => fixMojibake(String(cell || '').trim()))
   );
 
