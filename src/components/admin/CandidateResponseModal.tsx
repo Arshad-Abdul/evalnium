@@ -207,31 +207,31 @@ export const CandidateResponseModal: React.FC<CandidateResponseModalProps> = ({ 
   });
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex flex-col p-3 sm:p-6 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-w-5xl w-full mx-auto h-full overflow-hidden">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex flex-col p-2.5 sm:p-6 animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-w-5xl w-full mx-auto h-full overflow-hidden my-auto max-h-[96vh]">
 
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 rounded-t-2xl flex-shrink-0">
-          <div>
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-200 flex items-center justify-between gap-2.5 bg-slate-50 rounded-t-2xl flex-shrink-0">
+          <div className="min-w-0 flex-1 pr-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-slate-900 leading-tight">
+              <h2 className="text-sm sm:text-lg font-black text-slate-900 leading-tight truncate">
                 Candidate Responses
               </h2>
-              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 border border-indigo-200">
-                Admin Audit View
+              <span className="text-[10px] sm:text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 border border-indigo-200 shrink-0">
+                Audit View
               </span>
             </div>
-            <p className="text-xs text-slate-600 font-medium mt-0.5">
+            <p className="text-[11px] sm:text-xs text-slate-600 font-medium mt-0.5 truncate">
               <span className="font-bold text-indigo-700">{attemptResult.candidateName}</span>
-              {attemptResult.candidateEmail ? ` (${attemptResult.candidateEmail})` : ''} • {attemptResult.quizTitle} • {new Date(attemptResult.attemptedAt).toLocaleString()}
+              {attemptResult.candidateEmail ? ` (${attemptResult.candidateEmail})` : ''} • {attemptResult.quizTitle}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 bg-white rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors shadow-xs border border-slate-200 cursor-pointer"
+            className="p-1.5 sm:p-2 bg-white rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors shadow-xs border border-slate-200 cursor-pointer shrink-0"
             title="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 

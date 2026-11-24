@@ -61,25 +61,25 @@ export const CandidateBookmarksModal: React.FC<CandidateBookmarksModalProps> = (
   }, [candidateUid, candidateEmail]);
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex flex-col p-3 sm:p-6 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-w-4xl w-full mx-auto h-full overflow-hidden">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex flex-col p-2.5 sm:p-6 animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-w-4xl w-full mx-auto h-full overflow-hidden my-auto max-h-[96vh]">
         
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 rounded-t-2xl shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 border border-amber-200 flex items-center justify-center font-bold">
-              <Bookmark className="w-5 h-5 fill-amber-500 text-amber-600" />
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-200 flex items-center justify-between gap-2.5 bg-slate-50 rounded-t-2xl shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-100 text-amber-800 border border-amber-200 flex items-center justify-center font-bold shrink-0">
+              <Bookmark className="w-4 h-4 sm:w-5 sm:h-5 fill-amber-500 text-amber-600" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+                <h2 className="text-sm sm:text-lg font-black text-slate-900 leading-tight truncate">
                   Candidate Revision Bank
                 </h2>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-200 shrink-0">
                   {bookmarks.length} Saved
                 </span>
               </div>
-              <p className="text-xs text-slate-500 font-medium">
+              <p className="text-[11px] sm:text-xs text-slate-500 font-medium truncate">
                 Candidate: <strong className="text-slate-800">{candidateName}</strong> {candidateEmail ? `(${candidateEmail})` : ''}
               </p>
             </div>
@@ -88,10 +88,10 @@ export const CandidateBookmarksModal: React.FC<CandidateBookmarksModalProps> = (
           <button
             type="button"
             onClick={onClose}
-            className="p-2 bg-white rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors shadow-xs border border-slate-200 cursor-pointer"
+            className="p-1.5 sm:p-2 bg-white rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors shadow-xs border border-slate-200 cursor-pointer shrink-0"
             title="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 

@@ -2691,15 +2691,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               ) : (
                 <div className="divide-y divide-slate-100">
                   {paginatedQuizzes.map((quiz) => (
-                    <div key={quiz.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center space-x-2">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    <div key={quiz.id} className="py-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3.5">
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
                             {quiz.topic}
                           </span>
-                          <h3 className="font-bold text-slate-900 text-sm">{quiz.title}</h3>
+                          <h3 className="font-bold text-slate-900 text-sm break-words">{quiz.title}</h3>
                         </div>
-                        <p className="text-xs text-slate-500 line-clamp-1">{quiz.description}</p>
+                        {quiz.description && (
+                          <p className="text-xs text-slate-500 line-clamp-1">{quiz.description}</p>
+                        )}
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400 font-mono pt-0.5">
                           <span>{quiz.questions.length} Questions</span>
                           <span>•</span>
@@ -2723,7 +2725,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center space-x-2">
+                      <div className="flex flex-wrap items-center gap-2 pt-2 xl:pt-0 shrink-0">
                         {/* WhatsApp Direct Share */}
                         <a
                           href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
