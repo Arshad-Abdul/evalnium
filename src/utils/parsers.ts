@@ -832,6 +832,7 @@ export function parseCSV(csvContent: string): ParseResult {
       optB: -1,
       optC: -1,
       optD: -1,
+      optE: -1,
       answer: -1,
       expEng: -1,
       expHin: -1,
@@ -842,11 +843,12 @@ export function parseCSV(csvContent: string): ParseResult {
       if (/^(?:questionenglish|englishquestion|qenglish|engquestion)$/.test(h)) colMap.qEng = idx;
       else if (/^(?:questionhindi|hindiquestion|qhindi|hinquestion)$/.test(h)) colMap.qHin = idx;
       else if (/^(?:question|questiontext|prompt|questionstatement|statement|qtext|stem|problem|questions|mcq|item)$/.test(h)) colMap.qText = idx;
-      else if (/^(?:optiona|opta|option1|choicea|choice1|opt1)$/.test(h)) colMap.optA = idx;
-      else if (/^(?:optionb|optb|option2|choiceb|choice2|opt2)$/.test(h)) colMap.optB = idx;
-      else if (/^(?:optionc|optc|option3|choicec|choice3|opt3)$/.test(h)) colMap.optC = idx;
-      else if (/^(?:optiond|optd|option4|choiced|choice4|opt4)$/.test(h)) colMap.optD = idx;
-      else if (/^(?:correctanswer|answer|correctoption|key|ans|correct|answerkey|correctkey)$/.test(h)) colMap.answer = idx;
+      else if (/^(?:optiona|opta|option1|choicea|choice1|opt1|a|opt_a)$/.test(h)) colMap.optA = idx;
+      else if (/^(?:optionb|optb|option2|choiceb|choice2|opt2|b|opt_b)$/.test(h)) colMap.optB = idx;
+      else if (/^(?:optionc|optc|option3|choicec|choice3|opt3|c|opt_c)$/.test(h)) colMap.optC = idx;
+      else if (/^(?:optiond|optd|option4|choiced|choice4|opt4|d|opt_d)$/.test(h)) colMap.optD = idx;
+      else if (/^(?:optione|opte|option5|choicee|choice5|opt5|e|opt_e)$/.test(h)) colMap.optE = idx;
+      else if (/^(?:correctanswer|answer|correctoption|key|ans|correct|answerkey|correctkey|correct_answer|correct_option|answer_key)$/.test(h)) colMap.answer = idx;
       else if (/^(?:explanationenglish)$/.test(h)) colMap.expEng = idx;
       else if (/^(?:explanationhindi)$/.test(h)) colMap.expHin = idx;
       else if (/^(?:explanation|exp|reason|rationale|solution|comment)$/.test(h)) colMap.exp = idx;
@@ -877,13 +879,14 @@ export function parseCSV(csvContent: string): ParseResult {
       let optB = colMap.optB !== -1 ? row[colMap.optB] : (row[2] || '');
       let optC = colMap.optC !== -1 ? row[colMap.optC] : (row[3] || '');
       let optD = colMap.optD !== -1 ? row[colMap.optD] : (row[4] || '');
+      let optE = colMap.optE !== -1 ? row[colMap.optE] : (colMap.answer !== 5 ? (row[5] || '') : '');
 
       let rawAns = colMap.answer !== -1 ? row[colMap.answer] : (row[5] || '');
       let answer = rawAns.toUpperCase().replace('OPTION ', '').trim();
-      if (['1', '2', '3', '4'].includes(answer)) {
+      if (['1', '2', '3', '4', '5'].includes(answer)) {
         answer = String.fromCharCode(64 + parseInt(answer, 10));
       }
-      if (!['A', 'B', 'C', 'D'].includes(answer)) {
+      if (!['A', 'B', 'C', 'D', 'E'].includes(answer)) {
         answer = 'A';
       }
 
@@ -903,6 +906,7 @@ export function parseCSV(csvContent: string): ParseResult {
       if (optB) options.push({ id: 'B', text: cleanOptionText(optB, 'B') });
       if (optC) options.push({ id: 'C', text: cleanOptionText(optC, 'C') });
       if (optD) options.push({ id: 'D', text: cleanOptionText(optD, 'D') });
+      if (optE) options.push({ id: 'E', text: cleanOptionText(optE, 'E') });
 
       const safeOptions = options.length >= 2 ? options : [
         { id: 'A', text: cleanOptionText(optA, 'A') || 'Option A' },
