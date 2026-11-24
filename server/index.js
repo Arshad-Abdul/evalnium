@@ -3791,6 +3791,12 @@ app.post('/api/results', async (req, res) => {
       ipAddress: req.ip || '127.0.0.1'
     });
 
+    // Clean up active in-memory session tracking upon submission so retakes/future attempts always trigger a fresh "Exam Started" audit log
+    if (r.quizId) {
+      if (effectiveCandidateEmail) activeSessions.delete(`${r.quizId}_${effectiveCandidateEmail}`);
+      if (effectiveCandidateName) activeSessions.delete(`${r.quizId}_${effectiveCandidateName}`);
+    }
+
     res.json({
       success: true,
       authoritative: true,
