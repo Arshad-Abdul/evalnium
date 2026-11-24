@@ -82,10 +82,60 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   }, [question.id, question.questionHindi, question.questionEnglish, question.questionText, question.options, question.listI, question.listII, languageMode]);
 
   const isMultiSelect = question.questionType === 'multiple_select';
-  const correctOptionIds = question.correctOptionIds || [question.correctOptionId];
+  const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+  const safeOptions = (question.options && question.options.length > 0)
+    ? question.options
+    : [
+      { id: 'A', text: 'Option A' },
+      { id: 'B', text: 'Option B' },
+      { id: 'C', text: 'Option C' },
+      { id: 'D', text: 'Option D' }
+    ];
+
+  const correctOptionIds = Array.isArray(question.correctOptionIds) && question.correctOptionIds.length > 0
+    ? question.correctOptionIds
+    : (question.correctOptionId ? [question.correctOptionId] : []);
+
+  // Robust comparison: single-select or multi-select with case-insensitive normalization
   const isSelectionCorrect = isMultiSelect
-    ? selectedOptionIds.length > 0 && selectedOptionIds.length === correctOptionIds.length && selectedOptionIds.every((id) => correctOptionIds.includes(id))
-    : selectedOptionId === question.correctOptionId;
+    ? selectedOptionIds.length > 0 &&
+      selectedOptionIds.length === correctOptionIds.length &&
+      selectedOptionIds.every((id) =>
+        correctOptionIds.some((c) => String(c).trim().toUpperCase() === String(id).trim().toUpperCase())
+      )
+    : selectedOptionId !== null &&
+      selectedOptionId !== undefined &&
+      correctOptionIds.some((c) => String(c).trim().toUpperCase() === String(selectedOptionId).trim().toUpperCase());
+
+  // Resolve visual letters & texts for the correct options as currently rendered on screen
+  const correctOptionDetails = React.useMemo(() => {
+    return correctOptionIds.map((cId) => {
+      const cleanCId = String(cId).trim().toUpperCase();
+      // 1. Try finding by matching opt.id
+      let optIdx = safeOptions.findIndex(
+        (o) => String(o.id).trim().toUpperCase() === cleanCId
+      );
+      // 2. Fallback: check if cId is a direct letter index
+      if (optIdx === -1) {
+        const letterIdx = letters.indexOf(cleanCId);
+        if (letterIdx !== -1 && letterIdx < safeOptions.length) {
+          optIdx = letterIdx;
+        }
+      }
+
+      const visualLetter = optIdx !== -1 ? (letters[optIdx] || String(cId)) : String(cId);
+      const opt = optIdx !== -1 ? safeOptions[optIdx] : null;
+      const optText = opt ? opt.text : '';
+      const optId = opt ? opt.id : cId;
+      return {
+        id: optId,
+        letter: visualLetter,
+        text: optText,
+      };
+    });
+  }, [safeOptions, correctOptionIds]);
+
+  const correctVisualLetters = correctOptionDetails.map((d) => d.letter).join(', ');
 
   const renderQuestionText = () => {
     const englishQ = question.questionEnglish || question.questionText;
@@ -277,92 +327,98 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       )}
 
       {/* Structured Examination Option Choices */}
-      {(() => {
-        const safeOptions = (question.options && question.options.length > 0)
-          ? question.options
-          : [
-            { id: 'A', text: 'Option A' },
-            { id: 'B', text: 'Option B' },
-            { id: 'C', text: 'Option C' },
-            { id: 'D', text: 'Option D' }
-          ];
+      <div className="grid grid-cols-1 gap-2.5 pt-1">
+        {safeOptions.map((opt, optIdx) => {
+          const isMSQ = question.questionType === 'multiple_select';
+          const isSelected = isMSQ
+            ? (userAnswer?.selectedOptionIds || []).includes(opt.id)
+            : selectedOptionId === opt.id;
+          // Clean sequential badge (A, B, C, D) based on visual index, ensuring options always show clean sequential order
+          const displayLetter = letters[optIdx] || opt.id;
 
-        return (
-          <div className="grid grid-cols-1 gap-2.5 pt-1">
-            {safeOptions.map((opt, optIdx) => {
-              const isMSQ = question.questionType === 'multiple_select';
-              const isSelected = isMSQ
-                ? (userAnswer?.selectedOptionIds || []).includes(opt.id)
-                : selectedOptionId === opt.id;
-              // Clean sequential badge (A, B, C, D) based on visual index, ensuring options always show clean sequential order
-              const displayLetter = ['A', 'B', 'C', 'D', 'E', 'F'][optIdx] || opt.id;
-
-              return (
-                <div
-                  key={opt.id}
-                  onClick={() => onSelectOption(opt.id)}
-                  className={`exam-option-box p-3.5 flex items-center justify-between gap-3 cursor-pointer ${isSelected ? 'selected' : ''
+          return (
+            <div
+              key={opt.id}
+              onClick={() => onSelectOption(opt.id)}
+              className={`exam-option-box p-3.5 flex items-center justify-between gap-3 cursor-pointer ${isSelected ? 'selected' : ''
+                }`}
+            >
+              <div className="flex items-center space-x-3 min-w-0 flex-1">
+                <span
+                  className={`w-6 h-6 rounded font-mono font-bold text-xs flex items-center justify-center border transition-colors shrink-0 ${isSelected
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-slate-100 text-slate-700 border-slate-300'
                     }`}
                 >
-                  <div className="flex items-center space-x-3 min-w-0 flex-1">
-                    <span
-                      className={`w-6 h-6 rounded font-mono font-bold text-xs flex items-center justify-center border transition-colors shrink-0 ${isSelected
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-slate-100 text-slate-700 border-slate-300'
-                        }`}
-                    >
-                      {displayLetter}
+                  {displayLetter}
+                </span>
+
+                <div className="flex flex-col text-left min-w-0 flex-1 break-words">
+                  <span className={`text-xs sm:text-sm font-medium ${isSelected ? 'text-blue-950 font-semibold' : 'text-slate-800'}`}>
+                    {languageMode === 'hi' && autoHindiOptions[opt.id] ? autoHindiOptions[opt.id] : opt.text}
+                  </span>
+                  {languageMode === 'dual' && autoHindiOptions[opt.id] && autoHindiOptions[opt.id] !== opt.text && (
+                    <span className="text-[11px] text-slate-500 pt-0.5">
+                      {autoHindiOptions[opt.id]}
                     </span>
-
-                    <div className="flex flex-col text-left min-w-0 flex-1 break-words">
-                      <span className={`text-xs sm:text-sm font-medium ${isSelected ? 'text-blue-950 font-semibold' : 'text-slate-800'}`}>
-                        {languageMode === 'hi' && autoHindiOptions[opt.id] ? autoHindiOptions[opt.id] : opt.text}
-                      </span>
-                      {languageMode === 'dual' && autoHindiOptions[opt.id] && autoHindiOptions[opt.id] !== opt.text && (
-                        <span className="text-[11px] text-slate-500 pt-0.5">
-                          {autoHindiOptions[opt.id]}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Radio / Checkbox Indicator */}
-                  <input
-                    type={isMSQ ? "checkbox" : "radio"}
-                    name={`q_${question.id}`}
-                    checked={isSelected}
-                    onChange={() => { }}
-                    className="w-4 h-4 text-blue-600 focus:ring-blue-500 rounded border-slate-300 cursor-pointer shrink-0"
-                  />
+                  )}
                 </div>
-              );
-            })}
-          </div>
-        );
-      })()}
+              </div>
+
+              {/* Radio / Checkbox Indicator */}
+              <input
+                type={isMSQ ? "checkbox" : "radio"}
+                name={`q_${question.id}`}
+                checked={isSelected}
+                onChange={() => { }}
+                className="w-4 h-4 text-blue-600 focus:ring-blue-500 rounded border-slate-300 cursor-pointer shrink-0"
+              />
+            </div>
+          );
+        })}
+      </div>
 
       {/* Practice Mode Rationale Box */}
       {enablePracticeMode && hasSelection && (
-        <div className={`p-3.5 rounded border space-y-1.5 ${isSelectionCorrect
-            ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
-            : 'bg-rose-50 border-rose-300 text-rose-950'
+        <div className={`p-3.5 rounded-xl border space-y-2 shadow-xs transition-all ${isSelectionCorrect
+            ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950'
+            : 'bg-rose-50/90 border-rose-300 text-rose-950'
           }`}>
-          <div className="flex items-center space-x-1.5 font-bold text-xs">
+          <div className="flex items-center space-x-2 font-bold text-xs">
             {isSelectionCorrect ? (
               <>
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Correct Option Selected</span>
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="text-emerald-900 font-bold">Correct Option Selected!</span>
               </>
             ) : (
               <>
-                <XCircle className="w-4 h-4 text-rose-600" />
-                <span>Incorrect Selection (Correct: Option {correctOptionIds.join(', ')})</span>
+                <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span className="text-rose-950 font-bold">
+                  Incorrect Selection (Correct: Option {correctVisualLetters})
+                </span>
               </>
             )}
           </div>
+
+          {!isSelectionCorrect && correctOptionDetails.some(d => Boolean(d.text)) && (
+            <div className="text-xs text-rose-900 bg-rose-100/70 border border-rose-200/90 rounded-lg px-2.5 py-1.5 leading-relaxed font-medium">
+              <span className="font-bold text-rose-950">Correct Key:</span>{' '}
+              {correctOptionDetails.map((d, i) => {
+                const hindiText = autoHindiOptions[d.id];
+                const displayText = languageMode === 'hi' && hindiText ? hindiText : d.text;
+                return (
+                  <span key={d.id || i}>
+                    {i > 0 && ' • '}
+                    <strong className="text-rose-950 font-bold font-mono">[{d.letter}]</strong> {cleanItemText(displayText)}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
           {question.explanation && (
-            <p className="text-xs text-slate-700 leading-relaxed pt-1 border-t border-slate-200">
-              <span className="font-semibold text-slate-900">Explanation:</span> {question.explanation}
+            <p className="text-xs text-slate-700 leading-relaxed pt-1.5 border-t border-slate-200/80">
+              <span className="font-bold text-slate-900">Explanation:</span> {question.explanation}
             </p>
           )}
         </div>

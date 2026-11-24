@@ -82,12 +82,21 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
       let orderedOpts = [...(q.options || [])];
       // When shuffleOptions is explicitly enabled on this exam, randomize option choices
       if (quiz.shuffleOptions && orderedOpts.length > 1) {
-        const shuffled = [...orderedOpts];
-        for (let i = shuffled.length - 1; i > 0; i--) {
+        // Options that must remain at the bottom (e.g. "All of the above", "None of the above", "Both A and B")
+        const isBottomAnchor = (text: string) => {
+          const t = (text || '').trim().toLowerCase();
+          return /^(all\s+(of\s+)?the\s+above|none\s+(of\s+)?(the\s+above|these)|both\s+(\(?[a-d]\)?|[a-d])\s+and\s+(\(?[a-d]\)?|[a-d]))/i.test(t);
+        };
+
+        const normalOpts = orderedOpts.filter(o => !isBottomAnchor(o.text));
+        const bottomOpts = orderedOpts.filter(o => isBottomAnchor(o.text));
+
+        // Randomize normal options safely
+        for (let i = normalOpts.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
-          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+          [normalOpts[i], normalOpts[j]] = [normalOpts[j], normalOpts[i]];
         }
-        orderedOpts = shuffled;
+        orderedOpts = [...normalOpts, ...bottomOpts];
       } else {
         orderedOpts.sort((a, b) => String(a.id).localeCompare(String(b.id)));
       }
@@ -1024,6 +1033,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
                 totalQuestions={activeQuestions.length}
                 userAnswer={userAnswers[q.id] || { questionId: q.id, selectedOptionId: null, isMarkedForReview: false, timeSpentSeconds: 0 }}
                 languageMode={languageMode}
+                enablePracticeMode={quiz.enablePracticeMode}
                 onSelectOption={(optId) => {
                   const isMSQ = q.questionType === 'multiple_select';
                   setUserAnswers((prev) => {

@@ -198,12 +198,17 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
 
   const isQuestionCorrect = (q: Question, uAns: UserAnswer | undefined): boolean => {
     if (!uAns) return false;
+    const cleanId = (v: any) => String(v || '').trim().toUpperCase();
     if (q.questionType === 'multiple_select') {
-      const selected = uAns.selectedOptionIds || [];
-      const correct = q.correctOptionIds || [q.correctOptionId];
+      const selected = (uAns.selectedOptionIds || []).map(cleanId);
+      const rawCorrect = Array.isArray(q.correctOptionIds) && q.correctOptionIds.length > 0
+        ? q.correctOptionIds
+        : (q.correctOptionId ? [q.correctOptionId] : []);
+      const correct = rawCorrect.map(cleanId);
       return selected.length === correct.length && selected.every((id: string) => correct.includes(id));
     }
-    return uAns.selectedOptionId === q.correctOptionId;
+    if (uAns.selectedOptionId === null || uAns.selectedOptionId === undefined) return false;
+    return cleanId(uAns.selectedOptionId) === cleanId(q.correctOptionId);
   };
 
   // Syllabus Breakdown for Weak-Topic Diagnosis
@@ -726,12 +731,15 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                   return (
                     <div className="grid grid-cols-1 gap-2.5 pt-1">
                       {orderedOptions.map((opt) => {
+                        const optCleanId = String(opt.id || '').trim().toUpperCase();
                         const isMSQq = q.questionType === 'multiple_select';
                         const isCandidateChoice = isMSQq
-                          ? selectedOptIds.includes(opt.id)
-                          : selectedOptId === opt.id;
-                        const correctIds = q.correctOptionIds || (q.correctOptionId ? [q.correctOptionId] : []);
-                        const isRightAnswer = correctIds.includes(opt.id);
+                          ? selectedOptIds.some((sid) => String(sid || '').trim().toUpperCase() === optCleanId)
+                          : String(selectedOptId || '').trim().toUpperCase() === optCleanId;
+                        const correctIds = (Array.isArray(q.correctOptionIds) && q.correctOptionIds.length > 0)
+                          ? q.correctOptionIds
+                          : (q.correctOptionId ? [q.correctOptionId] : []);
+                        const isRightAnswer = correctIds.some((cid) => String(cid || '').trim().toUpperCase() === optCleanId);
                         const hindiOptText = autoHindiMap[q.id]?.options?.[opt.id];
 
                         let optStyle = 'bg-slate-50 border-slate-200 text-slate-700';
