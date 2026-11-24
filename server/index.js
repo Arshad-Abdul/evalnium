@@ -1036,11 +1036,7 @@ async function initDatabase() {
         WHERE a1.id > a2.id 
           AND a1.event_type = a2.event_type 
           AND a1.actor_name = a2.actor_name 
-          AND a1.action_title = a2.action_title 
-          AND (
-            a1.created_at = a2.created_at 
-            OR ABS(TIMESTAMPDIFF(SECOND, a1.created_at, a2.created_at)) < 300
-          )
+          AND a1.action_title = a2.action_title
       `);
       if (dedupRes.affectedRows > 0) {
         console.log(`🧹 Cleaned up ${dedupRes.affectedRows} duplicate audit log entries in MySQL.`);
@@ -3479,6 +3475,23 @@ app.delete('/api/admin/audit-logs/purge', authenticateAdmin, async (req, res) =>
     const cutoffDate = new Date(Date.now() - daysNum * 24 * 60 * 60 * 1000).toISOString();
     const [result] = await pool.query('DELETE FROM activity_audit_logs WHERE created_at < ?', [cutoffDate]);
     res.json({ success: true, deletedCount: result.affectedRows, message: `Purged activity audit logs older than ${daysNum} days.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Deduplicate Activity Audit Logs on-demand
+app.post('/api/admin/audit-logs/deduplicate', authenticateAdmin, async (req, res) => {
+  try {
+    const [dedupRes] = await pool.query(`
+      DELETE a1 FROM activity_audit_logs a1
+      INNER JOIN activity_audit_logs a2 
+      WHERE a1.id > a2.id 
+        AND a1.event_type = a2.event_type 
+        AND a1.actor_name = a2.actor_name 
+        AND a1.action_title = a2.action_title
+    `);
+    res.json({ success: true, removedCount: dedupRes.affectedRows, message: `Successfully removed ${dedupRes.affectedRows} duplicate audit log entries.` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

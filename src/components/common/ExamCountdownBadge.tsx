@@ -121,11 +121,50 @@ export const ExamCountdownAction: React.FC<ExamCountdownActionProps> = ({
   const isContest = quiz.quizType === 'live_contest';
   const widthClass = compact ? 'px-3.5 py-2 shrink-0 whitespace-nowrap' : 'w-full py-2.5';
 
+  // Check if candidate has an active saved exam session in progress
+  const hasActiveSession = React.useMemo(() => {
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('evalnium_live_exam_') && k.endsWith(`_${quiz.id}`)) {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed.startTime) {
+              if (!quiz.timeLimitMinutes || quiz.timeLimitMinutes <= 0) return true;
+              const elapsed = Math.floor((Date.now() - parsed.startTime) / 1000);
+              return elapsed < (quiz.timeLimitMinutes * 60);
+            }
+          }
+        }
+      }
+    } catch {}
+    return false;
+  }, [quiz.id, quiz.timeLimitMinutes]);
+
   const now = Date.now();
   const startMs = quiz.scheduledStartDateTime ? new Date(quiz.scheduledStartDateTime).getTime() : 0;
   const endMs = quiz.scheduledEndDateTime ? new Date(quiz.scheduledEndDateTime).getTime() : 0;
 
-  // 1. If contest and user already submitted: View Scorecard
+  // 1. If active in-progress session exists and time remaining: Show Resume Test Button
+  if (hasActiveSession) {
+    return (
+      <button
+        type="button"
+        onClick={() => onStartExam(quiz)}
+        className={`${widthClass} rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-300 ring-offset-1`}
+      >
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+        </span>
+        <Play className="w-3.5 h-3.5 fill-white" />
+        <span>Resume Test</span>
+      </button>
+    );
+  }
+
+  // 2. If contest and user already submitted: View Scorecard
   if (isContest && hasAttempted) {
     return (
       <button

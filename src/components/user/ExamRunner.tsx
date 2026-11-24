@@ -31,11 +31,11 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         const parsed = JSON.parse(saved);
         if (parsed.startTime) return parsed.startTime;
       }
-    } catch {}
+    } catch { }
     const now = Date.now();
     try {
       localStorage.setItem(sessionKey, JSON.stringify({ startTime: now, userAnswers: {} }));
-    } catch {}
+    } catch { }
     return now;
   });
 
@@ -53,7 +53,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
           return Math.max(0, totalSeconds - elapsed);
         }
       }
-    } catch {}
+    } catch { }
     return totalSeconds;
   });
   const [questionTimeRemainingSeconds, setQuestionTimeRemainingSeconds] = useState(
@@ -66,7 +66,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         const parsed = JSON.parse(saved);
         if (parsed.userAnswers) return parsed.userAnswers;
       }
-    } catch {}
+    } catch { }
     return {};
   });
   const [showSubmitModal, setShowSubmitModal] = useState(false);
@@ -121,8 +121,8 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 
   const currentSectionIdx = React.useMemo(() =>
     !sectionBoundaries.length ? 0
-    : sectionBoundaries.reduce((best, { start }, i) => currentQuestionIndex >= start ? i : best, 0)
-  , [sectionBoundaries, currentQuestionIndex]);
+      : sectionBoundaries.reduce((best, { start }, i) => currentQuestionIndex >= start ? i : best, 0)
+    , [sectionBoundaries, currentQuestionIndex]);
 
   const currentSectionBoundary = sectionBoundaries[currentSectionIdx] ?? null;
   const isLastQuestionOfSection = !!currentSectionBoundary && currentQuestionIndex >= currentSectionBoundary.end - 1;
@@ -151,7 +151,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
   const clearSession = useCallback(() => {
     try {
       localStorage.removeItem(sessionKey);
-    } catch {}
+    } catch { }
   }, [sessionKey]);
 
   // Stable ref so force-submit always calls the latest calculateResults
@@ -263,7 +263,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         e.preventDefault();
         try {
           navigator.clipboard.writeText('⚠️ Screen capture and question copying are strictly prohibited on Evalnium CBT.');
-        } catch {}
+        } catch { }
         setShowAntiCheatWarning(true);
         return false;
       }
@@ -289,7 +289,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
       if (isScreenshotGuardEnabled && e.key === 'PrintScreen') {
         try {
           navigator.clipboard.writeText('⚠️ Screen capture and question copying are strictly prohibited on Evalnium CBT.');
-        } catch {}
+        } catch { }
       }
     };
 
@@ -329,7 +329,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         startTime: examStartTime,
         userAnswers,
       }));
-    } catch {}
+    } catch { }
   }, [userAnswers, examStartTime, sessionKey]);
 
   // 1. Prevent accidental window / tab close or refresh
@@ -422,7 +422,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
           userAnswers,
           questionsCount: activeQuestions.length
         })
-      }).catch(() => {});
+      }).catch(() => { });
     };
 
     pingHeartbeat();
@@ -476,8 +476,8 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
       }
     }, 1000);
     return () => clearInterval(interval);
-  // handleForceSubmit and activeQuestions.length are intentionally accessed via refs
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // handleForceSubmit and activeQuestions.length are intentionally accessed via refs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestionIndex, quiz.timingMode, quiz.questionTimeLimitSeconds]);
 
   // Per-section countdown (sectional timing mode only) — resets automatically when section changes
@@ -671,7 +671,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     activeQuestions.forEach((q) => {
       const uAns = userAnswers[q.id];
       const isMSQ = q.questionType === 'multiple_select';
-      
+
       let isCorrect = false;
       let isSkipped = false;
 
@@ -679,7 +679,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         const selected = uAns?.selectedOptionIds || [];
         const correct = q.correctOptionIds || [q.correctOptionId];
         isSkipped = selected.length === 0;
-        
+
         // Exact match of arrays
         if (!isSkipped) {
           isCorrect = selected.length === correct.length && selected.every(val => correct.includes(val!));
@@ -756,7 +756,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 
   return (
     <div className={`min-h-[92vh] flex flex-col justify-between space-y-4 sm:space-y-6 ${quiz.preventQuestionCopy !== false ? 'select-none' : ''}`}>
-      
+
       {/* Exam Header */}
       <ExamHeader
         topic={quiz.topic}
@@ -839,13 +839,12 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
                 onClick={() => { if (!isLocked) setCurrentQuestionIndex(firstQIndex); }}
                 disabled={isLocked}
                 title={isForwardLocked ? 'Locked — finish current section time first' : isBackLocked ? 'Cannot return to previous sections' : undefined}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-md border flex-shrink-0 transition-all ${
-                  isCurrent
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-md border flex-shrink-0 transition-all ${isCurrent
                     ? 'bg-white text-indigo-900 border-white'
                     : isLocked
-                    ? 'bg-slate-700 text-slate-500 border-slate-600 cursor-not-allowed opacity-50'
-                    : 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-indigo-400/40 cursor-pointer'
-                }`}
+                      ? 'bg-slate-700 text-slate-500 border-slate-600 cursor-not-allowed opacity-50'
+                      : 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-indigo-400/40 cursor-pointer'
+                  }`}
               >
                 {sec.sectionName}{secTimeDisplay}
               </button>
@@ -918,20 +917,19 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
                     onClick={handleNextQuestion}
                     disabled={!canGoNext}
                     title={isBlockedBySectionLock ? `Cannot advance — wait for section timer to expire (${sectionTimeRemainingSeconds}s remaining)` : undefined}
-                    className={`px-5 py-2 rounded-lg font-bold text-xs shadow-xs flex items-center space-x-1.5 transition-all ${
-                      isBlockedBySectionLock
+                    className={`px-5 py-2 rounded-lg font-bold text-xs shadow-xs flex items-center space-x-1.5 transition-all ${isBlockedBySectionLock
                         ? 'bg-slate-400 cursor-not-allowed text-white opacity-80'
                         : isLastQuestionOfSection && !isLastSection && quiz.timingMode === 'sectional'
-                        ? 'bg-violet-600 hover:bg-violet-700 text-white'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white'
-                    }`}
+                          ? 'bg-violet-600 hover:bg-violet-700 text-white'
+                          : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      }`}
                   >
                     <span>
                       {isBlockedBySectionLock
                         ? `⏳ Wait (${sectionTimeRemainingSeconds}s)`
                         : isLastQuestionOfSection && !isLastSection && quiz.timingMode === 'sectional'
-                        ? 'Finish Section →'
-                        : 'Save & Next (➔)'}
+                          ? 'Finish Section →'
+                          : 'Save & Next (➔)'}
                     </span>
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -1096,21 +1094,21 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         </div>
       )}
 
-      {/* Back Button / Exit Exam Warning Modal */}
+      {/* Back Button / Exit Examination Confirmation Modal */}
       {showExitPromptModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-white max-w-md w-full p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-2xl space-y-4 my-auto animate-in fade-in duration-150">
-            <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mx-auto">
-              <AlertTriangle className="w-6 h-6 shrink-0" />
+            <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mx-auto">
+              <ShieldAlert className="w-5 h-5 shrink-0" />
             </div>
 
-            <div className="text-center space-y-1">
-              <h3 className="text-lg font-bold text-slate-900">⚠️ Active Exam in Progress!</h3>
+            <div className="text-center space-y-1.5">
+              <h3 className="text-lg font-bold text-slate-900">Exit Examination?</h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Aap abhi active exam attempt kar rahe hain. Kya aap exam jari rakhna chahte hain ya abhi exit karna chahte hain?
+                You have an active test session in progress. Exiting will automatically submit your assessment with your currently recorded answers.
               </p>
-              <p className="text-xs text-rose-600 font-semibold pt-1">
-                Exit karne par aapka exam ab tak ke answers ke sath automatically submit ho jayega.
+              <p className="text-xs text-slate-400 font-medium">
+                This action is final and will generate your official scorecard.
               </p>
             </div>
 
@@ -1126,7 +1124,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
               </div>
               <div className="border-r border-slate-200" />
               <div>
-                <span className="text-slate-400 block text-[11px]">Remaining</span>
+                <span className="text-slate-400 block text-[11px]">Time Left</span>
                 <span className="font-bold text-sm text-indigo-600 font-mono">
                   {isUntimed ? 'Untimed' : `${Math.floor(timeRemainingSeconds / 60)}m ${timeRemainingSeconds % 60}s`}
                 </span>
@@ -1137,16 +1135,16 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
               <button
                 type="button"
                 onClick={() => setShowExitPromptModal(false)}
-                className="w-full sm:w-1/2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                className="w-full sm:w-1/2 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer"
               >
-                Continue Exam
+                Return to Examination
               </button>
               <button
                 type="button"
                 onClick={handleConfirmSubmit}
-                className="w-full sm:w-1/2 py-2.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs transition-colors cursor-pointer"
+                className="w-full sm:w-1/2 py-2.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs transition-colors cursor-pointer"
               >
-                Exit &amp; Submit Now
+                Submit &amp; End Test
               </button>
             </div>
           </div>
