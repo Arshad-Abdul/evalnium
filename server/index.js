@@ -572,6 +572,7 @@ async function initDatabase() {
       `ALTER TABLE quizzes ADD COLUMN shuffle_questions TINYINT(1) DEFAULT 1;`,
       `ALTER TABLE quizzes ADD COLUMN shuffle_options TINYINT(1) DEFAULT 1;`,
       `ALTER TABLE quizzes ADD COLUMN enable_practice_mode TINYINT(1) DEFAULT 0;`,
+      `ALTER TABLE quizzes ADD COLUMN lock_option_on_select TINYINT(1) DEFAULT 0;`,
       `ALTER TABLE quizzes ADD COLUMN default_language_mode VARCHAR(20) DEFAULT 'en';`,
       `ALTER TABLE questions ADD COLUMN question_english TEXT;`,
       `ALTER TABLE questions ADD COLUMN question_hindi TEXT;`,
@@ -2363,6 +2364,12 @@ setInterval(async () => {
   const now = Date.now();
 
   for (const [key, session] of activeSessions.entries()) {
+    // A. Clean up abandoned/closed sessions if no ping received for > 5 minutes
+    if (now - session.lastSeen > 5 * 60 * 1000) {
+      activeSessions.delete(key);
+      continue;
+    }
+
     // 1. Timed exams: check if candidate's time has completely expired
     if (!session.isUntimed && session.timeLimitMinutes > 0) {
       const totalAllowedMs = session.timeLimitMinutes * 60 * 1000;
@@ -2577,6 +2584,7 @@ app.get('/api/quizzes', async (req, res) => {
         shuffleQuestions: q.shuffle_questions !== undefined ? Boolean(q.shuffle_questions) : true,
         shuffleOptions: q.shuffle_options !== undefined ? Boolean(q.shuffle_options) : true,
         enablePracticeMode: Boolean(q.enable_practice_mode),
+        lockOptionOnSelect: Boolean(q.lock_option_on_select),
         defaultLanguageMode: q.default_language_mode || 'en',
         hasAccessCode: Boolean(q.access_code),
         accessCode: isAdmin ? (q.access_code || undefined) : undefined,
@@ -2681,23 +2689,23 @@ app.post('/api/quizzes', authenticateAdmin, async (req, res) => {
       `INSERT INTO quizzes (
         id, slug, title, description, topic, category, difficulty, time_limit_minutes, passing_percentage, negative_marks, quiz_type, scheduled_start_datetime, scheduled_end_datetime, is_published, created_at, updated_at, author,
         enable_certificate, enable_anti_cheating, timing_mode, sectional_config_json, question_time_limit_seconds, prevent_prev_section, prevent_early_next_section, prevent_prev_question, prevent_early_next_question,
-        shuffle_questions, shuffle_options, enable_practice_mode, default_language_mode, access_code, allowed_emails, question_view_mode, max_attempts, allow_manual_early_move, result_announcement_datetime, auto_email_results, max_tab_switches, prevent_question_copy, prevent_screenshot, enable_watermark,
+        shuffle_questions, shuffle_options, enable_practice_mode, lock_option_on_select, default_language_mode, access_code, allowed_emails, question_view_mode, max_attempts, allow_manual_early_move, result_announcement_datetime, auto_email_results, max_tab_switches, prevent_question_copy, prevent_screenshot, enable_watermark,
         publish_at, custom_badge, badge_expires_at, show_badge, show_timer, show_dates
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE 
         slug=?, title=?, description=?, topic=?, category=?, difficulty=?, time_limit_minutes=?, passing_percentage=?, negative_marks=?, quiz_type=?, scheduled_start_datetime=?, scheduled_end_datetime=?, is_published=?, updated_at=?,
         enable_certificate=?, enable_anti_cheating=?, timing_mode=?, sectional_config_json=?, question_time_limit_seconds=?, prevent_prev_section=?, prevent_early_next_section=?, prevent_prev_question=?, prevent_early_next_question=?,
-        shuffle_questions=?, shuffle_options=?, enable_practice_mode=?, default_language_mode=?, access_code=?, allowed_emails=?, question_view_mode=?, max_attempts=?, allow_manual_early_move=?, result_announcement_datetime=?, auto_email_results=?, max_tab_switches=?, prevent_question_copy=?, prevent_screenshot=?, enable_watermark=?,
+        shuffle_questions=?, shuffle_options=?, enable_practice_mode=?, lock_option_on_select=?, default_language_mode=?, access_code=?, allowed_emails=?, question_view_mode=?, max_attempts=?, allow_manual_early_move=?, result_announcement_datetime=?, auto_email_results=?, max_tab_switches=?, prevent_question_copy=?, prevent_screenshot=?, enable_watermark=?,
         publish_at=?, custom_badge=?, badge_expires_at=?, show_badge=?, show_timer=?, show_dates=?`,
       [
         q.id, finalSlug, q.title, q.description, normalizedTopic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.scheduledStartDateTime || null, q.scheduledEndDateTime || null, q.isPublished ? 1 : 0, q.createdAt, q.updatedAt, q.author || 'Admin',
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
-        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3, q.preventQuestionCopy !== false ? 1 : 0, q.preventScreenshot !== false ? 1 : 0, q.enableWatermark !== false ? 1 : 0,
+        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.lockOptionOnSelect ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3, q.preventQuestionCopy !== false ? 1 : 0, q.preventScreenshot !== false ? 1 : 0, q.enableWatermark !== false ? 1 : 0,
         q.publishAt || null, q.customBadge || null, q.badgeExpiresAt || null, q.showBadge !== false ? 1 : 0, q.showCountdown !== false ? 1 : 0, q.showDates !== false ? 1 : 0,
 
         finalSlug, q.title, q.description, normalizedTopic, q.category || 'General', q.difficulty || 'Medium', q.timeLimitMinutes, q.passingPercentage, q.negativeMarks, q.quizType || 'practice', q.scheduledStartDateTime || null, q.scheduledEndDateTime || null, q.isPublished ? 1 : 0, q.updatedAt,
         q.enableCertificate !== false ? 1 : 0, q.enableAntiCheating ? 1 : 0, q.timingMode || 'quiz', JSON.stringify(q.sectionalConfig || []), q.questionTimeLimitSeconds || 60, q.preventPreviousSectionReturn ? 1 : 0, q.preventEarlyNextSection ? 1 : 0, q.preventPreviousQuestionReturn ? 1 : 0, q.preventEarlyNextQuestion ? 1 : 0,
-        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3, q.preventQuestionCopy !== false ? 1 : 0, q.preventScreenshot !== false ? 1 : 0, q.enableWatermark !== false ? 1 : 0,
+        q.shuffleQuestions !== false ? 1 : 0, q.shuffleOptions !== false ? 1 : 0, q.enablePracticeMode ? 1 : 0, q.lockOptionOnSelect ? 1 : 0, q.defaultLanguageMode || 'en', q.accessCode || null, q.allowedEmails ? JSON.stringify(q.allowedEmails) : null, q.questionViewMode || 'both', q.maxAttempts || 0, q.allowManualEarlyMove ? 1 : 0, q.resultAnnouncementDateTime || null, q.autoEmailResults !== false ? 1 : 0, q.maxTabSwitches || 3, q.preventQuestionCopy !== false ? 1 : 0, q.preventScreenshot !== false ? 1 : 0, q.enableWatermark !== false ? 1 : 0,
         q.publishAt || null, q.customBadge || null, q.badgeExpiresAt || null, q.showBadge !== false ? 1 : 0, q.showCountdown !== false ? 1 : 0, q.showDates !== false ? 1 : 0
       ]
     );
@@ -2977,7 +2985,9 @@ app.get('/api/sessions/active-exam/:quizId', (req, res) => {
 });
 
 app.get('/api/sessions/live', authenticateAdmin, (req, res) => {
-  const sessions = Array.from(activeSessions.values());
+  const now = Date.now();
+  // Filter out stale sessions where last ping was more than 3 minutes ago
+  const sessions = Array.from(activeSessions.values()).filter(s => (now - s.lastSeen) <= 3 * 60 * 1000);
   res.json(sessions);
 });
 
@@ -3832,7 +3842,7 @@ app.get('/api/admin/stats', async (req, res) => {
     const activeVisitorsCount = Array.from(activeVisitors.values()).filter(
       v => v.role !== 'admin' && (nowMs - v.lastSeen < 45000)
     ).length;
-    const activeExamsCount = activeSessions.size;
+    const activeExamsCount = Array.from(activeSessions.values()).filter(s => (nowMs - s.lastSeen) <= 3 * 60 * 1000).length;
 
     // 2. Top Performers (Top 5 average scores)
     const [topPerformers] = await pool.query(`

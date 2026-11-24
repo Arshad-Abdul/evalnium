@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { Question, UserAnswer } from '../../types/quiz';
 import { translateToHindi } from '../../utils/translator';
 import { getItemPrefix, cleanItemText } from '../../utils/parsers';
-import { Bookmark, Clock, CheckCircle2, XCircle, BookOpen } from 'lucide-react';
+import { Bookmark, Clock, CheckCircle2, XCircle, BookOpen, Lock } from 'lucide-react';
 import { AudioPlayerButton } from '../common/AudioPlayerButton';
 import { FormattedQuestionStem } from '../common/FormattedQuestionStem';
 
@@ -13,6 +13,7 @@ interface QuestionCardProps {
   userAnswer: UserAnswer;
   languageMode: 'dual' | 'en' | 'hi';
   enablePracticeMode?: boolean;
+  lockOptionOnSelect?: boolean;
   onSelectOption: (optionId: string) => void;
   onClearChoice: () => void;
   onToggleBookmark: () => void;
@@ -25,6 +26,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   userAnswer,
   languageMode,
   enablePracticeMode,
+  lockOptionOnSelect,
   onSelectOption,
   onClearChoice,
   onToggleBookmark,
@@ -34,6 +36,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const isMarked = userAnswer?.isMarkedForReview || false;
   const timeSpent = userAnswer?.timeSpentSeconds || 0;
   const hasSelection = Boolean(selectedOptionId || selectedOptionIds.length > 0);
+  const isAnswerLocked = Boolean(enablePracticeMode && lockOptionOnSelect && hasSelection);
 
   const [autoHindiText, setAutoHindiText] = useState<string>('');
   const [autoHindiOptions, setAutoHindiOptions] = useState<Record<string, string>>({});
@@ -339,9 +342,14 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           return (
             <div
               key={opt.id}
-              onClick={() => onSelectOption(opt.id)}
-              className={`exam-option-box p-3.5 flex items-center justify-between gap-3 cursor-pointer ${isSelected ? 'selected' : ''
-                }`}
+              onClick={() => {
+                if (!isAnswerLocked) {
+                  onSelectOption(opt.id);
+                }
+              }}
+              className={`exam-option-box p-3.5 flex items-center justify-between gap-3 ${
+                isAnswerLocked ? 'cursor-not-allowed select-none' : 'cursor-pointer'
+              } ${isSelected ? 'selected' : ''}`}
             >
               <div className="flex items-center space-x-3 min-w-0 flex-1">
                 <span
@@ -370,8 +378,11 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 type={isMSQ ? "checkbox" : "radio"}
                 name={`q_${question.id}`}
                 checked={isSelected}
+                disabled={isAnswerLocked}
                 onChange={() => { }}
-                className="w-4 h-4 text-blue-600 focus:ring-blue-500 rounded border-slate-300 cursor-pointer shrink-0"
+                className={`w-4 h-4 text-blue-600 focus:ring-blue-500 rounded border-slate-300 shrink-0 ${
+                  isAnswerLocked ? 'cursor-not-allowed' : 'cursor-pointer'
+                }`}
               />
             </div>
           );
@@ -426,13 +437,22 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
       {/* Action Footer: Clear Choice & Mark for Review */}
       <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-        <button
-          onClick={onClearChoice}
-          disabled={!hasSelection}
-          className="text-xs text-slate-500 hover:text-slate-800 disabled:opacity-30 font-medium transition-colors"
-        >
-          Clear Response
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={onClearChoice}
+            disabled={!hasSelection || isAnswerLocked}
+            className="text-xs text-slate-500 hover:text-slate-800 disabled:opacity-30 font-medium transition-colors"
+            title={isAnswerLocked ? 'Answer is locked in practice mode' : 'Clear your answer choice'}
+          >
+            Clear Response
+          </button>
+          {isAnswerLocked && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-900 font-semibold text-[11px]" title="Choice locked to protect exam integrity">
+              <Lock className="w-3 h-3 text-amber-700" />
+              <span>Answer Locked</span>
+            </span>
+          )}
+        </div>
 
         <button
           onClick={onToggleBookmark}

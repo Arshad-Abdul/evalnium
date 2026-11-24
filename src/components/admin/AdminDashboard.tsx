@@ -670,6 +670,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       shuffleQuestions: quiz.shuffleQuestions,
       shuffleOptions: quiz.shuffleOptions,
       enablePracticeMode: quiz.enablePracticeMode,
+      lockOptionOnSelect: quiz.lockOptionOnSelect,
       quizType: quiz.quizType,
       scheduledStartDateTime: quiz.scheduledStartDateTime,
       scheduledEndDateTime: quiz.scheduledEndDateTime,

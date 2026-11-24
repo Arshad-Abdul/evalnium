@@ -906,6 +906,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
                 userAnswer={currentAnswer}
                 languageMode={languageMode}
                 enablePracticeMode={quiz.enablePracticeMode}
+                lockOptionOnSelect={quiz.lockOptionOnSelect}
                 onSelectOption={handleSelectOption}
                 onClearChoice={() => handleClearChoice(currentQuestion.id)}
                 onToggleBookmark={() => handleToggleMarkForReview(currentQuestion.id)}
@@ -1037,6 +1038,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
                 userAnswer={userAnswers[q.id] || { questionId: q.id, selectedOptionId: null, isMarkedForReview: false, timeSpentSeconds: 0 }}
                 languageMode={languageMode}
                 enablePracticeMode={quiz.enablePracticeMode}
+                lockOptionOnSelect={quiz.lockOptionOnSelect}
                 onSelectOption={(optId) => {
                   const isMSQ = q.questionType === 'multiple_select';
                   setUserAnswers((prev) => {

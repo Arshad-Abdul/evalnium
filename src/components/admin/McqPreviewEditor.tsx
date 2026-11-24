@@ -46,6 +46,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
   const [shuffleQuestions, setShuffleQuestions] = useState(parseResult.shuffleQuestions ?? true);
   const [shuffleOptions, setShuffleOptions] = useState(parseResult.shuffleOptions ?? false);
   const [enablePracticeMode, setEnablePracticeMode] = useState(parseResult.enablePracticeMode ?? false);
+  const [lockOptionOnSelect, setLockOptionOnSelect] = useState(parseResult.lockOptionOnSelect ?? false);
   const [quizType, setQuizType] = useState<'practice' | 'live_contest' | 'scheduled_unlock' | 'unranked_practice'>(parseResult.quizType || 'practice');
   const [scheduledStartDateTime, setScheduledStartDateTime] = useState<string>(parseResult.scheduledStartDateTime || '');
   const [scheduledEndDateTime, setScheduledEndDateTime] = useState<string>(parseResult.scheduledEndDateTime || '');
@@ -468,6 +469,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
       shuffleQuestions,
       shuffleOptions,
       enablePracticeMode,
+      lockOptionOnSelect: enablePracticeMode ? lockOptionOnSelect : false,
       quizType,
       scheduledStartDateTime: (quizType === 'practice' || quizType === 'unranked_practice') ? undefined : (scheduledStartDateTime || undefined),
       scheduledEndDateTime: quizType === 'live_contest' ? (scheduledEndDateTime || undefined) : undefined,
@@ -2020,21 +2022,46 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
             </div>
           </label>
 
-          <label className="flex items-center space-x-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-slate-100/70 transition-colors">
-            <input
-              type="checkbox"
-              checked={enablePracticeMode}
-              onChange={(e) => setEnablePracticeMode(e.target.checked)}
-              className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
-            />
-            <div>
-              <span className="block text-xs font-bold text-slate-900 flex items-center space-x-1">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Instant Practice Mode</span>
-              </span>
-              <span className="text-[10px] text-slate-500">Show instant answer explanation on selection</span>
-            </div>
-          </label>
+          <div className="space-y-2">
+            <label className="flex items-center space-x-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-slate-100/70 transition-colors">
+              <input
+                type="checkbox"
+                checked={enablePracticeMode}
+                onChange={(e) => {
+                  setEnablePracticeMode(e.target.checked);
+                  if (!e.target.checked) setLockOptionOnSelect(false);
+                }}
+                className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+              />
+              <div>
+                <span className="block text-xs font-bold text-slate-900 flex items-center space-x-1">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Instant Practice Mode</span>
+                </span>
+                <span className="text-[10px] text-slate-500">Show instant answer explanation on selection</span>
+              </div>
+            </label>
+
+            {enablePracticeMode && (
+              <label className="flex items-center space-x-3 p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/90 cursor-pointer hover:bg-amber-100/80 transition-colors ml-3 sm:ml-4">
+                <input
+                  type="checkbox"
+                  checked={lockOptionOnSelect}
+                  onChange={(e) => setLockOptionOnSelect(e.target.checked)}
+                  className="w-4 h-4 text-amber-600 rounded border-amber-300 focus:ring-amber-500"
+                />
+                <div>
+                  <span className="block text-xs font-bold text-amber-950 flex items-center space-x-1">
+                    <Lock className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Lock Selection After Choice (Prevent Score Cheating)</span>
+                  </span>
+                  <span className="text-[10.5px] text-amber-800 leading-tight block">
+                    Disables option switching once selected so candidates cannot change answer after seeing the explanation in ranked exams.
+                  </span>
+                </div>
+              </label>
+            )}
+          </div>
         </div>
 
         {/* Default Language Selector */}
