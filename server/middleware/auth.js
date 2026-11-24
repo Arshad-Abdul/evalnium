@@ -16,6 +16,11 @@ export function safeCompareSecret(candidate, expected) {
  * Shared request-level check for verified administrator cookies or headers.
  */
 export function isAdminAuthenticatedRequest(req) {
+  // If request has a candidate session and candidate is NOT an admin, block admin access
+  if (req.candidateUser && req.candidateUser.role !== 'admin') {
+    return false;
+  }
+
   if (req.signedCookies?.evalnium_admin_session === 'true') {
     return true;
   }

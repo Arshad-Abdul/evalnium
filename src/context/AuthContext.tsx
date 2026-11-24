@@ -55,8 +55,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           try {
             localStorage.setItem(AUTH_USER_CACHE_KEY, JSON.stringify(profile));
           } catch {}
-          if (data.isAdminAuthenticated) {
+          // STRICT SECURITY: A candidate account can NEVER inherit admin privileges.
+          // Only users whose database role is explicitly 'admin' can be admin-authenticated.
+          if (profile.role === 'admin' && data.isAdminAuthenticated) {
             setIsAdminAuthenticated(true);
+          } else {
+            setIsAdminAuthenticated(false);
           }
           return profile;
         } else {
@@ -65,9 +69,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           try {
             localStorage.removeItem(AUTH_USER_CACHE_KEY);
           } catch {}
-        }
-        if (data.isAdminAuthenticated) {
-          setIsAdminAuthenticated(true);
+          if (data.isAdminAuthenticated) {
+            setIsAdminAuthenticated(true);
+          } else {
+            setIsAdminAuthenticated(false);
+          }
         }
       }
     } catch (err) {
@@ -242,6 +248,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginAdmin = async (passcode: string): Promise<boolean> => {
+    // STRICT SECURITY: A logged-in student/candidate can NEVER unlock admin privileges.
+    if (currentUser && currentUser.role !== 'admin') {
+      return false;
+    }
     try {
       const res = await fetch('/api/admin/login', {
         method: 'POST',
@@ -251,9 +261,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       if (res && res.ok) {
         setIsAdminAuthenticated(true);
-        if (currentUser) {
-          setCurrentUser({ ...currentUser, role: 'admin' });
-        }
         return true;
       }
       return false;
@@ -272,8 +279,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }).catch(e => console.error('Logout request failed:', e));
 
     setIsAdminAuthenticated(false);
-    if (currentUser) {
-      setCurrentUser({ ...currentUser, role: 'candidate' });
+    if (currentUser && currentUser.role === 'admin') {
+      setCurrentUser(null);
+      try {
+        localStorage.removeItem(AUTH_USER_CACHE_KEY);
+      } catch {}
     }
   };
 

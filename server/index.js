@@ -1180,6 +1180,38 @@ async function syncCandidatesToUsersTable() {
 
 initDatabase();
 
+// STRICT ROLE SEGREGATION & SESSION SANITIZATION MIDDLEWARE
+// Ensures ordinary candidates/students can NEVER inherit or hold administrative privileges
+app.use(async (req, res, next) => {
+  const sessionCookie = req.signedCookies?.evalnium_session;
+  if (sessionCookie) {
+    try {
+      const session = JSON.parse(sessionCookie);
+      if (session?.uid && pool) {
+        const [rows] = await pool.query('SELECT uid, name, email, role FROM users WHERE uid = ?', [session.uid]);
+        if (rows.length > 0) {
+          req.candidateUser = rows[0];
+          // If the user in DB is NOT an admin, forcefully wipe and ignore any admin session cookie
+          if (rows[0].role !== 'admin') {
+            if (req.signedCookies?.evalnium_admin_session) {
+              delete req.signedCookies.evalnium_admin_session;
+              if (req.cookies) delete req.cookies.evalnium_admin_session;
+              res.clearCookie('evalnium_admin_session', { path: '/' });
+            }
+          }
+        }
+      }
+    } catch {
+      if (req.signedCookies?.evalnium_admin_session) {
+        delete req.signedCookies.evalnium_admin_session;
+        if (req.cookies) delete req.cookies.evalnium_admin_session;
+        res.clearCookie('evalnium_admin_session', { path: '/' });
+      }
+    }
+  }
+  next();
+});
+
 // --- OTP AUTH ENDPOINTS WITH RATE LIMITING ---
 const otpIpLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
@@ -1873,6 +1905,12 @@ const adminLoginLimiter = createRateLimiter({
 // Admin Login passcode verification endpoint (sets 5-day httpOnly cookie)
 app.post('/api/admin/login', adminLoginLimiter, (req, res) => {
   try {
+    if (req.candidateUser && req.candidateUser.role !== 'admin') {
+      return res.status(403).json({
+        error: 'A candidate account is currently active. Please sign out of your student account before accessing Admin Studio.'
+      });
+    }
+
     const { passcode } = req.body;
     if (!passcode) return res.status(400).json({ error: 'Passcode is required' });
 
@@ -1963,8 +2001,12 @@ app.get('/api/users/me', async (req, res) => {
         );
         if (rows.length > 0) {
           currentUser = rows[0];
-          if (isAdminAuthenticated) {
-            currentUser.role = 'admin';
+          // STRICT SECURITY: A candidate account can NEVER inherit admin privileges.
+          // If the logged-in user does not have explicit 'admin' role in MySQL,
+          // revoke any admin authentication flag and clear the admin cookie.
+          if (currentUser.role !== 'admin') {
+            isAdminAuthenticated = false;
+            res.clearCookie('evalnium_admin_session', { path: '/' });
           }
         }
       } catch (parseErr) {
@@ -1988,9 +2030,9 @@ app.post('/api/users/logout', (req, res) => {
     if (clientId) {
       activeVisitors.delete(clientId);
     }
-    res.clearCookie('evalnium_session');
-    res.clearCookie('evalnium_admin_session');
-    res.clearCookie('evalnium_unlocked_quizzes');
+    res.clearCookie('evalnium_session', { path: '/' });
+    res.clearCookie('evalnium_admin_session', { path: '/' });
+    res.clearCookie('evalnium_unlocked_quizzes', { path: '/' });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

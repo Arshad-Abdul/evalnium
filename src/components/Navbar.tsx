@@ -363,7 +363,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         className="w-full px-2.5 py-2 rounded-lg text-left text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors cursor-pointer"
                       >
                         <LogOut className="w-3.5 h-3.5" />
-                        <span>{isAdminAuthenticated ? 'Sign Out & Lock Admin' : 'Sign Out'}</span>
+                        <span>{(isAdminAuthenticated && (!currentUser || currentUser.role === 'admin')) ? 'Sign Out & Lock Admin' : 'Sign Out'}</span>
                       </button>
                     </div>
                   </div>

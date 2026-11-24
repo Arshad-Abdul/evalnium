@@ -131,6 +131,11 @@ function MainAppContent() {
     // 1. Stealth Hash-Only Admin Route (e.g. https://evalnium.com/#/admin)
     // Direct /admin path is deliberately disabled for stealth protection so bots and visitors only see the home catalog.
     if (hash === '#/admin' || hash === '#/admin/') {
+      // STRICT SECURITY: A candidate account cannot access admin gate. Candidates must sign out first!
+      if (currentUser && currentUser.role !== 'admin') {
+        clearAdminUrlTrigger();
+        return;
+      }
       if (isAdminAuthRef.current) {
         setActiveTab('admin');
         setShowAdminLockModal(false);
@@ -349,6 +354,11 @@ function MainAppContent() {
   };
 
   const triggerPrivateAdminGate = () => {
+    // STRICT SECURITY: A candidate account cannot trigger the admin gate.
+    if (currentUser && currentUser.role !== 'admin') {
+      clearAdminUrlTrigger();
+      return;
+    }
     if (isAdminAuthenticated) {
       setShowAdminLockModal(false);
       setActiveTab('admin');
@@ -493,6 +503,9 @@ function MainAppContent() {
 
   const handleTabChange = (tab: 'user' | 'dashboard' | 'leaderboard' | 'doubts' | 'about' | 'saved' | 'admin', skipUrlSync = false) => {
     if (tab === 'admin') {
+      if (currentUser && currentUser.role !== 'admin') {
+        return;
+      }
       if (!isAdminAuthenticated) {
         setShowAdminLockModal(true);
       } else {
