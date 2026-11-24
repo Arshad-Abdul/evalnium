@@ -362,7 +362,9 @@ function MainAppContent() {
     if (isAdminAuthenticated) {
       setShowAdminLockModal(false);
       setActiveTab('admin');
-      clearAdminUrlTrigger();
+      if (window.location.hash.toLowerCase() !== '#/admin') {
+        window.location.hash = '#/admin';
+      }
     } else {
       setShowAdminLockModal(true);
     }
@@ -510,23 +512,32 @@ function MainAppContent() {
         setShowAdminLockModal(true);
       } else {
         setActiveTab('admin');
-        clearAdminUrlTrigger();
+        if (window.location.hash.toLowerCase() !== '#/admin') {
+          window.location.hash = '#/admin';
+        }
       }
-    } else if (tab === 'user') {
-      setActiveTab('user');
-      setExamPhase('catalog');
-      setSelectedQuiz(null);
-      if (!skipUrlSync) syncUrl('/');
     } else {
-      setActiveTab(tab);
-      if (!skipUrlSync) syncUrl(getPathForTab(tab));
+      if (window.location.hash.toLowerCase() === '#/admin' || window.location.hash.toLowerCase() === '#/admin/') {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+      if (tab === 'user') {
+        setActiveTab('user');
+        setExamPhase('catalog');
+        setSelectedQuiz(null);
+        if (!skipUrlSync) syncUrl('/');
+      } else {
+        setActiveTab(tab);
+        if (!skipUrlSync) syncUrl(getPathForTab(tab));
+      }
     }
   };
 
   const handleUnlockAdmin = () => {
     setShowAdminLockModal(false);
     setActiveTab('admin');
-    clearAdminUrlTrigger();
+    if (window.location.hash.toLowerCase() !== '#/admin') {
+      window.location.hash = '#/admin';
+    }
   };
 
   const handleAdminLogout = () => {

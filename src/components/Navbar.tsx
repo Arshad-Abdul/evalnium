@@ -216,9 +216,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
 
               {isAdminVisible && (
-                <button
-                  type="button"
-                  onClick={() => navigateTo('admin')}
+                <a
+                  href="#/admin"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigateTo('admin');
+                  }}
                   className={`px-2.5 xl:px-3 py-1.5 xl:py-2 rounded-lg text-xs xl:text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'admin'
                       ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/80'
                       : 'text-emerald-700 hover:bg-emerald-50/70'
@@ -226,7 +229,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
                   <span>Admin Studio</span>
-                </button>
+                </a>
               )}
             </nav>
           </div>
@@ -524,9 +527,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                 )}
 
                 {isAdminVisible && (
-                  <button
-                    type="button"
-                    onClick={() => navigateTo('admin')}
+                  <a
+                    href="#/admin"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigateTo('admin');
+                    }}
                     className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${activeTab === 'admin'
                         ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                         : 'text-emerald-700 hover:bg-emerald-50'
@@ -536,7 +542,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <ShieldCheck className="w-4 h-4 text-emerald-600" />
                       <span>Admin Studio</span>
                     </span>
-                  </button>
+                  </a>
                 )}
               </div>
             </div>
