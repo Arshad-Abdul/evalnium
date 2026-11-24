@@ -128,8 +128,9 @@ function MainAppContent() {
     const pathname = rawPath.toLowerCase();
     const hash = (window.location.hash || '').toLowerCase();
 
-    // 1. Admin
-    if (pathname === '/admin' || hash === '#/admin') {
+    // 1. Stealth Hash-Only Admin Route (e.g. https://evalnium.com/#/admin)
+    // Direct /admin path is deliberately disabled for stealth protection so bots and visitors only see the home catalog.
+    if (hash === '#/admin' || hash === '#/admin/') {
       if (isAdminAuthRef.current) {
         setActiveTab('admin');
         setShowAdminLockModal(false);
@@ -341,11 +342,9 @@ function MainAppContent() {
 
   const clearAdminUrlTrigger = () => {
     if (typeof window === 'undefined') return;
-    const curPath = window.location.pathname.toLowerCase();
     const curHash = window.location.hash.toLowerCase();
-    if (curHash === '#/admin' || curPath === '/admin') {
-      const nextPath = curPath === '/admin' ? '/' : window.location.pathname;
-      window.history.replaceState(null, '', `${nextPath}${window.location.search}`);
+    if (curHash === '#/admin' || curHash === '#/admin/') {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
     }
   };
 
@@ -361,9 +360,8 @@ function MainAppContent() {
 
   useEffect(() => {
     const checkAdminRoute = () => {
-      const curPath = window.location.pathname.toLowerCase();
       const curHash = window.location.hash.toLowerCase();
-      if (curHash === '#/admin' || curPath === '/admin') {
+      if (curHash === '#/admin' || curHash === '#/admin/') {
         triggerPrivateAdminGate();
       }
     };
@@ -499,7 +497,7 @@ function MainAppContent() {
         setShowAdminLockModal(true);
       } else {
         setActiveTab('admin');
-        if (!skipUrlSync) syncUrl('/admin');
+        clearAdminUrlTrigger();
       }
     } else if (tab === 'user') {
       setActiveTab('user');
@@ -515,13 +513,13 @@ function MainAppContent() {
   const handleUnlockAdmin = () => {
     setShowAdminLockModal(false);
     setActiveTab('admin');
-    syncUrl('/admin');
     clearAdminUrlTrigger();
   };
 
   const handleAdminLogout = () => {
     logoutAdmin();
     setActiveTab('user');
+    window.location.hash = '';
     syncUrl('/');
   };
 
