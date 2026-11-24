@@ -138,7 +138,7 @@ export const ExamCountdownAction: React.FC<ExamCountdownActionProps> = ({
           }
         }
       }
-    } catch {}
+    } catch { }
     return false;
   }, [quiz.id, quiz.timeLimitMinutes]);
 

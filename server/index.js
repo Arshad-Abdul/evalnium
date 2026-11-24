@@ -3511,16 +3511,30 @@ app.get('/api/results', async (req, res) => {
     const limit = Math.min(500, Math.max(1, parseInt(req.query.limit || '100', 10)));
     const offset = Math.max(0, (page - 1) * limit);
 
+    const callerEmail = authenticatedCandidate?.email?.toLowerCase().trim() || '';
+
+    let whereClause = '';
+    const queryParams = [];
+
+    // Admin sees ALL submissions (including practice & untimed tests).
+    // For non-admins, exclude unranked practice tests from public lists, but allow candidates to see their own attempts.
+    if (!isAdmin) {
+      if (callerEmail) {
+        whereClause = `WHERE (q.quiz_type IS NULL OR q.quiz_type != 'unranked_practice' OR LOWER(r.candidate_email) = ?)`;
+        queryParams.push(callerEmail);
+      } else {
+        whereClause = `WHERE (q.quiz_type IS NULL OR q.quiz_type != 'unranked_practice')`;
+      }
+    }
+
     const [rows] = await pool.query(
       `SELECT r.*, COALESCE(q.title, r.quiz_title) AS current_quiz_title 
        FROM results r 
        LEFT JOIN quizzes q ON r.quiz_id = q.id 
-       WHERE (q.quiz_type IS NULL OR q.quiz_type != 'unranked_practice')
+       ${whereClause}
        ORDER BY r.percentage DESC, r.time_spent_seconds ASC LIMIT ? OFFSET ?`,
-      [limit, offset]
+      [...queryParams, limit, offset]
     );
-
-    const callerEmail = authenticatedCandidate?.email?.toLowerCase().trim() || '';
 
     const results = rows.map(r => {
       const isRowOwner = Boolean(callerEmail && r.candidate_email && r.candidate_email.toLowerCase().trim() === callerEmail);
