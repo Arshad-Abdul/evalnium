@@ -768,6 +768,9 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 
       {/* Exam Header */}
       <ExamHeader
+        quiz={quiz}
+        quizType={quiz.quizType}
+        maxAttempts={quiz.maxAttempts}
         topic={quiz.topic}
         title={quiz.title}
         languageMode={languageMode}

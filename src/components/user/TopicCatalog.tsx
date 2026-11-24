@@ -7,7 +7,7 @@ import { CatalogAdCard } from './CatalogAdCard';
 import { SubjectFilterBar } from '../common/SubjectFilterBar';
 import { ExamCountdownBadge, ExamCountdownAction } from '../common/ExamCountdownBadge';
 import { SmartQuizBadge } from '../common/SmartQuizBadge';
-import { getQuizCardAccent } from '../../utils/badgeHelper';
+import { getQuizCardAccent, getQuizTypeDescriptor } from '../../utils/badgeHelper';
 
 const CertificateModal = lazy(() => import('./CertificateModal').then(m => ({ default: m.CertificateModal })));
 
@@ -319,6 +319,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
             );
 
             const accent = getQuizCardAccent(quiz);
+            const typeInfo = getQuizTypeDescriptor(quiz);
 
             return (
               <div key={quiz.id} className={`p-4 sm:px-5 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors border-l-4 ${accent.leftStripClass}`}>
@@ -344,6 +345,17 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                   <h3 className="font-bold text-sm sm:text-[15px] text-slate-900 truncate">
                     {quiz.title}
                   </h3>
+
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
+                    <span className="inline-flex items-center gap-1 font-semibold text-slate-700 text-[11px]">
+                      <span className={`w-1.5 h-1.5 rounded-full ${typeInfo.dotColorClass}`} />
+                      {typeInfo.label}
+                    </span>
+                    <span className="text-slate-300">•</span>
+                    <span className="text-[11px] text-slate-500 truncate">
+                      {typeInfo.description}
+                    </span>
+                  </div>
 
                   <ExamCountdownBadge quiz={quiz} compact />
 
@@ -424,6 +436,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
             );
 
             const accent = getQuizCardAccent(quiz);
+            const typeInfo = getQuizTypeDescriptor(quiz);
 
             return (
               <React.Fragment key={quiz.id}>
@@ -487,6 +500,16 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                       <h3 className="font-bold text-[15px] text-slate-900 leading-snug line-clamp-2">
                         {quiz.title}
                       </h3>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
+                        <span className="inline-flex items-center gap-1 font-semibold text-slate-700 text-[11px]">
+                          <span className={`w-1.5 h-1.5 rounded-full ${typeInfo.dotColorClass}`} />
+                          {typeInfo.label}
+                        </span>
+                        <span className="text-slate-300">•</span>
+                        <span className="text-[11px] text-slate-500 truncate">
+                          {typeInfo.description}
+                        </span>
+                      </div>
                       <p className="text-xs text-slate-500 line-clamp-2 mt-1.5 leading-relaxed">
                         {quiz.description || 'Timed multiple-choice practice paper.'}
                       </p>

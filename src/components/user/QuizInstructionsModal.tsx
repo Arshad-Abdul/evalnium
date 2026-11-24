@@ -6,6 +6,7 @@ import {
   Share2, Check
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { getQuizTypeDescriptor } from '../../utils/badgeHelper';
 
 interface QuizInstructionsModalProps {
   quiz: Quiz;
@@ -117,16 +118,29 @@ export const QuizInstructionsModal: React.FC<QuizInstructionsModalProps> = ({
           </div>
 
           {/* Full Width Exam Title & Subtitle — Never squashed into a narrow column */}
-          <div className="w-full">
-            <h2 className="text-base sm:text-xl font-bold text-slate-900 leading-snug break-words">
-              {quiz.title}
-            </h2>
-            {quiz.description && (
-              <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
-                {quiz.description}
-              </p>
-            )}
-          </div>
+          {(() => {
+            const typeInfo = getQuizTypeDescriptor(quiz);
+            return (
+              <div className="w-full">
+                <h2 className="text-base sm:text-xl font-bold text-slate-900 leading-snug break-words">
+                  {quiz.title}
+                </h2>
+                <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 mt-1">
+                  <span className={`inline-flex items-center font-mono font-bold tracking-wider uppercase border text-[10px] px-1.5 py-0.2 rounded shadow-2xs shrink-0 select-none ${typeInfo.badgeColorClass}`}>
+                    {typeInfo.shortBadge}
+                  </span>
+                  <span className="font-semibold text-slate-700 text-[11px]">{typeInfo.label}</span>
+                  <span className="text-slate-300">•</span>
+                  <span className="text-[11px] text-slate-500">{typeInfo.description}</span>
+                </div>
+                {quiz.description && (
+                  <p className="text-xs text-slate-500 mt-1.5 line-clamp-2 leading-relaxed">
+                    {quiz.description}
+                  </p>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Action Sharing Buttons Row — Stretches evenly on mobile, compact on desktop */}
           <div className="flex items-center gap-2 pt-0.5">

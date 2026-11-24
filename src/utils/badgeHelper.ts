@@ -235,3 +235,69 @@ export function getQuizCardAccent(quiz?: Partial<Quiz> | null): CardAccentResult
   };
 }
 
+export interface QuizTypeDescriptor {
+  label: string;
+  shortBadge: string;
+  description: string;
+  badgeColorClass: string;
+  dotColorClass: string;
+}
+
+/**
+ * Resolves the institutional quiz type descriptor (title, badge, description)
+ * for use under quiz headings across the Exam Header, Quiz Cards, and Modals.
+ */
+export function getQuizTypeDescriptor(quiz?: Partial<Quiz> | { [key: string]: any } | null): QuizTypeDescriptor {
+  if (!quiz) {
+    return {
+      label: 'Practice Quiz',
+      shortBadge: 'PRACTICE QUIZ',
+      description: 'Standard Practice Paper',
+      badgeColorClass: 'bg-slate-100 text-slate-700 border-slate-200',
+      dotColorClass: 'bg-slate-400',
+    };
+  }
+
+  const quizType = quiz.quizType || 'practice';
+
+  if (quizType === 'live_contest') {
+    return {
+      label: 'Strict Live Contest',
+      shortBadge: 'LIVE CONTEST',
+      description: 'Official Live Contest • Single Attempt Only',
+      badgeColorClass: 'bg-amber-50 text-amber-800 border-amber-300',
+      dotColorClass: 'bg-amber-500',
+    };
+  }
+
+  if (quizType === 'scheduled_unlock') {
+    return {
+      label: 'Scheduled Daily Quiz',
+      shortBadge: 'DAILY QUIZ',
+      description: 'Daily Quiz • Timed Practice',
+      badgeColorClass: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+      dotColorClass: 'bg-indigo-500',
+    };
+  }
+
+  if (quizType === 'unranked_practice') {
+    return {
+      label: 'Practice Quiz (No Ranking)',
+      shortBadge: 'PRACTICE QUIZ',
+      description: 'Practice Mode • Untimed & Unlimited Practice',
+      badgeColorClass: 'bg-teal-50 text-teal-800 border-teal-200',
+      dotColorClass: 'bg-teal-500',
+    };
+  }
+
+  // Regular practice or 24/7 mock
+  const isUntimed = Number(quiz.timeLimitMinutes || 0) === 0;
+  return {
+    label: isUntimed ? 'Untimed Practice Quiz' : 'Timed Practice Mock',
+    shortBadge: 'PRACTICE QUIZ',
+    description: isUntimed ? 'Unlimited Practice • No Cutoff' : `${quiz.timeLimitMinutes} min Practice Paper`,
+    badgeColorClass: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    dotColorClass: 'bg-emerald-500',
+  };
+}
+

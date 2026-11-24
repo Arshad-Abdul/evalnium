@@ -9,6 +9,7 @@ import { FormattedQuestionStem } from '../common/FormattedQuestionStem';
 import { CertificateModal } from './CertificateModal';
 import { QuestionDiscussion } from '../exam/QuestionDiscussion';
 import { useAuth } from '../../context/AuthContext';
+import { getQuizTypeDescriptor } from '../../utils/badgeHelper';
 import {
   saveBookmarkedQuestion,
   removeBookmarkedQuestion,
@@ -294,26 +295,38 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
 
         {/* Header Ribbon */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-          <div>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 block">
-              Assessment Scorecard
-            </span>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5">
-              {result.quizTitle}
-            </h1>
-            <p className="text-xs text-slate-500 font-mono mt-1">
-              Candidate: <strong className="text-slate-900 font-semibold">{result.candidateName}</strong> • Paper: {result.topic}
-            </p>
-          </div>
+          {(() => {
+            const typeInfo = getQuizTypeDescriptor(quiz);
+            return (
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 block">
+                  Assessment Scorecard
+                </span>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5">
+                  {result.quizTitle}
+                </h1>
+                <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 mt-1">
+                  <span className={`inline-flex items-center font-mono font-bold tracking-wider uppercase border text-[10px] px-1.5 py-0.2 rounded shadow-2xs shrink-0 select-none ${typeInfo.badgeColorClass}`}>
+                    {typeInfo.shortBadge}
+                  </span>
+                  <span className="font-semibold text-slate-700 text-[11px]">{typeInfo.label}</span>
+                  <span className="text-slate-300">•</span>
+                  <span className="text-xs text-slate-500 font-mono">
+                    Candidate: <strong className="text-slate-900 font-semibold">{result.candidateName}</strong> • Paper: {result.topic}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="flex flex-wrap items-center gap-2">
             <span className={`px-2.5 py-1 rounded font-mono font-semibold text-xs uppercase border ${quiz.quizType === 'unranked_practice'
-                ? 'bg-teal-50 text-teal-800 border-teal-300'
-                : !quiz.passingPercentage || quiz.passingPercentage <= 0
-                  ? 'bg-blue-50 text-blue-800 border-blue-300'
-                  : result.passed
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                    : 'bg-rose-50 text-rose-800 border-rose-300'
+              ? 'bg-teal-50 text-teal-800 border-teal-300'
+              : !quiz.passingPercentage || quiz.passingPercentage <= 0
+                ? 'bg-blue-50 text-blue-800 border-blue-300'
+                : result.passed
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                  : 'bg-rose-50 text-rose-800 border-rose-300'
               }`}>
               {quiz.quizType === 'unranked_practice'
                 ? 'Status: PRACTICE COMPLETED (Self-Assessment)'
@@ -606,11 +619,10 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                           setBookmarkedIds((prev) => new Set([...prev, q.id]));
                         }
                       }}
-                      className={`px-2.5 py-1 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                        bookmarkedIds.has(q.id)
+                      className={`px-2.5 py-1 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${bookmarkedIds.has(q.id)
                           ? 'bg-amber-100 border-amber-300 text-amber-900 shadow-2xs'
                           : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600'
-                      }`}
+                        }`}
                       title={bookmarkedIds.has(q.id) ? 'Saved in Revision Bank' : 'Save for Revision'}
                     >
                       <Bookmark className={`w-3.5 h-3.5 ${bookmarkedIds.has(q.id) ? 'fill-amber-500 text-amber-600' : 'text-slate-400'}`} />

@@ -1,7 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Clock, Send, Languages, Layers, SlidersHorizontal, LayoutGrid, LogOut } from 'lucide-react';
+import type { Quiz } from '../../types/quiz';
+import { getQuizTypeDescriptor } from '../../utils/badgeHelper';
 
 interface ExamHeaderProps {
+  quiz?: Partial<Quiz> | null;
+  quizType?: 'practice' | 'live_contest' | 'scheduled_unlock' | 'unranked_practice';
+  maxAttempts?: number;
   topic: string;
   title: string;
   languageMode: 'dual' | 'en' | 'hi';
@@ -23,6 +28,9 @@ interface ExamHeaderProps {
 }
 
 export const ExamHeader: React.FC<ExamHeaderProps> = ({
+  quiz,
+  quizType,
+  maxAttempts,
   topic,
   title,
   languageMode,
@@ -44,6 +52,7 @@ export const ExamHeader: React.FC<ExamHeaderProps> = ({
 }) => {
   const [showMobileControls, setShowMobileControls] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const typeInfo = getQuizTypeDescriptor(quiz || { topic, title, quizType, maxAttempts });
 
   const isLowTime = timeRemainingSeconds < 120;
   const isLowQTime = (questionTimeRemainingSeconds ?? 99) < 10;
@@ -75,15 +84,40 @@ export const ExamHeader: React.FC<ExamHeaderProps> = ({
 
   return (
     <div className="sticky top-0 z-30 -mx-3 sm:-mx-6 lg:-mx-8 px-3 sm:px-6 lg:px-8 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-2xs">
-      <div className="max-w-7xl mx-auto h-14 flex items-center justify-between gap-2 sm:gap-4">
-        {/* Left: Subject Code & Paper Title */}
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <span className="hidden sm:inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px] font-semibold border border-slate-200 shrink-0">
-            {topic}
-          </span>
-          <h2 className="font-bold text-slate-900 text-xs sm:text-sm truncate">
-            {title}
-          </h2>
+      <div className="max-w-7xl mx-auto min-h-[3.75rem] py-1.5 flex items-center justify-between gap-2 sm:gap-4">
+        {/* Left: Subject Code, Paper Title & Quiz Type Under Heading */}
+        <div className="flex flex-col justify-center min-w-0 flex-1 py-0.5">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="hidden sm:inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px] font-semibold border border-slate-200 shrink-0">
+              {topic}
+            </span>
+            <h2 className="font-bold text-slate-900 text-xs sm:text-sm truncate" title={title}>
+              {title}
+            </h2>
+            <span className={`inline-flex items-center font-mono font-bold tracking-wider uppercase border text-[10px] px-1.5 py-0.2 rounded shadow-2xs shrink-0 select-none ${typeInfo.badgeColorClass}`}>
+              {typeInfo.shortBadge}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 sm:gap-2 text-[10.5px] text-slate-500 font-medium truncate mt-0.5">
+            <span className="inline-flex items-center gap-1 font-semibold text-slate-700 shrink-0">
+              <span className={`w-1.5 h-1.5 rounded-full ${typeInfo.dotColorClass}`} />
+              {typeInfo.label}
+            </span>
+            <span className="text-slate-300">•</span>
+            <span className="truncate">{isUntimed ? 'Untimed Practice' : (timingMode === 'sectional' ? 'Sectional Timing' : `${Math.max(1, Math.round(timeRemainingSeconds / 60))}m Timer`)}</span>
+            {maxAttempts && maxAttempts > 0 ? (
+              <>
+                <span className="text-slate-300 hidden md:inline">•</span>
+                <span className="hidden md:inline">Max {maxAttempts} Attempts</span>
+              </>
+            ) : (
+              <>
+                <span className="text-slate-300 hidden md:inline">•</span>
+                <span className="hidden md:inline">Unlimited Practice</span>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Right: Controls, Timer, Palette & Submit */}
