@@ -133,7 +133,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200/90 text-slate-900">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3">
           {/* Left: Brand + Desktop Navigation Links */}
-          <div className="flex items-center gap-6 lg:gap-8 min-w-0">
+          <div className="flex items-center gap-3 xl:gap-6 min-w-0">
             <button
               type="button"
               onClick={() => navigateTo('user')}
@@ -144,18 +144,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             {/* Desktop Primary Navigation (1024px+ only — prevents tablet/scaled laptop crowding) */}
-            <nav className="hidden lg:flex items-center gap-1" aria-label="Main navigation">
+            <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 shrink-0" aria-label="Main navigation">
               <button
                 type="button"
                 onClick={() => navigateTo('user')}
-                className={`px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'user'
+                className={`px-2.5 xl:px-3 py-1.5 xl:py-2 rounded-lg text-xs xl:text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'user'
                     ? 'bg-slate-100 text-slate-900'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                   }`}
               >
                 <BookOpen className={`w-4 h-4 ${activeTab === 'user' ? 'text-blue-600' : 'text-slate-400'}`} />
                 <span>Exams</span>
-                <span className="ml-0.5 text-[11px] font-mono font-semibold text-slate-500 bg-slate-200/70 px-1.5 py-0.2 rounded-md">
+                <span className="ml-0.5 text-[10px] xl:text-[11px] font-mono font-semibold text-slate-500 bg-slate-200/70 px-1.5 py-0.2 rounded-md">
                   {totalQuizzesCount}
                 </span>
               </button>
@@ -164,7 +164,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   type="button"
                   onClick={() => navigateTo('dashboard')}
-                  className={`px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'dashboard'
+                  className={`px-2.5 xl:px-3 py-1.5 xl:py-2 rounded-lg text-xs xl:text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'dashboard'
                       ? 'bg-slate-100 text-slate-900'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                     }`}
@@ -177,7 +177,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 type="button"
                 onClick={() => navigateTo('leaderboard')}
-                className={`px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'leaderboard'
+                className={`px-2.5 xl:px-3 py-1.5 xl:py-2 rounded-lg text-xs xl:text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'leaderboard'
                     ? 'bg-slate-100 text-slate-900'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                   }`}
@@ -192,7 +192,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 type="button"
                 onClick={() => navigateTo('doubts')}
-                className={`px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'doubts'
+                className={`px-2.5 xl:px-3 py-1.5 xl:py-2 rounded-lg text-xs xl:text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'doubts'
                     ? 'bg-indigo-50 text-indigo-700 border border-indigo-100'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                   }`}
@@ -205,7 +205,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 type="button"
                 onClick={() => navigateTo('about')}
-                className={`px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'about'
+                className={`px-2.5 xl:px-3 py-1.5 xl:py-2 rounded-lg text-xs xl:text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'about'
                     ? 'bg-indigo-50 text-indigo-700 border border-indigo-100'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                   }`}
@@ -219,7 +219,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   type="button"
                   onClick={() => navigateTo('admin')}
-                  className={`px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'admin'
+                  className={`px-2.5 xl:px-3 py-1.5 xl:py-2 rounded-lg text-xs xl:text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${activeTab === 'admin'
                       ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/80'
                       : 'text-emerald-700 hover:bg-emerald-50/70'
                     }`}
@@ -233,9 +233,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right: Utility Controls, Account Menu, Mobile Drawer Trigger */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* Subtle System Time (Wide Desktop 1280px+ only) */}
+            {/* Subtle System Time (Wide 2XL Desktop 1536px+ only — prevents crowding on 1280px-1366px laptops) */}
             {clockString && (
-              <div className="hidden xl:flex items-center gap-1.5 pr-2 mr-1 border-r border-slate-200 text-xs text-slate-500 font-mono tabular-nums">
+              <div className="hidden 2xl:flex items-center gap-1.5 pr-2 mr-1 border-r border-slate-200 text-xs text-slate-500 font-mono tabular-nums">
                 <Clock className="w-3.5 h-3.5 text-slate-400" />
                 <span>{clockString}</span>
               </div>
