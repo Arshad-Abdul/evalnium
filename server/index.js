@@ -2267,20 +2267,157 @@ app.post('/api/users/sync', authenticateAdmin, async (req, res) => {
 const activeSessions = new Map();
 const activeVisitors = new Map();
 
-// Clear stale sessions and visitors
-setInterval(() => {
+// Authoritative auto-finalization helper for disconnected expired exams
+async function autoFinalizeExpiredSession(session) {
+  if (!pool) return;
+  try {
+    const [quizRows] = await pool.query('SELECT * FROM quizzes WHERE id = ?', [session.quizId]);
+    if (quizRows.length === 0) return;
+    const quiz = quizRows[0];
+
+    const [questionRows] = await pool.query('SELECT * FROM questions WHERE quiz_id = ?', [session.quizId]);
+    if (questionRows.length === 0) return;
+
+    let calculatedScore = 0;
+    let calculatedCorrect = 0;
+    let calculatedWrong = 0;
+    let calculatedSkipped = 0;
+    const negativeMarks = Number(quiz.negative_marks || 0);
+
+    for (const q of questionRows) {
+      const uAns = session.userAnswers ? session.userAnswers[q.id] : null;
+      const isMSQ = q.question_type === 'multiple_select';
+      let isCorrect = false;
+      let isSkipped = false;
+
+      if (isMSQ) {
+        const selected = Array.isArray(uAns?.selectedOptionIds) ? uAns.selectedOptionIds : [];
+        let correct = [];
+        try { correct = JSON.parse(q.correct_option_ids_json || '[]'); } catch { }
+        if (correct.length === 0 && q.correct_option_id) correct = [q.correct_option_id];
+
+        isSkipped = selected.length === 0;
+        if (!isSkipped) {
+          isCorrect = selected.length === correct.length && selected.every(val => correct.includes(val));
+        }
+      } else {
+        const selected = uAns?.selectedOptionId || null;
+        isSkipped = selected === null || selected === undefined || selected === '';
+        if (!isSkipped) {
+          isCorrect = String(selected).trim().toUpperCase() === String(q.correct_option_id).trim().toUpperCase();
+        }
+      }
+
+      if (isSkipped) {
+        calculatedSkipped++;
+      } else if (isCorrect) {
+        calculatedCorrect++;
+        calculatedScore += Number(q.marks || 1);
+      } else {
+        calculatedWrong++;
+        if (negativeMarks > 0) {
+          calculatedScore -= negativeMarks;
+        }
+      }
+    }
+
+    const calculatedMaxScore = questionRows.reduce((acc, q) => acc + Number(q.marks || 1), 0);
+    const finalScore = Math.max(0, Math.round(calculatedScore * 100) / 100);
+    const computedPercentage = calculatedMaxScore > 0 ? Math.round((finalScore / calculatedMaxScore) * 100) : 0;
+    const passingCutoff = Number(quiz.passing_percentage || 40);
+    const passed = computedPercentage >= passingCutoff;
+    const timeSpent = session.timeLimitMinutes > 0 ? session.timeLimitMinutes * 60 : 0;
+    const safeResultId = `res_auto_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+    const attemptedAt = new Date().toISOString();
+
+    await pool.query(
+      `INSERT INTO results (
+        id, quiz_id, quiz_title, candidate_name, candidate_email, topic, score, max_score, percentage,
+        passed, time_spent_seconds, correct_answers, wrong_answers, skipped_questions, user_answers_json, attempted_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        score=?, percentage=?, passed=?, time_spent_seconds=?, correct_answers=?, wrong_answers=?, skipped_questions=?, user_answers_json=?`,
+      [
+        safeResultId, quiz.id, quiz.title, session.candidateName, session.candidateEmail || null, quiz.topic || session.topic || '',
+        finalScore, calculatedMaxScore, computedPercentage, passed ? 1 : 0, timeSpent, calculatedCorrect, calculatedWrong, calculatedSkipped,
+        JSON.stringify(session.userAnswers || {}), attemptedAt,
+        finalScore, computedPercentage, passed ? 1 : 0, timeSpent, calculatedCorrect, calculatedWrong, calculatedSkipped, JSON.stringify(session.userAnswers || {})
+      ]
+    );
+
+    recordAuditLog({
+      eventType: 'exam_submit',
+      severity: passed ? 'success' : 'warning',
+      actorName: session.candidateName,
+      actorEmail: session.candidateEmail || null,
+      actorRole: 'student',
+      actionTitle: `⏱️ Exam Auto-Submitted (Time Expired): ${session.candidateName} completed "${quiz.title}" (${computedPercentage}%)`,
+      detailsText: `Candidate session timed out while disconnected. Auto-submitted with ${calculatedCorrect + calculatedWrong}/${questionRows.length} questions attempted. Result: ${finalScore}/${calculatedMaxScore} (${computedPercentage}%), Verdict: ${passed ? 'PASSED ✓' : 'FAILED ✗'}, Time Spent: ${timeSpent}s, Correct: ${calculatedCorrect}, Wrong: ${calculatedWrong}, Skipped: ${calculatedSkipped}.`,
+      ipAddress: '127.0.0.1'
+    });
+
+    console.log(`[Auto-Submit] Successfully auto-finalized expired exam session for ${session.candidateName} on quiz "${quiz.title}" (${computedPercentage}%)`);
+  } catch (err) {
+    console.error('[autoFinalizeExpiredSession error]:', err.message);
+  }
+}
+
+// Monitor active exam sessions & auto-finalize expired abandoned attempts every 20 seconds
+setInterval(async () => {
   const now = Date.now();
+
   for (const [key, session] of activeSessions.entries()) {
-    if (now - session.lastSeen > 2 * 60 * 1000) { // 2 minutes timeout
-      activeSessions.delete(key);
+    // 1. Timed exams: check if candidate's time has completely expired
+    if (!session.isUntimed && session.timeLimitMinutes > 0) {
+      const totalAllowedMs = session.timeLimitMinutes * 60 * 1000;
+      // 60-second grace buffer after timer hits 0 to allow client-side submission to complete first
+      const hasTimeExpired = (now - session.startedAt) >= (totalAllowedMs + 60 * 1000);
+      const isClientDisconnected = (now - session.lastSeen) > 40 * 1000; // No heartbeat for 40s
+
+      if (hasTimeExpired && isClientDisconnected) {
+        // Remove from memory immediately so we don't process it twice
+        activeSessions.delete(key);
+
+        if (pool) {
+          try {
+            // Check if already submitted by the client
+            const [existing] = await pool.query(
+              `SELECT id FROM results 
+               WHERE quiz_id = ? 
+                 AND (LOWER(candidate_email) = LOWER(?) OR LOWER(candidate_name) = LOWER(?))
+                 AND attempted_at >= ?
+               LIMIT 1`,
+              [
+                session.quizId,
+                session.candidateEmail || '',
+                session.candidateName || '',
+                new Date(session.startedAt - 60000).toISOString()
+              ]
+            );
+
+            if (existing.length === 0) {
+              await autoFinalizeExpiredSession(session);
+            }
+          } catch (err) {
+            console.error('[ActiveSessions Worker]: Error checking existing results:', err.message);
+          }
+        }
+      }
+    } else {
+      // 2. Untimed or idle sessions cleanup: remove after 2 hours of inactivity
+      if (now - session.lastSeen > 2 * 60 * 60 * 1000) {
+        activeSessions.delete(key);
+      }
     }
   }
+
+  // Active visitors cleanup (40 seconds without heartbeat)
   for (const [key, visitor] of activeVisitors.entries()) {
-    if (now - visitor.lastSeen > 40 * 1000) { // 40 seconds timeout
+    if (now - visitor.lastSeen > 40 * 1000) {
       activeVisitors.delete(key);
     }
   }
-}, 30 * 1000);
+}, 20 * 1000);
 
 function getAuthenticatedCandidate(req) {
   const raw = req.signedCookies?.evalnium_session;
@@ -2752,38 +2889,95 @@ app.delete('/api/quizzes/:id', authenticateAdmin, async (req, res) => {
 
 // --- Live Sessions Tracking ---
 app.post('/api/sessions/heartbeat', (req, res) => {
-  const { quizId, quizTitle, candidateName, candidateEmail, timeRemaining, percentageComplete } = req.body;
+  const {
+    quizId,
+    quizTitle,
+    candidateName,
+    candidateEmail,
+    timeRemaining,
+    timeLimitMinutes,
+    isUntimed,
+    topic,
+    percentageComplete,
+    userAnswers,
+    questionsCount
+  } = req.body;
   if (!quizId || !candidateName) return res.status(400).json({ error: 'Missing required fields' });
 
   const authenticatedCandidate = getAuthenticatedCandidate(req);
   const verifiedEmail = authenticatedCandidate?.email || candidateEmail;
-  const sessionKey = `${quizId}_${verifiedEmail || candidateName}`;
+  const verifiedName = authenticatedCandidate?.name || candidateName;
+  const sessionKey = `${quizId}_${verifiedEmail || verifiedName}`;
   const isNewSession = !activeSessions.has(sessionKey);
+  const now = Date.now();
+
+  const prevSession = activeSessions.get(sessionKey);
+  const startedAt = prevSession ? prevSession.startedAt : now;
+  const limitMinutes = Number(timeLimitMinutes ?? (prevSession ? prevSession.timeLimitMinutes : 0));
 
   activeSessions.set(sessionKey, {
     quizId,
-    quizTitle: quizTitle || 'CBT Exam',
-    candidateName,
-    candidateEmail: verifiedEmail,
-    timeRemaining,
-    percentageComplete,
-    lastSeen: Date.now()
+    quizTitle: quizTitle || (prevSession ? prevSession.quizTitle : 'CBT Exam'),
+    candidateName: verifiedName,
+    candidateEmail: verifiedEmail || null,
+    timeRemaining: Number(timeRemaining ?? 0),
+    timeLimitMinutes: limitMinutes,
+    isUntimed: Boolean(isUntimed),
+    topic: topic || (prevSession ? prevSession.topic : ''),
+    percentageComplete: Number(percentageComplete || 0),
+    userAnswers: (userAnswers && typeof userAnswers === 'object') ? userAnswers : (prevSession?.userAnswers || {}),
+    questionsCount: Number(questionsCount || (prevSession ? prevSession.questionsCount : 0)),
+    startedAt,
+    lastSeen: now
   });
 
   if (isNewSession) {
     recordAuditLog({
       eventType: 'exam_start',
       severity: 'info',
-      actorName: candidateName,
+      actorName: verifiedName,
       actorEmail: verifiedEmail || null,
       actorRole: 'student',
-      actionTitle: `📝 Exam Started: ${candidateName} initiated "${quizTitle || 'CBT Exam'}"`,
+      actionTitle: `📝 Exam Started: ${verifiedName} initiated "${quizTitle || 'CBT Exam'}"`,
       detailsText: `Candidate launched exam session. Initial time remaining: ${timeRemaining || 'standard'}.`,
       ipAddress: req.ip || '127.0.0.1'
     });
   }
 
   res.json({ success: true });
+});
+
+// Candidate active exam session status & recovery endpoint
+app.get('/api/sessions/active-exam/:quizId', (req, res) => {
+  const { quizId } = req.params;
+  const authenticatedCandidate = getAuthenticatedCandidate(req);
+  const email = authenticatedCandidate?.email || req.query.email;
+  const name = authenticatedCandidate?.name || req.query.name;
+
+  const sessionKey = `${quizId}_${email || name}`;
+  const session = activeSessions.get(sessionKey);
+  if (!session) {
+    return res.json({ active: false });
+  }
+
+  if (!session.isUntimed && session.timeLimitMinutes > 0) {
+    const elapsedSeconds = Math.floor((Date.now() - session.startedAt) / 1000);
+    const totalLimitSeconds = session.timeLimitMinutes * 60;
+    if (elapsedSeconds >= totalLimitSeconds + 60) {
+      return res.json({ active: false, expired: true });
+    }
+  }
+
+  res.json({
+    active: true,
+    quizId: session.quizId,
+    quizTitle: session.quizTitle,
+    startTime: session.startedAt,
+    timeRemaining: session.timeRemaining,
+    timeLimitMinutes: session.timeLimitMinutes,
+    isUntimed: session.isUntimed,
+    userAnswers: session.userAnswers
+  });
 });
 
 app.get('/api/sessions/live', authenticateAdmin, (req, res) => {

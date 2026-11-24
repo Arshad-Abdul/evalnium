@@ -198,8 +198,33 @@ function MainAppContent() {
           if (found.isPublished || isAdminAuthRef.current) {
             setSelectedQuiz(found);
             setActiveTab('user');
-            examPhaseRef.current = 'instructions';
-            setExamPhase('instructions');
+
+            // Detect if candidate has an existing active session for this exam (e.g. page refresh or phone reboot)
+            let hasActiveSession = false;
+            try {
+              for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith('evalnium_live_exam_') && k.endsWith(`_${found.id}`)) {
+                  const raw = localStorage.getItem(k);
+                  if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed.startTime) {
+                      hasActiveSession = true;
+                      break;
+                    }
+                  }
+                }
+              }
+            } catch {}
+
+            if (hasActiveSession) {
+              examPhaseRef.current = 'running';
+              setExamPhase('running');
+            } else {
+              examPhaseRef.current = 'instructions';
+              setExamPhase('instructions');
+            }
+
             if (found.slug && quizId !== found.slug) {
               syncUrl(`/exam/${encodeURIComponent(found.slug)}`, true);
             }
@@ -406,7 +431,32 @@ function MainAppContent() {
         if (found.isPublished || isAdminAuthenticated) {
           setSelectedQuiz(found);
           setActiveTab('user');
-          setExamPhase('instructions');
+
+          let hasActiveSession = false;
+          try {
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i);
+              if (k && k.startsWith('evalnium_live_exam_') && k.endsWith(`_${found.id}`)) {
+                const raw = localStorage.getItem(k);
+                if (raw) {
+                  const parsed = JSON.parse(raw);
+                  if (parsed.startTime) {
+                    hasActiveSession = true;
+                    break;
+                  }
+                }
+              }
+            }
+          } catch {}
+
+          if (hasActiveSession) {
+            examPhaseRef.current = 'running';
+            setExamPhase('running');
+          } else {
+            examPhaseRef.current = 'instructions';
+            setExamPhase('instructions');
+          }
+
           if (found.slug && targetId !== found.slug) {
             syncUrl(`/exam/${encodeURIComponent(found.slug)}`, true);
           }
@@ -427,6 +477,8 @@ function MainAppContent() {
   // Handle browser back and forward navigation (popstate)
   useEffect(() => {
     const handlePopState = () => {
+      // If candidate is actively taking an exam, ExamRunner handles popstate & exit confirmation
+      if (examPhaseRef.current === 'running') return;
       applyRouteFromUrl();
     };
     window.addEventListener('popstate', handlePopState);

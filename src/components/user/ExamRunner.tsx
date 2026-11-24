@@ -22,6 +22,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 }) => {
   const { currentUser } = useAuth();
   const sessionKey = `evalnium_live_exam_${currentUser?.email || candidateName || 'guest'}_${quiz.id}`;
+  const isSubmittingRef = React.useRef(false);
 
   const [examStartTime] = useState<number>(() => {
     try {
@@ -40,7 +41,21 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 
   const isUntimed = !quiz.timeLimitMinutes || quiz.timeLimitMinutes <= 0;
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [timeRemainingSeconds, setTimeRemainingSeconds] = useState(isUntimed ? 0 : quiz.timeLimitMinutes * 60);
+  const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number>(() => {
+    if (isUntimed) return 0;
+    const totalSeconds = quiz.timeLimitMinutes * 60;
+    try {
+      const saved = localStorage.getItem(sessionKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.startTime) {
+          const elapsed = Math.floor((Date.now() - parsed.startTime) / 1000);
+          return Math.max(0, totalSeconds - elapsed);
+        }
+      }
+    } catch {}
+    return totalSeconds;
+  });
   const [questionTimeRemainingSeconds, setQuestionTimeRemainingSeconds] = useState(
     quiz.timingMode === 'question' ? (quiz.questionTimeLimitSeconds || 60) : 0
   );
@@ -55,6 +70,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     return {};
   });
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showExitPromptModal, setShowExitPromptModal] = useState(false);
   const [showMobilePalette, setShowMobilePalette] = useState(false);
   const [languageMode, setLanguageMode] = useState<'dual' | 'en' | 'hi'>(quiz.defaultLanguageMode || 'en');
   const [examViewMode, setExamViewMode] = useState<'single' | 'all'>(quiz.questionViewMode === 'all_only' ? 'all' : 'single');
@@ -148,6 +164,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
   activeQuestionsCountRef.current = activeQuestions.length;
 
   const handleForceSubmit = useCallback(() => {
+    isSubmittingRef.current = true;
     clearSession();
     const result = calculateResultsRef.current?.();
     if (result) onFinishExam(result);
@@ -315,7 +332,38 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     } catch {}
   }, [userAnswers, examStartTime, sessionKey]);
 
-  // Real-world timer (supports countdown and untimed practice mode)
+  // 1. Prevent accidental window / tab close or refresh
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isSubmittingRef.current) return;
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
+
+  // 2. Intercept browser and mobile device Back button (popstate)
+  useEffect(() => {
+    window.history.pushState({ inExam: true }, '', window.location.href);
+
+    const handlePopState = () => {
+      if (isSubmittingRef.current) return;
+      window.history.pushState({ inExam: true }, '', window.location.href);
+      setShowExitPromptModal(true);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
+  // 3. Real-world timer (supports countdown and untimed practice mode)
   useEffect(() => {
     if (isUntimed) {
       const updateElapsed = () => {
@@ -341,6 +389,13 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     updateTimer();
     const timer = setInterval(updateTimer, 1000);
 
+    return () => {
+      clearInterval(timer);
+    };
+  }, [examStartTime, quiz.timeLimitMinutes, isUntimed, handleForceSubmit]);
+
+  // 4. Live session heartbeat & live answer sync to server (every 10s for both timed and untimed)
+  useEffect(() => {
     const getApiBaseUrl = () => {
       if (typeof window !== 'undefined') {
         return '/api';
@@ -349,6 +404,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     };
 
     const pingHeartbeat = () => {
+      if (isSubmittingRef.current) return;
       fetch(`${getApiBaseUrl()}/sessions/heartbeat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -359,19 +415,23 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
           candidateName,
           candidateEmail: currentUser?.email,
           timeRemaining: timeRemainingSeconds,
-          percentageComplete: Math.round((Object.keys(userAnswers).length / quiz.questions.length) * 100)
+          timeLimitMinutes: quiz.timeLimitMinutes || 0,
+          isUntimed,
+          topic: quiz.topic,
+          percentageComplete: Math.round((Object.keys(userAnswers).length / Math.max(1, activeQuestions.length)) * 100),
+          userAnswers,
+          questionsCount: activeQuestions.length
         })
-      }).catch(() => {}); // ignore error
+      }).catch(() => {});
     };
 
     pingHeartbeat();
     const heartbeatInterval = setInterval(pingHeartbeat, 10000); // every 10s
 
     return () => {
-      clearInterval(timer);
       clearInterval(heartbeatInterval);
     };
-  }, [examStartTime, quiz.timeLimitMinutes, quiz.id, candidateName, currentUser?.email, timeRemainingSeconds, userAnswers, quiz.questions.length, handleForceSubmit]);
+  }, [quiz.id, quiz.title, quiz.topic, quiz.timeLimitMinutes, isUntimed, candidateName, currentUser?.email, timeRemainingSeconds, userAnswers, activeQuestions.length]);
 
   // Per-question timer
   useEffect(() => {
@@ -680,8 +740,10 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
   calculateResultsRef.current = calculateResults;
 
   const handleConfirmSubmit = useCallback(() => {
+    isSubmittingRef.current = true;
     clearSession();
     setShowSubmitModal(false);
+    setShowExitPromptModal(false);
     const result = calculateResults();
     onFinishExam(result);
   }, [calculateResults, clearSession, onFinishExam]);
@@ -714,6 +776,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         totalQuestions={activeQuestions.length}
         onToggleMobilePalette={() => setShowMobilePalette(true)}
         onOpenSubmitModal={() => setShowSubmitModal(true)}
+        onOpenExitModal={() => setShowExitPromptModal(true)}
       />
 
       {/* Live AI Proctoring Radar & Anti-Cheating Monitor */}
@@ -1027,6 +1090,63 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
                 className="w-1/2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs"
               >
                 Submit Exam Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Back Button / Exit Exam Warning Modal */}
+      {showExitPromptModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white max-w-md w-full p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-2xl space-y-4 my-auto animate-in fade-in duration-150">
+            <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mx-auto">
+              <AlertTriangle className="w-6 h-6 shrink-0" />
+            </div>
+
+            <div className="text-center space-y-1">
+              <h3 className="text-lg font-bold text-slate-900">⚠️ Active Exam in Progress!</h3>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                Aap abhi active exam attempt kar rahe hain. Kya aap exam jari rakhna chahte hain ya abhi exit karna chahte hain?
+              </p>
+              <p className="text-xs text-rose-600 font-semibold pt-1">
+                Exit karne par aapka exam ab tak ke answers ke sath automatically submit ho jayega.
+              </p>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-700 flex justify-around text-center">
+              <div>
+                <span className="text-slate-400 block text-[11px]">Total</span>
+                <span className="font-bold text-sm text-slate-900">{activeQuestions.length}</span>
+              </div>
+              <div className="border-r border-slate-200" />
+              <div>
+                <span className="text-slate-400 block text-[11px]">Answered</span>
+                <span className="font-bold text-sm text-emerald-600">{answeredCount}</span>
+              </div>
+              <div className="border-r border-slate-200" />
+              <div>
+                <span className="text-slate-400 block text-[11px]">Remaining</span>
+                <span className="font-bold text-sm text-indigo-600 font-mono">
+                  {isUntimed ? 'Untimed' : `${Math.floor(timeRemainingSeconds / 60)}m ${timeRemainingSeconds % 60}s`}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowExitPromptModal(false)}
+                className="w-full sm:w-1/2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+              >
+                Continue Exam
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSubmit}
+                className="w-full sm:w-1/2 py-2.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs transition-colors cursor-pointer"
+              >
+                Exit &amp; Submit Now
               </button>
             </div>
           </div>
