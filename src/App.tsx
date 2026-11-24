@@ -124,8 +124,9 @@ function MainAppContent() {
 
   const applyRouteFromUrl = useCallback((quizList?: Quiz[]) => {
     if (typeof window === 'undefined') return;
-    const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
-    const hash = window.location.hash || '';
+    const rawPath = window.location.pathname.replace(/\/+$/, '') || '/';
+    const pathname = rawPath.toLowerCase();
+    const hash = (window.location.hash || '').toLowerCase();
 
     // 1. Admin
     if (pathname === '/admin' || hash === '#/admin') {
@@ -340,14 +341,15 @@ function MainAppContent() {
 
   const clearAdminUrlTrigger = () => {
     if (typeof window === 'undefined') return;
-    if (window.location.hash === '#/admin' || window.location.pathname === '/admin') {
-      const nextPath = window.location.pathname === '/admin' ? '/' : window.location.pathname;
+    const curPath = window.location.pathname.toLowerCase();
+    const curHash = window.location.hash.toLowerCase();
+    if (curHash === '#/admin' || curPath === '/admin') {
+      const nextPath = curPath === '/admin' ? '/' : window.location.pathname;
       window.history.replaceState(null, '', `${nextPath}${window.location.search}`);
     }
   };
 
   const triggerPrivateAdminGate = () => {
-    if (currentUser && currentUser.role !== 'admin') return;
     if (isAdminAuthenticated) {
       setShowAdminLockModal(false);
       setActiveTab('admin');
@@ -359,7 +361,9 @@ function MainAppContent() {
 
   useEffect(() => {
     const checkAdminRoute = () => {
-      if (window.location.hash === '#/admin' || window.location.pathname === '/admin') {
+      const curPath = window.location.pathname.toLowerCase();
+      const curHash = window.location.hash.toLowerCase();
+      if (curHash === '#/admin' || curPath === '/admin') {
         triggerPrivateAdminGate();
       }
     };
@@ -373,12 +377,14 @@ function MainAppContent() {
 
     checkAdminRoute();
     window.addEventListener('hashchange', checkAdminRoute);
+    window.addEventListener('popstate', checkAdminRoute);
     window.addEventListener('keydown', handleAdminShortcut);
     return () => {
       window.removeEventListener('hashchange', checkAdminRoute);
+      window.removeEventListener('popstate', checkAdminRoute);
       window.removeEventListener('keydown', handleAdminShortcut);
     };
-  }, [isAdminAuthenticated, currentUser]);
+  }, [isAdminAuthenticated]);
 
   // Resolve pending exam route when quizzes arrive from MySQL or cache
   useEffect(() => {
