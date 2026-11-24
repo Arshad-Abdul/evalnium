@@ -1028,15 +1028,37 @@ async function initDatabase() {
       `, [nowIso, nowIso]);
     }
 
-    // Auto-sync any test results into activity_audit_logs if not already present
+    // 1. Automatic Deduplication Guard: Purge existing duplicate audit logs in MySQL
+    try {
+      const [dedupRes] = await pool.query(`
+        DELETE a1 FROM activity_audit_logs a1
+        INNER JOIN activity_audit_logs a2 
+        WHERE a1.id > a2.id 
+          AND a1.event_type = a2.event_type 
+          AND a1.actor_name = a2.actor_name 
+          AND a1.action_title = a2.action_title 
+          AND (
+            a1.created_at = a2.created_at 
+            OR ABS(TIMESTAMPDIFF(SECOND, a1.created_at, a2.created_at)) < 300
+          )
+      `);
+      if (dedupRes.affectedRows > 0) {
+        console.log(`🧹 Cleaned up ${dedupRes.affectedRows} duplicate audit log entries in MySQL.`);
+      }
+    } catch (dedupErr) {
+      console.warn('Audit logs deduplication skipped:', dedupErr.message);
+    }
+
+    // 2. Safe historical results sync with strict anti-duplicate check
     try {
       const [unsyncedResults] = await pool.query(`
         SELECT r.* FROM results r 
-        LEFT JOIN activity_audit_logs a 
-          ON a.actor_name = r.candidate_name 
-          AND a.event_type = 'exam_submit' 
-          AND a.created_at = r.attempted_at 
-        WHERE a.id IS NULL
+        WHERE NOT EXISTS (
+          SELECT 1 FROM activity_audit_logs a 
+          WHERE a.actor_name = r.candidate_name 
+            AND a.event_type = 'exam_submit' 
+            AND a.action_title LIKE CONCAT('%', r.quiz_title, '%')
+        )
       `);
       if (unsyncedResults.length > 0) {
         for (const r of unsyncedResults) {
