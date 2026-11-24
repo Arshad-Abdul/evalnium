@@ -629,17 +629,17 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
         return (
           <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-[2px] overflow-y-auto">
             <div className="max-w-4xl mx-auto px-4 py-6">
-              <div className="flex items-center justify-between mb-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm sticky top-4 z-10">
-                <div>
-                  <h2 className="font-bold text-slate-900 text-sm sm:text-base">Attempt Review</h2>
-                  <p className="text-xs text-slate-500 font-mono">
+              <div className="flex items-center justify-between gap-2.5 mb-4 bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-sm sticky top-4 z-10">
+                <div className="min-w-0 flex-1 pr-1">
+                  <h2 className="font-bold text-slate-900 text-sm sm:text-base truncate">Attempt Review</h2>
+                  <p className="text-xs text-slate-500 font-mono truncate">
                     {reviewAttempt.quizTitle} · {new Date(reviewAttempt.attemptedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setReviewAttempt(null)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
                   aria-label="Close review"
                 >
                   <X className="w-5 h-5" />

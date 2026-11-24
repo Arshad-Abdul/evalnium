@@ -868,16 +868,16 @@ function MainAppContent() {
       )}
 
       {pendingPasscodeQuiz && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
-            <div className="bg-rose-50 border-b border-rose-100 p-6 flex flex-col items-center justify-center text-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 my-auto">
+            <div className="bg-rose-50 border-b border-rose-100 p-5 sm:p-6 flex flex-col items-center justify-center text-center">
               <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-xs border border-rose-200 mb-3">
                 <svg className="w-6 h-6 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-black text-slate-900">Protected Exam</h3>
-              <p className="text-xs font-semibold text-slate-600 mt-1">{pendingPasscodeQuiz.title}</p>
+              <h3 className="text-base sm:text-lg font-black text-slate-900">Protected Exam</h3>
+              <p className="text-xs font-semibold text-slate-600 mt-1 break-words max-w-xs">{pendingPasscodeQuiz.title}</p>
             </div>
 
             <div className="p-6 space-y-4">

@@ -544,7 +544,7 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
                             : 'bg-white border-slate-200 shadow-2xs'
                         }`}
                       >
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className={`font-bold ${isOfficialAdmin ? 'text-white' : 'text-slate-900'}`}>
                               {item.userName}
@@ -785,17 +785,17 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
 
       {/* Ask a New Doubt Modal */}
       {showNewDoubtModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white max-w-lg w-full rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-bold text-sm sm:text-base text-slate-900">Post Question / Doubt</h3>
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4 overflow-y-auto">
+          <div className="bg-white max-w-lg w-full rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 my-auto max-h-[92vh]">
+            <div className="flex items-center justify-between gap-2.5 pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <MessageSquare className="w-5 h-5 text-indigo-600 shrink-0" />
+                <h3 className="font-bold text-sm sm:text-base text-slate-900 truncate">Post Question / Doubt</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowNewDoubtModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>

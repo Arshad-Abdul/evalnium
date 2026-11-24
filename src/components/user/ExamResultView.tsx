@@ -569,7 +569,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                 className="portal-card p-5 bg-white border border-slate-200 space-y-3.5"
               >
                 {/* Question Status Bar */}
-                <div className="flex items-start justify-between gap-3 pb-2 border-b border-slate-100">
+                <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2 border-b border-slate-100">
                   <div className="flex items-center space-x-2">
                     <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono font-bold text-xs border border-slate-200">
                       Q.{idx + 1}

@@ -731,16 +731,16 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 
       {/* Anti-Cheating Tab Switch Warning Banner */}
       {showAntiCheatWarning && (
-        <div className="bg-rose-600 text-white p-3 rounded-2xl flex items-center justify-between text-xs font-bold shadow-lg animate-bounce">
-          <div className="flex items-center space-x-2">
+        <div className="bg-rose-600 text-white p-3 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs font-bold shadow-lg animate-bounce">
+          <div className="flex items-center space-x-2 min-w-0 flex-1">
             <AlertTriangle className="w-5 h-5 text-yellow-300 flex-shrink-0" />
-            <span>
+            <span className="break-words">
               ⚠️ ANTI-CHEATING WARNING ({tabSwitchCount}/{quiz.maxTabSwitches || 3}): Tab/Window switch or resize detected! Exam auto-submits after {quiz.maxTabSwitches || 3} violation{(quiz.maxTabSwitches || 3) > 1 ? 's' : ''}.
             </span>
           </div>
           <button
             onClick={() => setShowAntiCheatWarning(false)}
-            className="px-2.5 py-1 rounded bg-white text-rose-800 text-[11px] font-extrabold uppercase cursor-pointer"
+            className="px-2.5 py-1 rounded bg-white text-rose-800 text-[11px] font-extrabold uppercase cursor-pointer shrink-0"
           >
             I Understand
           </button>
@@ -985,11 +985,11 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 
       {/* Confirmation Submit Modal */}
       {showSubmitModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white max-w-md w-full p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-2xl space-y-6">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4 overflow-y-auto">
+          <div className="bg-white max-w-md w-full p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-2xl space-y-4 sm:space-y-5 my-auto max-h-[92vh]">
             <div className="flex items-center space-x-3 text-amber-600">
-              <AlertTriangle className="w-6 h-6" />
-              <h3 className="text-lg font-bold text-slate-900">Confirm Exam Submission?</h3>
+              <AlertTriangle className="w-6 h-6 shrink-0" />
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">Confirm Exam Submission?</h3>
             </div>
 
             <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs font-mono text-slate-700">

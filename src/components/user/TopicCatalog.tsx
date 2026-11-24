@@ -552,17 +552,17 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
 
       {/* Candidate Scorecard History Modal */}
       {showHistoryModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-[2px] flex items-center justify-center p-4">
-          <div className="bg-white max-w-2xl w-full p-5 sm:p-6 rounded-xl border border-slate-200 space-y-4 shadow-xl max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <History className="w-4 h-4 text-blue-600" />
-                <h3 className="text-base font-bold text-slate-900">Your Scorecards</h3>
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-[2px] flex items-center justify-center p-2.5 sm:p-4">
+          <div className="bg-white max-w-2xl w-full p-4 sm:p-6 rounded-xl border border-slate-200 space-y-4 shadow-xl my-auto max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <History className="w-4 h-4 text-blue-600 shrink-0" />
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate">Your Scorecards</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowHistoryModal(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
                 aria-label="Close scorecards"
               >
                 <X className="w-4 h-4" />
