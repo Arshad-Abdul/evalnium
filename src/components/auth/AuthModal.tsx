@@ -441,17 +441,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4">
-      <div className="bg-white max-w-lg w-full max-h-[92vh] overflow-y-auto p-5 sm:p-6 rounded-xl border border-slate-200 shadow-xl space-y-5 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-2.5 sm:p-4">
+      <div className="bg-white max-w-lg w-full max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-xl border border-slate-200 shadow-xl space-y-4 sm:space-y-5 animate-in fade-in duration-200 my-auto">
         
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
+        <div className="flex items-center justify-between gap-2.5 border-b border-slate-100 pb-3 sm:pb-4">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="p-2 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
               <ShieldCheck className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-base sm:text-lg font-bold text-slate-900">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate">
                 {step === 'otp_verify'
                   ? 'Email OTP Verification'
                   : step === 'new_password'
@@ -462,7 +462,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                         ? 'Create Candidate Account'
                         : 'Candidate Sign In'}
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] sm:text-xs text-slate-500 truncate">
                 {step === 'otp_verify'
                   ? `Enter the 6-digit verification code sent to ${email}`
                   : step === 'new_password'
@@ -476,11 +476,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
           
           <button
             type="button"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 shrink-0 cursor-pointer"
             onClick={() => {
               setStep('details');
               onClose();
             }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>

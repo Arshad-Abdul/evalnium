@@ -85,13 +85,13 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ result, onCl
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-6 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
       <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-auto">
         {/* Top Control Bar */}
-        <div className="flex items-center justify-between p-4 bg-slate-900 text-white border-b border-slate-800">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 sm:p-4 bg-slate-900 text-white border-b border-slate-800">
           <div className="flex items-center space-x-2">
-            <Award className="w-5 h-5 text-amber-400" />
-            <span className="font-extrabold text-sm tracking-wide">
+            <Award className="w-5 h-5 text-amber-400 shrink-0" />
+            <span className="font-extrabold text-xs sm:text-sm tracking-wide">
               Verified Certificate of Completion
             </span>
           </div>
@@ -100,10 +100,10 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ result, onCl
             <button
               onClick={handleDownloadPDF}
               disabled={downloading}
-              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs flex items-center space-x-1.5 transition-all cursor-pointer"
+              className="px-3 sm:px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs flex items-center space-x-1.5 transition-all cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>{downloading ? 'Exporting PDF...' : 'Download PDF'}</span>
+              <span>{downloading ? 'Exporting...' : 'Download PDF'}</span>
             </button>
 
             <button
@@ -125,7 +125,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ result, onCl
         </div>
 
         {/* Certificate Canvas Area */}
-        <div className="p-4 sm:p-8 bg-slate-100 flex justify-center">
+        <div className="p-2 sm:p-8 bg-slate-100 flex justify-center overflow-x-auto">
           <div
             ref={certRef}
             className="w-full max-w-[850px] aspect-[1.414/1] bg-[#fffdf9] p-8 sm:p-12 rounded-2xl border-[10px] border-double border-indigo-950 shadow-xl relative flex flex-col justify-between text-slate-900 overflow-hidden font-sans select-none"

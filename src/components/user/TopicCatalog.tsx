@@ -60,7 +60,7 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
       document.body.removeChild(ta);
       setCopiedQuizId(quizId);
       setTimeout(() => setCopiedQuizId(null), 2500);
-    } catch {}
+    } catch { }
   };
 
   const handleStartExamAttempt = (quiz: Quiz) => {
@@ -213,11 +213,10 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                   key={diff}
                   type="button"
                   onClick={() => setSelectedDifficulty(diff)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                    selectedDifficulty === diff
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${selectedDifficulty === diff
                       ? 'bg-white text-slate-900 shadow-2xs font-semibold'
                       : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                    }`}
                 >
                   {diff}
                 </button>
@@ -228,11 +227,10 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
               <button
                 type="button"
                 onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                  viewMode === 'grid'
+                className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === 'grid'
                     ? 'bg-white text-slate-900 shadow-2xs'
                     : 'text-slate-500 hover:text-slate-800'
-                }`}
+                  }`}
                 title="Grid view"
                 aria-label="Grid view"
               >
@@ -241,11 +239,10 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
               <button
                 type="button"
                 onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                  viewMode === 'list'
+                className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === 'list'
                     ? 'bg-white text-slate-900 shadow-2xs'
                     : 'text-slate-500 hover:text-slate-800'
-                }`}
+                  }`}
                 title="Compact list view"
                 aria-label="List view"
               >
@@ -265,18 +262,16 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                   key={pill.id}
                   type="button"
                   onClick={() => setSelectedCategory(pill.id)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                    isSelected
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${isSelected
                       ? 'bg-slate-900 text-white shadow-2xs'
                       : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                  }`}
+                    }`}
                 >
                   <span>{pill.icon}</span>
                   <span>{pill.label}</span>
                   <span
-                    className={`font-mono text-[10px] px-1.5 py-0.2 rounded-full ${
-                      isSelected ? 'bg-white/20 text-white' : 'bg-white text-slate-600'
-                    }`}
+                    className={`font-mono text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-white text-slate-600'
+                      }`}
                   >
                     {pill.count}
                   </span>
@@ -337,11 +332,10 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                     </span>
                     <SmartQuizBadge quiz={quiz} compact />
                     {bestAttempt && (
-                      <span className={`font-mono font-semibold px-1.5 py-0.2 rounded border ${
-                        bestAttempt.passed
+                      <span className={`font-mono font-semibold px-1.5 py-0.2 rounded border ${bestAttempt.passed
                           ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                           : 'bg-slate-100 text-slate-700 border-slate-200'
-                      }`}>
+                        }`}>
                         Best: {bestAttempt.percentage}%
                       </span>
                     )}
@@ -395,11 +389,10 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                     type="button"
                     onClick={(e) => handleCopyQuizLink(e, quiz)}
                     title="Copy Direct Exam Link (Share on WhatsApp/Telegram)"
-                    className={`p-2 rounded-lg border transition-all cursor-pointer shrink-0 flex items-center justify-center ${
-                      copiedQuizId === quiz.id
+                    className={`p-2 rounded-lg border transition-all cursor-pointer shrink-0 flex items-center justify-center ${copiedQuizId === quiz.id
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-300 ring-2 ring-emerald-200'
                         : 'bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 border-slate-200'
-                    }`}
+                      }`}
                     aria-label="Copy Direct Exam Link"
                   >
                     {copiedQuizId === quiz.id ? (
@@ -453,11 +446,10 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
 
                       <div className="flex items-center gap-2 shrink-0">
                         {bestAttempt && (
-                          <span className={`font-mono font-semibold text-[11px] px-1.5 py-0.5 rounded border ${
-                            bestAttempt.passed
+                          <span className={`font-mono font-semibold text-[11px] px-1.5 py-0.5 rounded border ${bestAttempt.passed
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : 'bg-slate-100 text-slate-700 border-slate-200'
-                          }`}>
+                            }`}>
                             Best: {bestAttempt.percentage}%
                           </span>
                         )}
@@ -537,11 +529,10 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                         type="button"
                         onClick={(e) => handleCopyQuizLink(e, quiz)}
                         title="Copy Direct Exam Link (Share on WhatsApp/Telegram)"
-                        className={`p-2.5 rounded-lg border transition-all cursor-pointer shrink-0 flex items-center justify-center ${
-                          copiedQuizId === quiz.id
+                        className={`p-2.5 rounded-lg border transition-all cursor-pointer shrink-0 flex items-center justify-center ${copiedQuizId === quiz.id
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-300 ring-2 ring-emerald-200'
                             : 'bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 border-slate-200'
-                        }`}
+                          }`}
                         aria-label="Copy Direct Exam Link"
                       >
                         {copiedQuizId === quiz.id ? (
@@ -598,9 +589,8 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
 
                     <div className="flex sm:flex-col items-center sm:items-end justify-between gap-1.5">
                       <span
-                        className={`px-2 py-0.5 rounded font-mono font-semibold text-[11px] ${
-                          attempt.passed ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                        }`}
+                        className={`px-2 py-0.5 rounded font-mono font-semibold text-[11px] ${attempt.passed ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                          }`}
                       >
                         {attempt.percentage}% ({attempt.passed ? 'Passed' : 'Below Pass'})
                       </span>

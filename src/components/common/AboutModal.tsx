@@ -14,22 +14,22 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white max-w-3xl w-full rounded-2xl border border-slate-200 shadow-2xl animate-in fade-in zoom-in-95 duration-150 my-6 max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4 overflow-y-auto">
+      <div className="bg-white max-w-3xl w-full rounded-2xl border border-slate-200 shadow-2xl animate-in fade-in zoom-in-95 duration-150 my-auto max-h-[92vh] flex flex-col">
         
         {/* Top Header */}
-        <div className="px-5 py-4 sm:px-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 rounded-t-2xl shrink-0">
-          <div className="flex items-center gap-3">
-            <EvalniumLogo size="md" />
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">About Evalnium Portal</h2>
-              <p className="text-[11px] text-slate-500 font-medium">India's Dedicated CBT Assessment Platform for LIS Aspirants</p>
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 flex items-center justify-between gap-2.5 bg-slate-50/50 rounded-t-2xl shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <EvalniumLogo size="md" className="shrink-0" />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm sm:text-lg font-bold text-slate-900 tracking-tight truncate">About Evalnium Portal</h2>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium truncate">India's Dedicated CBT Assessment Platform for LIS Aspirants</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer shrink-0"
             aria-label="Close"
           >
             <X className="w-5 h-5" />

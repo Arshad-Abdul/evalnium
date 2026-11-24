@@ -176,23 +176,23 @@ export const RevisionHubModal: React.FC<RevisionHubModalProps> = ({ isOpen, onCl
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white max-w-3xl w-full p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-2xl space-y-6 max-h-[85vh] flex flex-col">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4">
+      <div className="bg-white max-w-3xl w-full p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-2xl space-y-4 sm:space-y-6 my-auto max-h-[92vh] flex flex-col">
         
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-          <div className="flex items-center space-x-2">
-            <div className="p-2 rounded-lg bg-amber-50 text-amber-600 border border-amber-200">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3 sm:pb-4">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="p-2 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 shrink-0">
               <Bookmark className="w-5 h-5 fill-amber-500" />
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-slate-900">Student Revision Bank</h3>
-              <p className="text-xs text-slate-500 font-medium">Review all your saved bookmarked questions across exams</p>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Student Revision Bank</h3>
+              <p className="text-[11px] sm:text-xs text-slate-500 font-medium truncate">Review all your saved bookmarked questions across exams</p>
             </div>
           </div>
           
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 shrink-0 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>

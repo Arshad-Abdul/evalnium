@@ -301,7 +301,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className={`px-2.5 py-1 rounded font-mono font-semibold text-xs uppercase border ${quiz.quizType === 'unranked_practice'
                 ? 'bg-teal-50 text-teal-800 border-teal-300'
                 : !quiz.passingPercentage || quiz.passingPercentage <= 0

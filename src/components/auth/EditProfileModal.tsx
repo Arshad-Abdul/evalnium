@@ -172,23 +172,23 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-2xl space-y-5">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-          <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-lg bg-blue-50 text-blue-600 border border-blue-200">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4">
+      <div className="bg-white max-w-lg w-full max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-2xl space-y-4 sm:space-y-5 my-auto">
+        <div className="flex items-center justify-between gap-2.5 border-b border-slate-100 pb-3 sm:pb-4">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="p-2 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 shrink-0">
               <User className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-slate-900">Edit Student Profile</h3>
-              <p className="text-xs text-slate-500 font-medium">Update your candidate details &amp; exam goal</p>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Edit Student Profile</h3>
+              <p className="text-[11px] sm:text-xs text-slate-500 font-medium truncate">Update your candidate details &amp; exam goal</p>
             </div>
           </div>
           <button
             type="button"
             disabled={isSaving}
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-50 cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>

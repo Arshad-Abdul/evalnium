@@ -23,14 +23,14 @@ export const LegalPolicyModal: React.FC<LegalPolicyModalProps> = ({ docType, onC
   const isTerms = docType === 'terms';
 
   return (
-    <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-2.5 sm:p-4">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="legal-modal-title"
-        className="bg-white max-w-2xl w-full max-h-[85vh] flex flex-col rounded-xl border border-slate-200 shadow-2xl overflow-hidden"
+        className="bg-white max-w-2xl w-full max-h-[90vh] flex flex-col rounded-xl border border-slate-200 shadow-2xl overflow-hidden my-auto"
       >
-        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50/70">
+        <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50/70">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-700 shrink-0">
               {isTerms ? <FileText className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}

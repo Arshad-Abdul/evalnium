@@ -29,20 +29,20 @@ export const AdminLockModal: React.FC<AdminLockModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4">
-      <div className="bg-white max-w-md w-full p-5 sm:p-6 rounded-xl border border-slate-200 space-y-5 shadow-xl">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-2.5 sm:p-4">
+      <div className="bg-white max-w-md w-full p-4 sm:p-6 rounded-xl border border-slate-200 space-y-4 sm:space-y-5 shadow-xl my-auto">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
             <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 flex items-center justify-center shrink-0">
               <Lock className="w-5 h-5" />
             </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-1.5 truncate">
                 <span>Admin Studio Access</span>
-                <ShieldCheck className="w-4 h-4 text-slate-500" />
+                <ShieldCheck className="w-4 h-4 text-slate-500 shrink-0" />
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
                 Enter your administrative passcode to manage exams and settings.
               </p>
             </div>

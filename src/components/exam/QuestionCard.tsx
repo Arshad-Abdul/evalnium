@@ -301,12 +301,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 <div
                   key={opt.id}
                   onClick={() => onSelectOption(opt.id)}
-                  className={`exam-option-box p-3.5 flex items-center justify-between cursor-pointer ${isSelected ? 'selected' : ''
+                  className={`exam-option-box p-3.5 flex items-center justify-between gap-3 cursor-pointer ${isSelected ? 'selected' : ''
                     }`}
                 >
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-3 min-w-0 flex-1">
                     <span
-                      className={`w-6 h-6 rounded font-mono font-bold text-xs flex items-center justify-center border transition-colors ${isSelected
+                      className={`w-6 h-6 rounded font-mono font-bold text-xs flex items-center justify-center border transition-colors shrink-0 ${isSelected
                           ? 'bg-blue-600 text-white border-blue-600'
                           : 'bg-slate-100 text-slate-700 border-slate-300'
                         }`}
@@ -314,7 +314,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                       {displayLetter}
                     </span>
 
-                    <div className="flex flex-col text-left">
+                    <div className="flex flex-col text-left min-w-0 flex-1 break-words">
                       <span className={`text-xs sm:text-sm font-medium ${isSelected ? 'text-blue-950 font-semibold' : 'text-slate-800'}`}>
                         {languageMode === 'hi' && autoHindiOptions[opt.id] ? autoHindiOptions[opt.id] : opt.text}
                       </span>
@@ -332,7 +332,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     name={`q_${question.id}`}
                     checked={isSelected}
                     onChange={() => { }}
-                    className="w-4 h-4 text-blue-600 focus:ring-blue-500 rounded border-slate-300 cursor-pointer"
+                    className="w-4 h-4 text-blue-600 focus:ring-blue-500 rounded border-slate-300 cursor-pointer shrink-0"
                   />
                 </div>
               );

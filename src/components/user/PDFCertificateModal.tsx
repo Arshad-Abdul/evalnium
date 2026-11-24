@@ -85,35 +85,35 @@ export const PDFCertificateModal: React.FC<PDFCertificateModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-[2px] flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white max-w-4xl w-full rounded-xl border border-slate-200 shadow-2xl overflow-hidden space-y-4 my-8 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-[2px] flex items-center justify-center p-2.5 sm:p-4 overflow-y-auto">
+      <div className="bg-white max-w-4xl w-full rounded-xl border border-slate-200 shadow-2xl overflow-hidden space-y-4 my-auto animate-in fade-in duration-200">
         
         {/* Top Controls Header */}
-        <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+        <div className="bg-slate-900 text-white px-3.5 sm:px-5 py-3 sm:py-3.5 flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-amber-400">
-              <Award className="w-5 h-5" />
+            <div className="p-1.5 sm:p-2 rounded-lg bg-slate-800 border border-slate-700 text-amber-400 shrink-0">
+              <Award className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold tracking-wide">Evalnium Certificate of Completion</h3>
-              <p className="text-[11px] text-slate-400">Verified Practice Credential</p>
+              <h3 className="text-xs sm:text-sm font-bold tracking-wide">Evalnium Certificate of Completion</h3>
+              <p className="text-[10px] sm:text-[11px] text-slate-400">Verified Practice Credential</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 sm:gap-2.5">
             <button
               type="button"
               onClick={handleDownloadPDF}
-              className="px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Download PDF</span>
             </button>
 
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer"
               aria-label="Close certificate preview"
             >
               <X className="w-4 h-4" />
@@ -122,7 +122,7 @@ export const PDFCertificateModal: React.FC<PDFCertificateModalProps> = ({
         </div>
 
         {/* Printable / PDF Certificate Canvas Area */}
-        <div className="p-4 sm:p-8 flex justify-center bg-slate-100">
+        <div className="p-2 sm:p-8 flex justify-center bg-slate-100 overflow-x-auto">
           <div
             ref={certificateRef}
             className="w-full max-w-[850px] bg-white border-[12px] border-slate-900 p-8 sm:p-12 rounded-2xl relative shadow-2xl text-center space-y-6 overflow-hidden"
