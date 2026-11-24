@@ -620,8 +620,8 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                         }
                       }}
                       className={`px-2.5 py-1 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${bookmarkedIds.has(q.id)
-                          ? 'bg-amber-100 border-amber-300 text-amber-900 shadow-2xs'
-                          : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600'
+                        ? 'bg-amber-100 border-amber-300 text-amber-900 shadow-2xs'
+                        : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600'
                         }`}
                       title={bookmarkedIds.has(q.id) ? 'Saved in Revision Bank' : 'Save for Revision'}
                     >
