@@ -330,15 +330,20 @@ export const QuestionDiscussion: React.FC<QuestionDiscussionProps> = ({
         </div>
       ) : (
         <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
-          {discussions.map((d, dIdx) => {
-            const isAdmin = d.role === 'admin' || d.role === 'faculty';
-            const isOriginal = dIdx === 0;
-            const isMyComment =
-              currentUser?.email &&
-              d.userEmail &&
-              d.userEmail.toLowerCase().trim() === currentUser.email.toLowerCase().trim();
+          {(() => {
+            const firstCandidateId = discussions.find(
+              (x) => x.role !== 'admin' && x.role !== 'faculty'
+            )?.id;
 
-            return (
+            return discussions.map((d) => {
+              const isAdmin = d.role === 'admin' || d.role === 'faculty';
+              const isOriginal = !isAdmin && d.id === firstCandidateId;
+              const isMyComment =
+                currentUser?.email &&
+                d.userEmail &&
+                d.userEmail.toLowerCase().trim() === currentUser.email.toLowerCase().trim();
+
+              return (
               <div
                 key={d.id}
                 className={`p-3.5 rounded-2xl border text-xs space-y-2 transition-all ${
@@ -524,8 +529,9 @@ export const QuestionDiscussion: React.FC<QuestionDiscussionProps> = ({
                 </div>
               </div>
             );
-          })}
-        </div>
+          });
+        })()}
+      </div>
       )}
 
       {/* Fullscreen Lightbox Modal */}

@@ -325,6 +325,9 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
       };
     }
     acc[key].items.push(d);
+    if (new Date(d.createdAt).getTime() > new Date(acc[key].latestDate).getTime()) {
+      acc[key].latestDate = d.createdAt;
+    }
     if (d.role === 'admin' || d.role === 'faculty') {
       acc[key].hasAdminReply = true;
     }
@@ -646,9 +649,25 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
 
                 {/* Structured Discussion Thread */}
                 {(() => {
-                  const originalPost = thread.items[0];
-                  const adminReplies = thread.items.slice(1).filter((i) => i.role === 'admin' || i.role === 'faculty');
-                  const communityReplies = thread.items.slice(1).filter((i) => i.role !== 'admin' && i.role !== 'faculty');
+                  // Sort thread items chronologically (oldest first) so conversational order is preserved
+                  const chronologicalItems = [...thread.items].sort(
+                    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                  );
+
+                  // The original student doubt is the earliest question asked by a candidate
+                  const originalStudentDoubt = chronologicalItems.find(
+                    (i) => i.role !== 'admin' && i.role !== 'faculty'
+                  );
+
+                  // Official faculty/admin answers
+                  const adminReplies = chronologicalItems.filter(
+                    (i) => i.role === 'admin' || i.role === 'faculty'
+                  );
+
+                  // Other student/peer replies (excluding the student who asked the original doubt)
+                  const communityReplies = chronologicalItems.filter(
+                    (i) => i.role !== 'admin' && i.role !== 'faculty' && i.id !== originalStudentDoubt?.id
+                  );
 
                   const renderItem = (item: PublicDiscussionItem, isOriginal: boolean, isOfficialAdmin: boolean) => {
                     const isMyComment =
@@ -859,12 +878,12 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
                   return (
                     <div className="space-y-3">
                       {/* 1. Original Student Doubt */}
-                      {originalPost && (
+                      {originalStudentDoubt && (
                         <div className="space-y-1">
                           <div className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-1">
                             <span>❓ Original Doubt / Question</span>
                           </div>
-                          {renderItem(originalPost, true, originalPost.role === 'admin' || originalPost.role === 'faculty')}
+                          {renderItem(originalStudentDoubt, true, false)}
                         </div>
                       )}
 
