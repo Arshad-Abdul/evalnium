@@ -18,6 +18,20 @@ import crypto from 'crypto';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/**
+ * Parse naive datetime-local strings (e.g. "2026-11-27T20:00") as IST (+05:30)
+ * so scheduled unlocks and result releases match Indian Standard Time regardless of VPS timezone.
+ */
+function parseISTDateMs(dateStr) {
+  if (!dateStr) return NaN;
+  if (dateStr instanceof Date) return dateStr.getTime();
+  const s = String(dateStr).trim();
+  if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(s)) {
+    return new Date(s.replace(' ', 'T') + '+05:30').getTime();
+  }
+  return new Date(s).getTime();
+}
+
 function getNetworkIp() {
   const interfaces = os.networkInterfaces();
   for (const name of Object.keys(interfaces)) {
@@ -1097,7 +1111,7 @@ async function initDatabase() {
 
         const now = Date.now();
         for (const q of dueQuizzes) {
-          const scheduledTime = new Date(q.result_announcement_datetime).getTime();
+          const scheduledTime = parseISTDateMs(q.result_announcement_datetime);
           if (!isNaN(scheduledTime) && now >= scheduledTime) {
             await pool.query('UPDATE quizzes SET result_emails_sent = 1 WHERE id = ?', [q.id]);
 
@@ -2504,7 +2518,7 @@ app.get('/api/quizzes', async (req, res) => {
 
       // Enforce scheduled auto-publishing so candidates cannot see future drafts before publish_at
       if (!isAdmin && q.publish_at) {
-        const pubMs = new Date(q.publish_at).getTime();
+        const pubMs = parseISTDateMs(q.publish_at);
         if (!isNaN(pubMs) && Date.now() < pubMs) {
           continue;
         }
@@ -2512,13 +2526,13 @@ app.get('/api/quizzes', async (req, res) => {
 
       // Solutions & answer rationales are provided for candidate scorecards & educational review.
       // Only withheld if the quiz has a scheduled future result announcement date and caller is not an admin.
-      const isResultGated = q.result_announcement_datetime && Date.now() < new Date(q.result_announcement_datetime).getTime();
+      const isResultGated = q.result_announcement_datetime && Date.now() < parseISTDateMs(q.result_announcement_datetime);
       const canExposeSolutions = isAdmin || !isResultGated;
 
       // Do not leak question banks for locked (accessCode) or not-yet-started scheduled exams
       const unlockedIds = getUnlockedQuizIds(req);
       const isPasscodeUnlocked = !q.access_code || unlockedIds.includes(q.id);
-      const isScheduleStarted = !q.scheduled_start_datetime || Date.now() >= new Date(q.scheduled_start_datetime).getTime();
+      const isScheduleStarted = !q.scheduled_start_datetime || Date.now() >= parseISTDateMs(q.scheduled_start_datetime);
       const canExposeQuestions = isAdmin || (isPasscodeUnlocked && isScheduleStarted);
 
       const [qRows] = await pool.query('SELECT * FROM questions WHERE quiz_id = ?', [q.id]);
@@ -3652,10 +3666,10 @@ app.post('/api/results', async (req, res) => {
 
         // 4. Enforce scheduled window (allow 2-minute grace window after end for timer auto-submit)
         const nowMs = Date.now();
-        if (quiz.scheduled_start_datetime && nowMs < new Date(quiz.scheduled_start_datetime).getTime()) {
+        if (quiz.scheduled_start_datetime && nowMs < parseISTDateMs(quiz.scheduled_start_datetime)) {
           return res.status(403).json({ error: 'This scheduled examination has not started yet.' });
         }
-        if (quiz.scheduled_end_datetime && nowMs > new Date(quiz.scheduled_end_datetime).getTime() + 2 * 60 * 1000) {
+        if (quiz.scheduled_end_datetime && nowMs > parseISTDateMs(quiz.scheduled_end_datetime) + 2 * 60 * 1000) {
           return res.status(403).json({ error: 'The submission window for this scheduled examination has closed.' });
         }
 

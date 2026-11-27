@@ -655,7 +655,7 @@ function MainAppContent() {
   };
 
   // Exam handlers
-  const handleSelectQuiz = (quiz: Quiz) => {
+  const handleSelectQuiz = async (quiz: Quiz) => {
     if (quiz.hasAccessCode || quiz.accessCode) {
       setPendingPasscodeQuiz(quiz);
       setPasscodeInput('');
@@ -663,12 +663,27 @@ function MainAppContent() {
       syncUrl(`/exam/${encodeURIComponent(quiz.id)}`);
       return;
     }
-    if (quiz.questions.length === 0) {
-      setPortalNotice(`"${quiz.title}" is not open yet. Please check its scheduled start time.`);
+
+    let resolvedQuiz = quiz;
+    if (resolvedQuiz.questions.length === 0) {
+      // Re-fetch from server in case the scheduled unlock time just passed while user was waiting on the page
+      const refreshedQuizzes = await syncQuizzesFromMySQL().catch(() => null);
+      if (refreshedQuizzes) {
+        setQuizzes(refreshedQuizzes);
+        const freshMatch = refreshedQuizzes.find((q) => q.id === quiz.id);
+        if (freshMatch) {
+          resolvedQuiz = freshMatch;
+        }
+      }
+    }
+
+    if (resolvedQuiz.questions.length === 0) {
+      setPortalNotice(`"${resolvedQuiz.title}" is not open yet. Please check its scheduled start time.`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
     setPortalNotice(null);
-    proceedWithQuizStart(quiz);
+    proceedWithQuizStart(resolvedQuiz);
   };
 
   const proceedWithQuizStart = (quiz: Quiz) => {

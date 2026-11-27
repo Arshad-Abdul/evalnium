@@ -13,6 +13,20 @@ export interface CountdownTimeRemaining {
 }
 
 /**
+ * Parses naive datetime-local strings (e.g. "2026-11-27T20:00") as IST (+05:30)
+ * so client countdowns always match the server schedule regardless of user timezone.
+ */
+export function parseISTDateMs(targetIsoOrDate?: string | Date | null): number {
+  if (!targetIsoOrDate) return 0;
+  if (targetIsoOrDate instanceof Date) return targetIsoOrDate.getTime();
+  const s = String(targetIsoOrDate).trim();
+  if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(s)) {
+    return new Date(s.replace(' ', 'T') + '+05:30').getTime();
+  }
+  return new Date(s).getTime();
+}
+
+/**
  * Calculates accurate remaining time against an ISO string or Date object.
  */
 export function calculateTimeRemaining(
@@ -33,12 +47,7 @@ export function calculateTimeRemaining(
     };
   }
 
-  const targetMs =
-    typeof targetIsoOrDate === 'string'
-      ? new Date(targetIsoOrDate).getTime()
-      : targetIsoOrDate instanceof Date
-        ? targetIsoOrDate.getTime()
-        : 0;
+  const targetMs = parseISTDateMs(targetIsoOrDate);
 
   if (isNaN(targetMs) || targetMs <= 0) {
     return {
