@@ -10,6 +10,7 @@ import { CandidateResponseModal } from './CandidateResponseModal';
 import { EmailManager } from './EmailManager';
 import { StudentDoubtsManager } from './StudentDoubtsManager';
 import { CandidateBookmarksModal } from './CandidateBookmarksModal';
+import { QuizPreviewModal } from './QuizPreviewModal';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { Plus, Trash2, FileDown, Layers, Clock, Megaphone, Database, CheckCircle, Users, Edit, AlertCircle, CheckCircle2, WifiOff, Activity, ChevronDown, ChevronRight, Eye, EyeOff, Trophy, LogOut, Globe, Radio, Laptop, Smartphone, Monitor, ShieldCheck, UserCheck, Search, Filter, RefreshCw, Compass, MapPin, Download, Image as ImageIcon, BarChart2, Calendar, TrendingUp, History, Terminal, Mail, Phone, Briefcase, Building2, GraduationCap, KeyRound, Copy, ExternalLink, ShieldAlert, Bookmark, Share2, Check } from 'lucide-react';
 import { getStoredResults, fetchResultsFromServer } from '../../utils/storage';
@@ -58,6 +59,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [expandedCandidate, setExpandedCandidate] = useState<string | null>(null);
   const [deletedResultIds, setDeletedResultIds] = useState<Set<string>>(new Set());
   const [copiedQuizId, setCopiedQuizId] = useState<string | null>(null);
+  const [previewingQuiz, setPreviewingQuiz] = useState<Quiz | null>(null);
 
   const handleCopyQuizLink = (quiz: Quiz) => {
     const slugOrId = quiz.slug || quiz.id;
@@ -2760,6 +2762,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           )}
                         </button>
 
+                        {/* Preview Quiz Button (Student View Sandbox) */}
+                        <button
+                          type="button"
+                          onClick={() => setPreviewingQuiz(quiz)}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-300 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                          title="Preview how this exam looks to students (responses are not saved)"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-slate-600" />
+                          <span>Preview</span>
+                        </button>
+
                         {/* Edit Quiz Button (Addressing Point #4!) */}
                         <button
                           onClick={() => handleEditQuizClick(quiz)}
@@ -3107,6 +3120,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           candidateEmail={viewingBookmarksCandidate.email}
           candidateUid={viewingBookmarksCandidate.uid}
           onClose={() => setViewingBookmarksCandidate(null)}
+        />
+      )}
+
+      {previewingQuiz && (
+        <QuizPreviewModal
+          quiz={previewingQuiz}
+          onClose={() => setPreviewingQuiz(null)}
         />
       )}
 

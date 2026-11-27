@@ -6,6 +6,7 @@ import { detectAndExtractMatchFollowing, healMatchOption, healOptionText, extrac
 import { calculateTimeRemaining, addMinutesToDateTimeLocal } from '../../utils/countdown';
 import { resolveSmartBadge, getQuizCardAccent } from '../../utils/badgeHelper';
 import { Mail, Trash2, Plus, ArrowLeft, Save, Sparkles, HelpCircle, Layers, Clock, Award, Shuffle, ShieldAlert, X, Languages, Eye, EyeOff, BookOpen, Lock, Fingerprint, Tag } from 'lucide-react';
+import { QuizPreviewModal } from './QuizPreviewModal';
 
 
 interface McqPreviewEditorProps {
@@ -58,6 +59,7 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
     }
     return parseResult.isPublished === false ? 'draft' : 'immediate';
   });
+  const [previewQuiz, setPreviewQuiz] = useState<Quiz | null>(null);
   const [isPublished, setIsPublished] = useState<boolean>(parseResult.isPublished ?? true);
 
   // --- Smart Badges & Card Presentation (Items 12 & 13) ---
@@ -414,48 +416,10 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
     setQuestions([...questions, newQ]);
   };
 
-  const handleSaveForm = (overrideMode?: 'immediate' | 'scheduled' | 'draft') => {
-    const activeMode = overrideMode || publishMode;
-
-    if (questions.length === 0) {
-      alert('Quiz must have at least 1 question before saving.');
-      return;
-    }
-
-    if (quizType === 'live_contest') {
-      if (!scheduledStartDateTime || !scheduledEndDateTime) {
-        alert('Validation Error: Strict Live Contest requires both Official Start Date & Time and Official Closing Date & Time.');
-        return;
-      }
-      if (new Date(scheduledEndDateTime).getTime() <= new Date(scheduledStartDateTime).getTime()) {
-        alert('Validation Error: Official Closing Date & Time must be strictly after the Start Date & Time.');
-        return;
-      }
-    }
-
-    if (quizType === 'scheduled_unlock') {
-      if (!scheduledStartDateTime) {
-        alert('Validation Error: Scheduled Unlock (Daily Quiz) requires an Unlock Date & Time.');
-        return;
-      }
-    }
-
-    if (activeMode === 'scheduled') {
-      if (!publishAt) {
-        alert('Validation Error: Please select the Auto-Publish Date & Time.');
-        return;
-      }
-      if ((quizType === 'scheduled_unlock' || quizType === 'live_contest') && scheduledStartDateTime) {
-        if (new Date(publishAt).getTime() > new Date(scheduledStartDateTime).getTime()) {
-          alert('Timing Conflict Error: Auto-Publish date cannot be AFTER the Exam Start/Unlock date! Students would not be able to see the exam until after it starts.');
-          return;
-        }
-      }
-    }
-
+  const buildQuizObject = (activeMode: 'immediate' | 'scheduled' | 'draft'): Quiz => {
     const effectivePublished = activeMode !== 'draft';
 
-    const finalQuiz: Quiz = {
+    return {
       id: parseResult.existingQuizId || `quiz_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       slug: (slug || '').trim() || undefined,
       title: title.trim() || 'Untitled Quiz',
@@ -559,8 +523,56 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
         marks: q.marks || 1
       }))
     };
+  };
 
-    onSaveQuiz(finalQuiz);
+  const handleSaveForm = (overrideMode?: 'immediate' | 'scheduled' | 'draft') => {
+    const activeMode = overrideMode || publishMode;
+
+    if (questions.length === 0) {
+      alert('Quiz must have at least 1 question before saving.');
+      return;
+    }
+
+    if (quizType === 'live_contest') {
+      if (!scheduledStartDateTime || !scheduledEndDateTime) {
+        alert('Validation Error: Strict Live Contest requires both Official Start Date & Time and Official Closing Date & Time.');
+        return;
+      }
+      if (new Date(scheduledEndDateTime).getTime() <= new Date(scheduledStartDateTime).getTime()) {
+        alert('Validation Error: Official Closing Date & Time must be strictly after the Start Date & Time.');
+        return;
+      }
+    }
+
+    if (quizType === 'scheduled_unlock') {
+      if (!scheduledStartDateTime) {
+        alert('Validation Error: Scheduled Unlock (Daily Quiz) requires an Unlock Date & Time.');
+        return;
+      }
+    }
+
+    if (activeMode === 'scheduled') {
+      if (!publishAt) {
+        alert('Validation Error: Please select the Auto-Publish Date & Time.');
+        return;
+      }
+      if ((quizType === 'scheduled_unlock' || quizType === 'live_contest') && scheduledStartDateTime) {
+        if (new Date(publishAt).getTime() > new Date(scheduledStartDateTime).getTime()) {
+          alert('Timing Conflict Error: Auto-Publish date cannot be AFTER the Exam Start/Unlock date! Students would not be able to see the exam until after it starts.');
+          return;
+        }
+      }
+    }
+
+    onSaveQuiz(buildQuizObject(activeMode));
+  };
+
+  const handleOpenPreview = () => {
+    if (questions.length === 0) {
+      alert('Add at least 1 question to preview.');
+      return;
+    }
+    setPreviewQuiz(buildQuizObject(publishMode));
   };
 
   const validCount = questions.filter(q => q.questionText && q.options.length >= 2).length;
@@ -612,6 +624,16 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
 
   const renderSaveActionButtons = () => (
     <div className="flex items-center space-x-2.5">
+      <button
+        type="button"
+        onClick={handleOpenPreview}
+        className="px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer shadow-2xs"
+        title="Preview how this exam looks to students before publishing"
+      >
+        <Eye className="w-3.5 h-3.5 text-slate-600" />
+        <span>Preview</span>
+      </button>
+
       {publishMode !== 'draft' ? (
         <button
           type="button"
@@ -2674,6 +2696,13 @@ export const McqPreviewEditor: React.FC<McqPreviewEditorProps> = ({
         </button>
         {renderSaveActionButtons()}
       </div>
+
+      {previewQuiz && (
+        <QuizPreviewModal
+          quiz={previewQuiz}
+          onClose={() => setPreviewQuiz(null)}
+        />
+      )}
     </div>
   );
 };

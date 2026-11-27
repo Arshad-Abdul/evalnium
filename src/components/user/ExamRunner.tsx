@@ -13,29 +13,36 @@ interface ExamRunnerProps {
   candidateName: string;
   onFinishExam: (result: QuizAttemptResult) => void;
   onExitExam?: () => void;
+  isPreview?: boolean;
 }
 
 export const ExamRunner: React.FC<ExamRunnerProps> = ({
   quiz,
   candidateName,
   onFinishExam,
+  onExitExam,
+  isPreview = false,
 }) => {
   const { currentUser } = useAuth();
   const sessionKey = `evalnium_live_exam_${currentUser?.email || candidateName || 'guest'}_${quiz.id}`;
   const isSubmittingRef = React.useRef(false);
 
   const [examStartTime] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem(sessionKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.startTime) return parsed.startTime;
-      }
-    } catch { }
+    if (!isPreview) {
+      try {
+        const saved = localStorage.getItem(sessionKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.startTime) return parsed.startTime;
+        }
+      } catch { }
+    }
     const now = Date.now();
-    try {
-      localStorage.setItem(sessionKey, JSON.stringify({ startTime: now, userAnswers: {} }));
-    } catch { }
+    if (!isPreview) {
+      try {
+        localStorage.setItem(sessionKey, JSON.stringify({ startTime: now, userAnswers: {} }));
+      } catch { }
+    }
     return now;
   });
 
@@ -44,29 +51,33 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
   const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number>(() => {
     if (isUntimed) return 0;
     const totalSeconds = quiz.timeLimitMinutes * 60;
-    try {
-      const saved = localStorage.getItem(sessionKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.startTime) {
-          const elapsed = Math.floor((Date.now() - parsed.startTime) / 1000);
-          return Math.max(0, totalSeconds - elapsed);
+    if (!isPreview) {
+      try {
+        const saved = localStorage.getItem(sessionKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.startTime) {
+            const elapsed = Math.floor((Date.now() - parsed.startTime) / 1000);
+            return Math.max(0, totalSeconds - elapsed);
+          }
         }
-      }
-    } catch { }
+      } catch { }
+    }
     return totalSeconds;
   });
   const [questionTimeRemainingSeconds, setQuestionTimeRemainingSeconds] = useState(
     quiz.timingMode === 'question' ? (quiz.questionTimeLimitSeconds || 60) : 0
   );
   const [userAnswers, setUserAnswers] = useState<Record<string, UserAnswer>>(() => {
-    try {
-      const saved = localStorage.getItem(sessionKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.userAnswers) return parsed.userAnswers;
-      }
-    } catch { }
+    if (!isPreview) {
+      try {
+        const saved = localStorage.getItem(sessionKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.userAnswers) return parsed.userAnswers;
+        }
+      } catch { }
+    }
     return {};
   });
   const [showSubmitModal, setShowSubmitModal] = useState(false);
@@ -158,10 +169,11 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
   };
 
   const clearSession = useCallback(() => {
+    if (isPreview) return;
     try {
       localStorage.removeItem(sessionKey);
     } catch { }
-  }, [sessionKey]);
+  }, [sessionKey, isPreview]);
 
   // Stable ref so force-submit always calls the latest calculateResults
   const calculateResultsRef = React.useRef<(() => QuizAttemptResult) | null>(null);
@@ -205,7 +217,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
   handleSectionAdvanceRef.current = handleSectionAdvance;
 
   useEffect(() => {
-    if (!quiz.enableAntiCheating) return;
+    if (!quiz.enableAntiCheating || isPreview) return;
     const maxViolations = quiz.maxTabSwitches || 3;
     const originalWidth = window.innerWidth;
 
@@ -250,7 +262,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
     const isCopyGuardEnabled = quiz.preventQuestionCopy !== false;
     const isScreenshotGuardEnabled = quiz.preventScreenshot !== false;
 
-    if (!isCopyGuardEnabled && !isScreenshotGuardEnabled) return;
+    if (isPreview || (!isCopyGuardEnabled && !isScreenshotGuardEnabled)) return;
 
     const handleContextMenu = (e: MouseEvent) => {
       if (isCopyGuardEnabled) {
@@ -333,18 +345,19 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 
   // Save progress & userAnswers to LocalStorage on state update
   useEffect(() => {
+    if (isPreview) return;
     try {
       localStorage.setItem(sessionKey, JSON.stringify({
         startTime: examStartTime,
         userAnswers,
       }));
     } catch { }
-  }, [userAnswers, examStartTime, sessionKey]);
+  }, [userAnswers, examStartTime, sessionKey, isPreview]);
 
   // 1. Prevent accidental window / tab close or refresh
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isSubmittingRef.current) return;
+      if (isPreview || isSubmittingRef.current) return;
       e.preventDefault();
       e.returnValue = '';
       return '';
@@ -405,6 +418,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
 
   // 4. Live session heartbeat & live answer sync to server (every 10s for both timed and untimed)
   useEffect(() => {
+    if (isPreview) return;
     const getApiBaseUrl = () => {
       if (typeof window !== 'undefined') {
         return '/api';
@@ -552,11 +566,11 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         timeSpentSeconds: 0,
       };
       const nextState = !existing.isMarkedForReview;
-      if (nextState && qObj) saveBookmarkedQuestion(qObj, currentUser?.uid, quiz.id, quiz.title);
-      if (!nextState && qObj) removeBookmarkedQuestion(qObj.id, currentUser?.uid);
+      if (!isPreview && nextState && qObj) saveBookmarkedQuestion(qObj, currentUser?.uid, quiz.id, quiz.title);
+      if (!isPreview && !nextState && qObj) removeBookmarkedQuestion(qObj.id, currentUser?.uid);
       return { ...prev, [qId]: { ...existing, isMarkedForReview: nextState } };
     });
-  }, [activeQuestions, currentUser?.uid]);
+  }, [activeQuestions, currentUser?.uid, isPreview, quiz.id, quiz.title]);
 
   const canGoPrev = currentQuestionIndex > 0 && quiz.preventPreviousQuestionReturn !== true;
 
@@ -788,11 +802,11 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({
         totalQuestions={activeQuestions.length}
         onToggleMobilePalette={() => setShowMobilePalette(true)}
         onOpenSubmitModal={() => setShowSubmitModal(true)}
-        onOpenExitModal={() => setShowExitPromptModal(true)}
+        onOpenExitModal={() => (isPreview && onExitExam ? onExitExam() : setShowExitPromptModal(true))}
       />
 
       {/* Live AI Proctoring Radar & Anti-Cheating Monitor */}
-      {Boolean(quiz.enableAntiCheating) && (
+      {!isPreview && Boolean(quiz.enableAntiCheating) && (
         <div className="flex justify-end">
           <ProctoringMonitor
             quizId={quiz.id}

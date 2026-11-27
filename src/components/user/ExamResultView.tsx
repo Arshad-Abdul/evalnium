@@ -21,6 +21,7 @@ interface ExamResultViewProps {
   quiz: Quiz;
   onRetake: () => void;
   onGoHome: () => void;
+  isPreview?: boolean;
 }
 
 export const ExamResultView: React.FC<ExamResultViewProps> = ({
@@ -28,6 +29,7 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
   quiz,
   onRetake,
   onGoHome,
+  isPreview = false,
 }) => {
   const { currentUser } = useAuth();
   const [filterType, setFilterType] = useState<'all' | 'correct' | 'wrong' | 'skipped'>('all');
@@ -608,14 +610,14 @@ export const ExamResultView: React.FC<ExamResultViewProps> = ({
                       type="button"
                       onClick={() => {
                         if (bookmarkedIds.has(q.id)) {
-                          removeBookmarkedQuestion(q.id, currentUser?.uid);
+                          if (!isPreview) removeBookmarkedQuestion(q.id, currentUser?.uid);
                           setBookmarkedIds((prev) => {
                             const next = new Set(prev);
                             next.delete(q.id);
                             return next;
                           });
                         } else {
-                          saveBookmarkedQuestion(q, currentUser?.uid, result.quizId, result.quizTitle);
+                          if (!isPreview) saveBookmarkedQuestion(q, currentUser?.uid, result.quizId, result.quizTitle);
                           setBookmarkedIds((prev) => new Set([...prev, q.id]));
                         }
                       }}
