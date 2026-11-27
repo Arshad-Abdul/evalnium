@@ -20,6 +20,8 @@ import {
   Maximize2,
   Trash2,
   Plus,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import type { Quiz } from '../../types/quiz';
 import { useAuth } from '../../context/AuthContext';
@@ -64,6 +66,7 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
   const [submittingThreadKey, setSubmittingThreadKey] = useState<string | null>(null);
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [expandedQuestionMap, setExpandedQuestionMap] = useState<Record<string, boolean>>({});
 
   // New Post Modal / Drawer State
   const [showNewDoubtModal, setShowNewDoubtModal] = useState(false);
@@ -476,6 +479,14 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
             const matchedQuiz = quizzes.find(
               (q) => q.id === thread.quizId || q.title === thread.quizTitle
             );
+            const questionIndex = matchedQuiz?.questions?.findIndex(
+              (q) => q.id === thread.questionId
+            );
+            const matchedQuestion =
+              questionIndex !== undefined && questionIndex !== -1
+                ? matchedQuiz?.questions?.[questionIndex]
+                : undefined;
+            const isOptionsExpanded = Boolean(expandedQuestionMap[thread.key]);
             const attachedImageForThread = replyImageMap[thread.key] || null;
 
             return (
@@ -489,9 +500,15 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
                     <span className="font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-md">
                       📚 {thread.quizTitle}
                     </span>
-                    <span className="font-mono text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md font-semibold text-[11px]">
-                      Question: {thread.questionId}
-                    </span>
+                    {matchedQuestion ? (
+                      <span className="font-mono text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md font-semibold text-[11px]">
+                        Question #{questionIndex !== undefined ? questionIndex + 1 : ''}
+                      </span>
+                    ) : (
+                      <span className="font-mono text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md font-semibold text-[11px]">
+                        Question: {thread.questionId}
+                      </span>
+                    )}
                     {thread.hasAdminReply ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                         <CheckCircle2 className="w-3 h-3 text-emerald-600" />
@@ -516,6 +533,65 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
                     </button>
                   )}
                 </div>
+
+                {/* Neutral Question Snapshot (No Answer Revealed / Zero Cheating) */}
+                {matchedQuestion && (
+                  <div className="bg-slate-50/70 border border-slate-200/90 rounded-xl p-3 sm:p-3.5 space-y-2 text-xs">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="font-semibold text-slate-900 leading-relaxed min-w-0 flex-1">
+                        <span className="font-bold text-indigo-900 font-mono mr-1.5">Q.{questionIndex !== undefined ? questionIndex + 1 : ''}.</span>
+                        <span>{matchedQuestion.questionEnglish || matchedQuestion.questionText}</span>
+                        {matchedQuestion.questionHindi && (
+                          <p className="text-[11.5px] text-slate-600 font-normal mt-1 leading-normal">
+                            {matchedQuestion.questionHindi}
+                          </p>
+                        )}
+                      </div>
+
+                      {matchedQuestion.options && matchedQuestion.options.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedQuestionMap((prev) => ({
+                              ...prev,
+                              [thread.key]: !prev[thread.key],
+                            }))
+                          }
+                          className="px-2 py-1 rounded-md bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-[11px] flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
+                          title={isOptionsExpanded ? 'Hide choices' : 'View choices'}
+                        >
+                          <HelpCircle className="w-3 h-3 text-indigo-600" />
+                          <span>{isOptionsExpanded ? 'Hide Options' : 'View Options'}</span>
+                          {isOptionsExpanded ? (
+                            <ChevronUp className="w-3 h-3 text-slate-400" />
+                          ) : (
+                            <ChevronDown className="w-3 h-3 text-slate-400" />
+                          )}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Expandable Options List (NEUTRAL - NO CORRECT ANSWER HIGHLIGHTED / ZERO SPOILER) */}
+                    {isOptionsExpanded && matchedQuestion.options && matchedQuestion.options.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-200/70">
+                        {matchedQuestion.options.map((opt, optIdx) => {
+                          const letter = String.fromCharCode(65 + optIdx);
+                          return (
+                            <div
+                              key={opt.id || optIdx}
+                              className="flex items-start gap-2 p-2 rounded-lg bg-white border border-slate-200/90 text-slate-800 text-[11.5px] leading-snug shadow-2xs"
+                            >
+                              <span className="font-mono font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded text-[10.5px] shrink-0">
+                                {letter}
+                              </span>
+                              <span className="flex-1 break-words font-medium">{opt.text}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Structured Discussion Thread */}
                 {(() => {

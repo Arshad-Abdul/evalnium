@@ -312,6 +312,17 @@ export const StudentDoubtsManager: React.FC<StudentDoubtsManagerProps> = ({ quiz
         <div className="space-y-3">
           {filteredDiscussions.map((item) => {
             const isFaculty = item.role === 'faculty' || item.role === 'admin';
+            const matchedQuiz = quizzes.find(
+              (q) => q.id === item.quizId || q.title === item.quizTitle
+            );
+            const questionIndex = matchedQuiz?.questions?.findIndex(
+              (q) => q.id === item.questionId
+            );
+            const matchedQuestion =
+              questionIndex !== undefined && questionIndex !== -1
+                ? matchedQuiz?.questions?.[questionIndex]
+                : undefined;
+
             return (
               <div
                 key={item.id}
@@ -386,14 +397,74 @@ export const StudentDoubtsManager: React.FC<StudentDoubtsManagerProps> = ({ quiz
                   </div>
                 </div>
 
-                {/* Exam Context Banner */}
-                <div className="flex flex-wrap items-center gap-2 text-[11px] bg-slate-100/70 px-2.5 py-1 rounded-lg border border-slate-200/60 font-medium text-slate-700">
-                  <span className="font-bold text-slate-900">📚 {item.quizTitle}</span>
-                  <span className="text-slate-400">·</span>
-                  <span className="font-mono text-indigo-700">Question ID: {item.questionId}</span>
-                  <span className="text-slate-400">·</span>
-                  <span className="text-slate-500">{item.likesCount} Helpful reaction{item.likesCount === 1 ? '' : 's'}</span>
-                </div>
+                {/* Exam Context & Question Snapshot for Faculty / Admin */}
+                {matchedQuestion ? (
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 pb-1.5 border-b border-slate-200">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                        <HelpCircle className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                        <span>Question #{questionIndex !== undefined ? questionIndex + 1 : ''}</span>
+                        <span className="font-medium text-slate-500">({matchedQuiz?.title || item.quizTitle})</span>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400">ID: {item.questionId}</span>
+                    </div>
+
+                    {/* Question Statement */}
+                    <div className="text-slate-900 font-medium leading-relaxed">
+                      {matchedQuestion.questionEnglish || matchedQuestion.questionText}
+                      {matchedQuestion.questionHindi && (
+                        <div className="text-[11px] text-slate-600 mt-0.5 font-normal">
+                          {matchedQuestion.questionHindi}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Options Grid (with Correct Option highlighted for Admin) */}
+                    {matchedQuestion.options && matchedQuestion.options.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                        {matchedQuestion.options.map((opt, optIdx) => {
+                          const letter = String.fromCharCode(65 + optIdx);
+                          const isCorrect =
+                            String(opt.id).trim().toUpperCase() === String(matchedQuestion.correctOptionId).trim().toUpperCase() ||
+                            letter === String(matchedQuestion.correctOptionId).trim().toUpperCase();
+                          return (
+                            <div
+                              key={opt.id || optIdx}
+                              className={`flex items-start gap-1.5 px-2 py-1 rounded text-[11px] border ${
+                                isCorrect
+                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-semibold'
+                                  : 'bg-white border-slate-200 text-slate-700'
+                              }`}
+                            >
+                              <span className={`font-mono font-bold shrink-0 ${isCorrect ? 'text-emerald-700' : 'text-slate-400'}`}>
+                                [{letter}]
+                              </span>
+                              <span className="flex-1 break-words">{opt.text}</span>
+                              {isCorrect && (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Existing System Explanation (if any) */}
+                    {matchedQuestion.explanation && (
+                      <div className="text-[11px] text-slate-600 bg-white p-2 rounded border border-slate-200/80 leading-relaxed">
+                        <span className="font-bold text-slate-800">Existing Explanation:</span> {matchedQuestion.explanation}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] bg-slate-100/70 px-2.5 py-1 rounded-lg border border-slate-200/60 font-medium text-slate-700">
+                    <span className="font-bold text-slate-900">📚 {item.quizTitle}</span>
+                    <span className="text-slate-400">·</span>
+                    <span className="font-mono text-indigo-700">Question ID: {item.questionId}</span>
+                    <span className="text-slate-400">·</span>
+                    <span className="text-slate-500">{item.likesCount} Helpful reaction{item.likesCount === 1 ? '' : 's'}</span>
+                  </div>
+                )}
 
                 {/* Comment Content */}
                 <div className="p-3 bg-white rounded-lg border border-slate-200 text-xs text-slate-800 leading-relaxed font-normal space-y-2">
