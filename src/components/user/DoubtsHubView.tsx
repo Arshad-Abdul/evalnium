@@ -22,6 +22,8 @@ import {
   Plus,
   ChevronDown,
   ChevronUp,
+  Edit3,
+  Check,
 } from 'lucide-react';
 import type { Quiz } from '../../types/quiz';
 import { useAuth } from '../../context/AuthContext';
@@ -40,6 +42,7 @@ export interface PublicDiscussionItem {
   likesCount: number;
   isPinned: boolean;
   createdAt: string;
+  updatedAt?: string | null;
 }
 
 interface DoubtsHubViewProps {
@@ -75,6 +78,9 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
   const [newDoubtComment, setNewDoubtComment] = useState<string>('');
   const [newDoubtImage, setNewDoubtImage] = useState<string | null>(null);
   const [submittingNewDoubt, setSubmittingNewDoubt] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [editCommentText, setEditCommentText] = useState('');
+  const [savingCommentEdit, setSavingCommentEdit] = useState(false);
 
   const newDoubtFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -130,6 +136,51 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
       }
     } catch (e) {
       console.error('Failed to delete comment:', e);
+    }
+  };
+
+  const handleStartEditComment = (item: PublicDiscussionItem) => {
+    setEditingCommentId(item.id);
+    setEditCommentText(item.comment);
+  };
+
+  const handleCancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditCommentText('');
+  };
+
+  const handleSaveEditComment = async (id: number) => {
+    const trimmed = editCommentText.trim();
+    if (!trimmed) {
+      alert('Comment text cannot be empty.');
+      return;
+    }
+    setSavingCommentEdit(true);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/admin/discussions/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ comment: trimmed }),
+      });
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setDiscussions((prev) =>
+          prev.map((d) =>
+            d.id === id ? { ...d, comment: trimmed, updatedAt: data.updatedAt || new Date().toISOString() } : d
+          )
+        );
+        setEditingCommentId(null);
+        setEditCommentText('');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Failed to update comment.');
+      }
+    } catch (e) {
+      console.error('Failed to update comment:', e);
+      alert('Network error while updating comment.');
+    } finally {
+      setSavingCommentEdit(false);
     }
   };
 
@@ -663,29 +714,109 @@ export const DoubtsHubView: React.FC<DoubtsHubViewProps> = ({
                                 hour: '2-digit',
                                 minute: '2-digit',
                               })}
+                              {item.updatedAt && (
+                                <span className={`ml-1 text-[9px] italic ${isOfficialAdmin ? 'text-emerald-400 font-sans' : 'text-indigo-500 font-sans'}`}>
+                                  (edited)
+                                </span>
+                              )}
                             </span>
 
                             {currentUser?.role === 'admin' && (
-                              <button
-                                type="button"
-                                onClick={() => handleDelete(item.id)}
-                                className={`p-1 rounded transition-colors cursor-pointer ${
-                                  isOfficialAdmin
-                                    ? 'text-slate-400 hover:text-rose-400'
-                                    : 'text-slate-400 hover:text-rose-600'
-                                }`}
-                                title="Admin: Delete Comment"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              <div className="flex items-center gap-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    editingCommentId === item.id
+                                      ? handleCancelEditComment()
+                                      : handleStartEditComment(item)
+                                  }
+                                  className={`p-1 rounded transition-colors cursor-pointer ${
+                                    editingCommentId === item.id
+                                      ? 'text-indigo-400 font-bold bg-indigo-500/20'
+                                      : isOfficialAdmin
+                                      ? 'text-slate-400 hover:text-indigo-300'
+                                      : 'text-slate-400 hover:text-indigo-600'
+                                  }`}
+                                  title="Admin: Edit Comment"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDelete(item.id)}
+                                  className={`p-1 rounded transition-colors cursor-pointer ${
+                                    isOfficialAdmin
+                                      ? 'text-slate-400 hover:text-rose-400'
+                                      : 'text-slate-400 hover:text-rose-600'
+                                  }`}
+                                  title="Admin: Delete Comment"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             )}
                           </div>
                         </div>
 
-                        {/* Comment Content with Clickable Links */}
-                        <div className={`text-xs leading-relaxed ${isOfficialAdmin ? 'text-slate-200' : 'text-slate-800'}`}>
-                          {renderTextWithLinks(item.comment)}
-                        </div>
+                        {/* Comment Content or Inline Editor */}
+                        {editingCommentId === item.id ? (
+                          <div className="p-2.5 rounded-lg border border-indigo-400 bg-white text-slate-900 space-y-2 my-1">
+                            <div className="flex items-center justify-between text-[11px] font-bold text-slate-800">
+                              <span className="flex items-center gap-1 text-indigo-700">
+                                <Edit3 className="w-3 h-3" />
+                                Edit Comment
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-normal">Ctrl+Enter to save</span>
+                            </div>
+                            <textarea
+                              value={editCommentText}
+                              onChange={(e) => setEditCommentText(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Escape') handleCancelEditComment();
+                                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                  e.preventDefault();
+                                  handleSaveEditComment(item.id);
+                                }
+                              }}
+                              rows={3}
+                              className="w-full p-2 text-xs rounded border border-slate-300 bg-slate-50 focus:bg-white focus:border-indigo-500 focus:outline-none leading-relaxed text-slate-900"
+                              placeholder="Edit comment..."
+                              autoFocus
+                            />
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={handleCancelEditComment}
+                                disabled={savingCommentEdit}
+                                className="px-2 py-0.5 text-xs rounded border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSaveEditComment(item.id)}
+                                disabled={savingCommentEdit || !editCommentText.trim()}
+                                className="px-2.5 py-0.5 text-xs font-semibold rounded bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                              >
+                                {savingCommentEdit ? (
+                                  <>
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                    <span>Saving...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="w-3 h-3" />
+                                    <span>Save</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className={`text-xs leading-relaxed ${isOfficialAdmin ? 'text-slate-200' : 'text-slate-800'}`}>
+                            {renderTextWithLinks(item.comment)}
+                          </div>
+                        )}
 
                         {/* Attached Image Thumbnail */}
                         {item.imageUrl && (

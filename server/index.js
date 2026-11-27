@@ -877,11 +877,13 @@ async function initDatabase() {
         image_url MEDIUMTEXT,
         likes_count INT DEFAULT 0,
         is_pinned TINYINT(1) DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
     try { await pool.query(`CREATE INDEX idx_discussions_quiz_q ON question_discussions(quiz_id, question_id);`); } catch { }
     try { await pool.query(`ALTER TABLE question_discussions ADD COLUMN image_url MEDIUMTEXT;`); } catch { }
+    try { await pool.query(`ALTER TABLE question_discussions ADD COLUMN updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP;`); } catch { }
 
     // 3. Live Proctoring & Anti-Cheating Logs Table
     await pool.query(`
@@ -4490,6 +4492,7 @@ app.get('/api/discussions', async (req, res) => {
       likesCount: r.likes_count,
       isPinned: Boolean(r.is_pinned),
       createdAt: r.created_at,
+      updatedAt: r.updated_at || null,
     })));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -4517,6 +4520,7 @@ app.get('/api/discussions/:quizId/:questionId', async (req, res) => {
       likesCount: r.likes_count,
       isPinned: Boolean(r.is_pinned),
       createdAt: r.created_at,
+      updatedAt: r.updated_at || null,
     })));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -4563,6 +4567,7 @@ app.get('/api/admin/discussions', authenticateAdmin, async (req, res) => {
       likesCount: r.likes_count,
       isPinned: Boolean(r.is_pinned),
       createdAt: r.created_at,
+      updatedAt: r.updated_at || null,
     })));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -4612,6 +4617,52 @@ app.delete('/api/discussions/:id', authenticateAdmin, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Update Discussion Comment by Admin
+const handleUpdateDiscussionComment = async (req, res) => {
+  const { id } = req.params;
+  const { comment } = req.body;
+
+  if (!comment || typeof comment !== 'string' || !comment.trim()) {
+    return res.status(400).json({ error: 'Comment text cannot be empty.' });
+  }
+
+  try {
+    const [existing] = await pool.query('SELECT * FROM question_discussions WHERE id = ?', [id]);
+    if (!existing || existing.length === 0) {
+      return res.status(404).json({ error: 'Discussion comment not found.' });
+    }
+
+    const trimmed = comment.trim();
+    await pool.query(
+      'UPDATE question_discussions SET comment = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [trimmed, id]
+    );
+
+    // Audit Log: Comment Edited by Admin
+    recordAuditLog({
+      eventType: 'admin_action',
+      severity: 'info',
+      actorName: req.adminUser?.name || 'Evalnium Admin',
+      actorRole: 'admin',
+      actionTitle: `✏️ Discussion Comment Edited (ID: ${id})`,
+      detailsText: `Admin edited discussion comment ID ${id} for question "${existing[0].question_id}".`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
+
+    res.json({
+      success: true,
+      id: Number(id),
+      comment: trimmed,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+app.put('/api/admin/discussions/:id', authenticateAdmin, handleUpdateDiscussionComment);
+app.put('/api/discussions/:id', authenticateAdmin, handleUpdateDiscussionComment);
 
 // Rate Limiter: Maximum 10 discussion comments per 5 minutes per IP (CWE-770)
 const discussionCommentLimiter = createRateLimiter({

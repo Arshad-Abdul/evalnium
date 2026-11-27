@@ -12,6 +12,9 @@ import {
   Image as ImageIcon,
   X,
   Maximize2,
+  Edit3,
+  Check,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { compressDiscussionImage, renderTextWithLinks } from '../../utils/discussionHelper';
@@ -28,6 +31,7 @@ export interface DiscussionItem {
   likesCount: number;
   isPinned: boolean;
   createdAt: string;
+  updatedAt?: string | null;
 }
 
 interface QuestionDiscussionProps {
@@ -53,6 +57,9 @@ export const QuestionDiscussion: React.FC<QuestionDiscussionProps> = ({
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [compressingImage, setCompressingImage] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [editCommentText, setEditCommentText] = useState('');
+  const [savingCommentEdit, setSavingCommentEdit] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -161,6 +168,51 @@ export const QuestionDiscussion: React.FC<QuestionDiscussionProps> = ({
       }
     } catch (e) {
       console.error('Failed to delete comment:', e);
+    }
+  };
+
+  const handleStartEditComment = (item: DiscussionItem) => {
+    setEditingCommentId(item.id);
+    setEditCommentText(item.comment);
+  };
+
+  const handleCancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditCommentText('');
+  };
+
+  const handleSaveEditComment = async (id: number) => {
+    const trimmed = editCommentText.trim();
+    if (!trimmed) {
+      alert('Comment text cannot be empty.');
+      return;
+    }
+    setSavingCommentEdit(true);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/admin/discussions/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ comment: trimmed }),
+      });
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setDiscussions((prev) =>
+          prev.map((d) =>
+            d.id === id ? { ...d, comment: trimmed, updatedAt: data.updatedAt || new Date().toISOString() } : d
+          )
+        );
+        setEditingCommentId(null);
+        setEditCommentText('');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Failed to update comment.');
+      }
+    } catch (e) {
+      console.error('Failed to update comment:', e);
+      alert('Network error while updating comment.');
+    } finally {
+      setSavingCommentEdit(false);
     }
   };
 
@@ -334,27 +386,107 @@ export const QuestionDiscussion: React.FC<QuestionDiscussionProps> = ({
                   <div className="flex items-center gap-2">
                     <span className={`text-[10px] font-mono ${isAdmin ? 'text-slate-400' : 'text-slate-400'}`}>
                       {new Date(d.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                      {d.updatedAt && (
+                        <span className={`ml-1 text-[9px] italic ${isAdmin ? 'text-emerald-400 font-sans' : 'text-indigo-500 font-sans'}`}>
+                          (edited)
+                        </span>
+                      )}
                     </span>
 
                     {currentUser?.role === 'admin' && (
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(d.id)}
-                        className={`p-1 rounded transition-colors cursor-pointer ${
-                          isAdmin ? 'text-slate-400 hover:text-rose-400' : 'text-slate-400 hover:text-rose-600'
-                        }`}
-                        title="Admin: Delete Comment"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            editingCommentId === d.id
+                              ? handleCancelEditComment()
+                              : handleStartEditComment(d)
+                          }
+                          className={`p-1 rounded transition-colors cursor-pointer ${
+                            editingCommentId === d.id
+                              ? 'text-indigo-400 font-bold bg-indigo-500/20'
+                              : isAdmin
+                              ? 'text-slate-400 hover:text-indigo-300'
+                              : 'text-slate-400 hover:text-indigo-600'
+                          }`}
+                          title="Admin: Edit Comment"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(d.id)}
+                          className={`p-1 rounded transition-colors cursor-pointer ${
+                            isAdmin ? 'text-slate-400 hover:text-rose-400' : 'text-slate-400 hover:text-rose-600'
+                          }`}
+                          title="Admin: Delete Comment"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
 
-                {/* Text with Clickable Links */}
-                <div className={`leading-relaxed text-xs ${isAdmin ? 'text-slate-200' : 'text-slate-700'}`}>
-                  {renderTextWithLinks(d.comment)}
-                </div>
+                {/* Text with Clickable Links or Inline Editor */}
+                {editingCommentId === d.id ? (
+                  <div className="p-2.5 rounded-lg border border-indigo-400 bg-white text-slate-900 space-y-2 my-1">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-800">
+                      <span className="flex items-center gap-1 text-indigo-700">
+                        <Edit3 className="w-3 h-3" />
+                        Edit Comment
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-normal">Ctrl+Enter to save</span>
+                    </div>
+                    <textarea
+                      value={editCommentText}
+                      onChange={(e) => setEditCommentText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') handleCancelEditComment();
+                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                          e.preventDefault();
+                          handleSaveEditComment(d.id);
+                        }
+                      }}
+                      rows={3}
+                      className="w-full p-2 text-xs rounded border border-slate-300 bg-slate-50 focus:bg-white focus:border-indigo-500 focus:outline-none leading-relaxed text-slate-900"
+                      placeholder="Edit comment..."
+                      autoFocus
+                    />
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={handleCancelEditComment}
+                        disabled={savingCommentEdit}
+                        className="px-2 py-0.5 text-xs rounded border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSaveEditComment(d.id)}
+                        disabled={savingCommentEdit || !editCommentText.trim()}
+                        className="px-2.5 py-0.5 text-xs font-semibold rounded bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                      >
+                        {savingCommentEdit ? (
+                          <>
+                            <RefreshCw className="w-3 h-3 animate-spin" />
+                            <span>Saving...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-3 h-3" />
+                            <span>Save</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={`leading-relaxed text-xs ${isAdmin ? 'text-slate-200' : 'text-slate-700'}`}>
+                    {renderTextWithLinks(d.comment)}
+                  </div>
+                )}
 
                 {/* Attached Image Thumbnail */}
                 {d.imageUrl && (
