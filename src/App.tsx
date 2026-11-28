@@ -385,9 +385,7 @@ function MainAppContent() {
     if (isAdminAuthenticated) {
       setShowAdminLockModal(false);
       setActiveTab('admin');
-      if (window.location.hash.toLowerCase() !== '#/admin') {
-        window.location.hash = '#/admin';
-      }
+      syncUrl('/#/admin');
     } else {
       setShowAdminLockModal(true);
     }
@@ -560,9 +558,7 @@ function MainAppContent() {
         setShowAdminLockModal(true);
       } else {
         setActiveTab('admin');
-        if (window.location.hash.toLowerCase() !== '#/admin') {
-          window.location.hash = '#/admin';
-        }
+        syncUrl('/#/admin');
       }
     } else {
       if (window.location.hash.toLowerCase() === '#/admin' || window.location.hash.toLowerCase() === '#/admin/') {
@@ -583,9 +579,7 @@ function MainAppContent() {
   const handleUnlockAdmin = () => {
     setShowAdminLockModal(false);
     setActiveTab('admin');
-    if (window.location.hash.toLowerCase() !== '#/admin') {
-      window.location.hash = '#/admin';
-    }
+    syncUrl('/#/admin');
   };
 
   const handleAdminLogout = () => {
