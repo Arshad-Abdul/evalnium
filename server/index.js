@@ -2969,7 +2969,11 @@ app.post('/api/sessions/heartbeat', (req, res) => {
 // Candidate active exam session status & recovery endpoint
 app.get('/api/sessions/active-exam/:quizId', (req, res) => {
   const { quizId } = req.params;
+  const isAdmin = isAdminAuthenticatedRequest(req);
   const authenticatedCandidate = getAuthenticatedCandidate(req);
+  if (!isAdmin && !authenticatedCandidate) {
+    return res.json({ active: false });
+  }
   const email = authenticatedCandidate?.email || req.query.email;
   const name = authenticatedCandidate?.name || req.query.name;
 
@@ -4793,6 +4797,12 @@ const proctoringLogLimiter = createRateLimiter({
 // 3. LIVE PROCTORING & ANTI-CHEATING API
 // ==========================================
 app.post('/api/proctoring/log', proctoringLogLimiter, async (req, res) => {
+  const isAdmin = isAdminAuthenticatedRequest(req);
+  const authenticatedCandidate = getAuthenticatedCandidate(req);
+  if (!isAdmin && !authenticatedCandidate) {
+    return res.status(401).json({ error: 'Authentication required for proctoring telemetry.' });
+  }
+
   const { sessionId, quizId, candidateName, candidateEmail, violationType, details, snapshotBase64 } = req.body;
   if (!quizId || !violationType) {
     return res.status(400).json({ error: 'quizId and violationType are required' });
