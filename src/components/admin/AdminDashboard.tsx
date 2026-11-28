@@ -1688,11 +1688,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     {candAttempts.length === 0 ? (
                                       <p className="text-xs text-slate-400">No individual attempts visible.</p>
                                     ) : (
-                                      candAttempts.map(r => (
+                                      candAttempts.map(r => {
+                                        const matchedQuiz = quizzes.find(q => q.id === r.quizId);
+                                        const isNoCutoff = matchedQuiz && (!matchedQuiz.passingPercentage || Number(matchedQuiz.passingPercentage) <= 0);
+                                        const isPassed = isNoCutoff ? true : (matchedQuiz ? r.percentage >= Number(matchedQuiz.passingPercentage) : r.passed);
+                                        return (
                                         <div key={r.id} className="flex items-center justify-between bg-white rounded-xl border border-slate-200 px-4 py-2.5 shadow-2xs">
                                           <div className="flex items-center space-x-3">
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${r.passed ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
-                                              {r.percentage}% {r.passed ? '✓' : '✗'}
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isNoCutoff ? 'bg-slate-100 text-slate-700' : isPassed ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                                              {isNoCutoff ? `${r.percentage}% • Practice` : `${r.percentage}% ${isPassed ? '✓' : '✗'}`}
                                             </span>
                                             <span className="font-semibold text-slate-800 text-xs">{r.quizTitle}</span>
                                             <span className="text-slate-400 text-[10px] font-mono">{new Date(r.attemptedAt).toLocaleDateString()}</span>
@@ -1715,7 +1719,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                             </button>
                                           </div>
                                         </div>
-                                      ))
+                                      );
+                                      })
                                     )}
                                   </div>
                                 </td>
@@ -2962,7 +2967,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   .map(q => {
                     const quizAttempts = allAttemptResults.filter(r => r.quizId === q.id);
                     const isExpanded = expandedExamResponses === q.id;
-                    const passedCount = quizAttempts.filter(r => r.passed).length;
+                    const isNoCutoff = !q.passingPercentage || Number(q.passingPercentage) <= 0;
+                    const passedCount = isNoCutoff
+                      ? quizAttempts.length
+                      : quizAttempts.filter(r => r.percentage >= Number(q.passingPercentage)).length;
                     const avgPct = quizAttempts.length > 0
                       ? Math.round(quizAttempts.reduce((sum, r) => sum + r.percentage, 0) / quizAttempts.length)
                       : 0;
@@ -3004,7 +3012,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               </span>
                               {quizAttempts.length > 0 && (
                                 <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
-                                  Avg: {avgPct}% • Pass: {Math.round((passedCount / quizAttempts.length) * 100)}%
+                                  {isNoCutoff ? `Avg: ${avgPct}% • Practice Mode` : `Avg: ${avgPct}% • Pass: ${Math.round((passedCount / quizAttempts.length) * 100)}%`}
                                 </p>
                               )}
                             </div>
@@ -3043,14 +3051,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               </div>
                             ) : (
                               <div className="space-y-2">
-                                {quizAttempts.map(r => (
+                                {quizAttempts.map(r => {
+                                  const isPassed = isNoCutoff ? true : r.percentage >= Number(q.passingPercentage);
+                                  return (
                                   <div
                                     key={r.id}
                                     className="flex flex-col sm:flex-row sm:items-center justify-between bg-white rounded-xl border border-slate-200 px-4 py-3 shadow-2xs gap-3 hover:border-slate-300 transition-colors"
                                   >
                                     <div className="flex items-start sm:items-center gap-3 min-w-0">
-                                      <span className={`px-2.5 py-1 rounded-lg text-xs font-extrabold shrink-0 ${r.passed ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
-                                        {r.percentage}% {r.passed ? '✓ PASSED' : '✗ FAILED'}
+                                      <span className={`px-2.5 py-1 rounded-lg text-xs font-extrabold shrink-0 ${isNoCutoff ? 'bg-slate-100 text-slate-700' : isPassed ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                                        {isNoCutoff ? `${r.percentage}% • Practice` : `${r.percentage}% ${isPassed ? '✓ PASSED' : '✗ FAILED'}`}
                                       </span>
                                       <div className="min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
@@ -3091,7 +3101,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                       </button>
                                     </div>
                                   </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
                           </div>

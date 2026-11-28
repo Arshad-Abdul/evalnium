@@ -1101,6 +1101,13 @@ async function initDatabase() {
 
     console.log(`✅ All MySQL Database Tables & Indexes (Banners, Discussions, Proctoring, Audit Logs) Verified & Ready!`);
 
+    // Ensure existing submissions for No-Cutoff (0%) Practice quizzes are never marked failed
+    try {
+      await pool.query(
+        'UPDATE results r INNER JOIN quizzes q ON r.quiz_id = q.id SET r.passed = 1 WHERE q.passing_percentage = 0 AND r.passed = 0'
+      );
+    } catch { }
+
     // Automated periodic check for scheduled result announcement releases
     setInterval(async () => {
       if (!pool) return;
@@ -2337,8 +2344,8 @@ async function autoFinalizeExpiredSession(session) {
     const calculatedMaxScore = questionRows.reduce((acc, q) => acc + Number(q.marks || 1), 0);
     const finalScore = Math.max(0, Math.round(calculatedScore * 100) / 100);
     const computedPercentage = calculatedMaxScore > 0 ? Math.round((finalScore / calculatedMaxScore) * 100) : 0;
-    const passingCutoff = Number(quiz.passing_percentage || 40);
-    const passed = computedPercentage >= passingCutoff;
+    const passingCutoff = (quiz.passing_percentage !== null && quiz.passing_percentage !== undefined) ? Number(quiz.passing_percentage) : 40;
+    const passed = passingCutoff <= 0 ? true : computedPercentage >= passingCutoff;
     const timeSpent = session.timeLimitMinutes > 0 ? session.timeLimitMinutes * 60 : 0;
     const safeResultId = `res_auto_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
     const attemptedAt = new Date().toISOString();
@@ -3747,7 +3754,8 @@ app.post('/api/results', async (req, res) => {
         const calculatedMaxScore = questionRows.reduce((acc, q) => acc + Number(q.marks || 1), 0);
         const computedScore = Math.max(0, Math.round(calculatedScore * 100) / 100);
         const computedPercentage = calculatedMaxScore > 0 ? Math.round((computedScore / calculatedMaxScore) * 100) : 0;
-        const computedPassed = computedPercentage >= Number(quiz.passing_percentage || 60);
+        const passingCutoff = (quiz.passing_percentage !== null && quiz.passing_percentage !== undefined) ? Number(quiz.passing_percentage) : 60;
+        const computedPassed = passingCutoff <= 0 ? true : computedPercentage >= passingCutoff;
 
         // Detect client-side score forgery or tampering attempt
         const scoreDelta = Math.abs(finalScore - computedScore);

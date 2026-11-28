@@ -611,12 +611,19 @@ export const TopicCatalog: React.FC<TopicCatalogProps> = ({
                     </div>
 
                     <div className="flex sm:flex-col items-center sm:items-end justify-between gap-1.5">
+                      {(() => {
+                        const matchedQuiz = quizzes.find(q => q.id === attempt.quizId);
+                        const isNoCutoff = matchedQuiz && (!matchedQuiz.passingPercentage || Number(matchedQuiz.passingPercentage) <= 0);
+                        const isPassed = isNoCutoff ? true : (matchedQuiz ? attempt.percentage >= Number(matchedQuiz.passingPercentage) : attempt.passed);
+                        return (
                       <span
-                        className={`px-2 py-0.5 rounded font-mono font-semibold text-[11px] ${attempt.passed ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                        className={`px-2 py-0.5 rounded font-mono font-semibold text-[11px] ${isNoCutoff ? 'bg-slate-100 text-slate-700' : isPassed ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
                           }`}
                       >
-                        {attempt.percentage}% ({attempt.passed ? 'Passed' : 'Below Pass'})
+                        {isNoCutoff ? `${attempt.percentage}% (Practice)` : `${attempt.percentage}% (${isPassed ? 'Passed' : 'Below Pass'})`}
                       </span>
+                        );
+                      })()}
                       <p className="text-[11px] font-mono text-slate-500">
                         {attempt.score} / {attempt.maxScore}
                       </p>
