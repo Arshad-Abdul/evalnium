@@ -2387,14 +2387,17 @@ setInterval(async () => {
   const now = Date.now();
 
   for (const [key, session] of activeSessions.entries()) {
-    // A. Clean up abandoned/closed sessions if no ping received for > 5 minutes
-    if (now - session.lastSeen > 5 * 60 * 1000) {
+    // A. Clean up abandoned/closed UNTIMED sessions if no ping received for > 5 minutes.
+    // Keep TIMED exam sessions in memory until their time limit + grace period expires
+    // so autoFinalizeExpiredSession can submit them even if the candidate closes the tab early.
+    const isTimedSession = !session.isUntimed && session.timeLimitMinutes > 0;
+    if (!isTimedSession && (now - session.lastSeen > 5 * 60 * 1000)) {
       activeSessions.delete(key);
       continue;
     }
 
     // 1. Timed exams: check if candidate's time has completely expired
-    if (!session.isUntimed && session.timeLimitMinutes > 0) {
+    if (isTimedSession) {
       const totalAllowedMs = session.timeLimitMinutes * 60 * 1000;
       // 60-second grace buffer after timer hits 0 to allow client-side submission to complete first
       const hasTimeExpired = (now - session.startedAt) >= (totalAllowedMs + 60 * 1000);
