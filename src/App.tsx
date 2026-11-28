@@ -100,7 +100,7 @@ function MainAppContent() {
   // Synchronize browser URL bar without page reload (HTML5 History API)
   const syncUrl = (targetPath: string, replace = false) => {
     if (typeof window === 'undefined') return;
-    const currentFull = window.location.pathname;
+    const currentFull = window.location.pathname + window.location.hash;
     if (currentFull === targetPath) return;
     if (replace) {
       window.history.replaceState({ path: targetPath }, '', targetPath);
@@ -585,8 +585,7 @@ function MainAppContent() {
   const handleAdminLogout = () => {
     logoutAdmin();
     setActiveTab('user');
-    window.location.hash = '';
-    syncUrl('/');
+    syncUrl('/', true);
   };
 
   const handleSaveQuiz = (quiz: Quiz) => {
