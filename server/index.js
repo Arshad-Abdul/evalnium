@@ -1045,24 +1045,7 @@ async function initDatabase() {
       `, [nowIso, nowIso]);
     }
 
-    // 1. Automatic Deduplication Guard: Purge existing duplicate audit logs in MySQL
-    try {
-      const [dedupRes] = await pool.query(`
-        DELETE a1 FROM activity_audit_logs a1
-        INNER JOIN activity_audit_logs a2 
-        WHERE a1.id > a2.id 
-          AND a1.event_type = a2.event_type 
-          AND a1.actor_name = a2.actor_name 
-          AND a1.action_title = a2.action_title
-      `);
-      if (dedupRes.affectedRows > 0) {
-        console.log(`🧹 Cleaned up ${dedupRes.affectedRows} duplicate audit log entries in MySQL.`);
-      }
-    } catch (dedupErr) {
-      console.warn('Audit logs deduplication skipped:', dedupErr.message);
-    }
-
-    // 2. Safe historical results sync with strict anti-duplicate check
+    // 1. Safe historical results sync (restores any missing exam_submit logs per exact attempt timestamp)
     try {
       const [unsyncedResults] = await pool.query(`
         SELECT r.* FROM results r 
@@ -1071,6 +1054,7 @@ async function initDatabase() {
           WHERE a.actor_name = r.candidate_name 
             AND a.event_type = 'exam_submit' 
             AND a.action_title LIKE CONCAT('%', r.quiz_title, '%')
+            AND a.created_at = r.attempted_at
         )
       `);
       if (unsyncedResults.length > 0) {
@@ -3437,9 +3421,9 @@ app.get('/api/admin/audit-logs', async (req, res) => {
       queryParams
     );
 
-    // Fetch Paginated Logs
+    // Fetch Paginated Logs (chronological newest first)
     const [rows] = await pool.query(
-      `SELECT * FROM activity_audit_logs ${whereClause} ORDER BY id DESC LIMIT ? OFFSET ?`,
+      `SELECT * FROM activity_audit_logs ${whereClause} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`,
       [...queryParams, limit, offset]
     );
 
@@ -3521,7 +3505,7 @@ app.delete('/api/admin/audit-logs/purge', authenticateAdmin, async (req, res) =>
   }
 });
 
-// Deduplicate Activity Audit Logs on-demand
+// Deduplicate Activity Audit Logs on-demand (only exact same-timestamp duplicates)
 app.post('/api/admin/audit-logs/deduplicate', authenticateAdmin, async (req, res) => {
   try {
     const [dedupRes] = await pool.query(`
@@ -3531,6 +3515,7 @@ app.post('/api/admin/audit-logs/deduplicate', authenticateAdmin, async (req, res
         AND a1.event_type = a2.event_type 
         AND a1.actor_name = a2.actor_name 
         AND a1.action_title = a2.action_title
+        AND a1.created_at = a2.created_at
     `);
     res.json({ success: true, removedCount: dedupRes.affectedRows, message: `Successfully removed ${dedupRes.affectedRows} duplicate audit log entries.` });
   } catch (err) {
