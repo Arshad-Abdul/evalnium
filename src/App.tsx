@@ -199,25 +199,23 @@ function MainAppContent() {
             setSelectedQuiz(found);
             setActiveTab('user');
 
-            // Detect if candidate has an existing active session for this exam (e.g. page refresh or phone reboot)
+            // Detect if authenticated candidate has an existing active session for this exam
             let hasActiveSession = false;
-            try {
-              for (let i = 0; i < localStorage.length; i++) {
-                const k = localStorage.key(i);
-                if (k && k.startsWith('evalnium_live_exam_') && k.endsWith(`_${found.id}`)) {
-                  const raw = localStorage.getItem(k);
-                  if (raw) {
-                    const parsed = JSON.parse(raw);
-                    if (parsed.startTime) {
-                      hasActiveSession = true;
-                      break;
-                    }
+            if (currentUser) {
+              try {
+                const expectedPrefix = `evalnium_live_exam_${currentUser.email || currentUser.name || 'guest'}_${found.id}`;
+                const raw = localStorage.getItem(expectedPrefix);
+                if (raw) {
+                  const parsed = JSON.parse(raw);
+                  if (parsed.startTime) {
+                    hasActiveSession = true;
                   }
                 }
-              }
-            } catch {}
+              } catch {}
+            }
 
-            if (hasActiveSession) {
+            if (hasActiveSession && currentUser) {
+              setCandidateName(currentUser.name || 'Candidate');
               examPhaseRef.current = 'running';
               setExamPhase('running');
             } else {
@@ -433,23 +431,21 @@ function MainAppContent() {
           setActiveTab('user');
 
           let hasActiveSession = false;
-          try {
-            for (let i = 0; i < localStorage.length; i++) {
-              const k = localStorage.key(i);
-              if (k && k.startsWith('evalnium_live_exam_') && k.endsWith(`_${found.id}`)) {
-                const raw = localStorage.getItem(k);
-                if (raw) {
-                  const parsed = JSON.parse(raw);
-                  if (parsed.startTime) {
-                    hasActiveSession = true;
-                    break;
-                  }
+          if (currentUser) {
+            try {
+              const expectedPrefix = `evalnium_live_exam_${currentUser.email || currentUser.name || 'guest'}_${found.id}`;
+              const raw = localStorage.getItem(expectedPrefix);
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed.startTime) {
+                  hasActiveSession = true;
                 }
               }
-            }
-          } catch {}
+            } catch {}
+          }
 
-          if (hasActiveSession) {
+          if (hasActiveSession && currentUser) {
+            setCandidateName(currentUser.name || 'Candidate');
             examPhaseRef.current = 'running';
             setExamPhase('running');
           } else {

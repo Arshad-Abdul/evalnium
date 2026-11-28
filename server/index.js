@@ -2934,7 +2934,12 @@ app.post('/api/sessions/heartbeat', (req, res) => {
   } = req.body;
   if (!quizId || !candidateName) return res.status(400).json({ error: 'Missing required fields' });
 
+  const isAdmin = isAdminAuthenticatedRequest(req);
   const authenticatedCandidate = getAuthenticatedCandidate(req);
+  if (!isAdmin && !authenticatedCandidate) {
+    return res.status(401).json({ error: 'Authentication required for exam session.' });
+  }
+
   const verifiedEmail = authenticatedCandidate?.email || candidateEmail;
   const verifiedName = authenticatedCandidate?.name || candidateName;
   const sessionKey = `${quizId}_${verifiedEmail || verifiedName}`;
