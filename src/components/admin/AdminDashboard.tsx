@@ -2699,53 +2699,100 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               ) : (
                 <div className="divide-y divide-slate-100">
                   {paginatedQuizzes.map((quiz) => (
-                    <div key={quiz.id} className="py-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3.5">
-                      <div className="space-y-1 min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
-                            {quiz.topic}
-                          </span>
-                          <h3 className="font-bold text-slate-900 text-sm break-words">{quiz.title}</h3>
+                    <div key={quiz.id} className="py-4 flex flex-col gap-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                              {quiz.topic}
+                            </span>
+                            <h3 className="font-bold text-slate-900 text-sm break-words">{quiz.title}</h3>
+                          </div>
+                          {quiz.description && (
+                            <p className="text-xs text-slate-500 line-clamp-1">{quiz.description}</p>
+                          )}
+                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-slate-400 font-mono pt-0.5">
+                            <span>{quiz.questions.length} Questions</span>
+                            <span>•</span>
+                            <span className="inline-flex items-center space-x-1">
+                              <Clock className="w-3 h-3 text-amber-600" />
+                              <span>{quiz.timeLimitMinutes} Mins</span>
+                            </span>
+                            <span>•</span>
+                            <span>{Number(quiz.passingPercentage) > 0 ? `Pass: ${quiz.passingPercentage}%` : 'No Cutoff (Practice)'}</span>
+                            {quiz.negativeMarks ? <span className="text-rose-600 font-bold">• Neg: -{quiz.negativeMarks}</span> : null}
+                            {(() => {
+                              const quizResults = allAttemptResults.filter(r => r.quizId === quiz.id);
+                              if (quizResults.length === 0) return null;
+                              const avgPct = Math.round(quizResults.reduce((s, r) => s + r.percentage, 0) / quizResults.length);
+                              return (
+                                <span className="text-slate-600 font-semibold">
+                                  • {quizResults.length} {quizResults.length === 1 ? 'attempt' : 'attempts'} (Avg {avgPct}%)
+                                </span>
+                              );
+                            })()}
+                          </div>
                         </div>
-                        {quiz.description && (
-                          <p className="text-xs text-slate-500 line-clamp-1">{quiz.description}</p>
+
+                        {/* Top-right Status Pill */}
+                        {quiz.isPublished ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Live
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                            Draft
+                          </span>
                         )}
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400 font-mono pt-0.5">
-                          <span>{quiz.questions.length} Questions</span>
-                          <span>•</span>
-                          <span className="flex items-center space-x-1">
-                            <Clock className="w-3 h-3 text-amber-600" />
-                            <span>{quiz.timeLimitMinutes} Mins</span>
-                          </span>
-                          <span>•</span>
-                          <span>{Number(quiz.passingPercentage) > 0 ? `Pass: ${quiz.passingPercentage}%` : 'No Cutoff (Practice)'}</span>
-                          {quiz.negativeMarks ? <span className="text-rose-600 font-bold">• Neg: -{quiz.negativeMarks}</span> : null}
-                          {(() => {
-                            const quizResults = allAttemptResults.filter(r => r.quizId === quiz.id);
-                            if (quizResults.length === 0) return null;
-                            const avgPct = Math.round(quizResults.reduce((s, r) => s + r.percentage, 0) / quizResults.length);
-                            return (
-                              <span className="text-slate-600 font-semibold">
-                                • {quizResults.length} {quizResults.length === 1 ? 'attempt' : 'attempts'} (Avg {avgPct}%)
-                              </span>
-                            );
-                          })()}
-                        </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2 pt-2 xl:pt-0 shrink-0">
-                        {/* WhatsApp Direct Share */}
-                        <a
-                          href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                            `📝 *${quiz.title}*\n📊 ${quiz.questions.length} MCQs | ⏱️ ${quiz.timeLimitMinutes > 0 ? `${quiz.timeLimitMinutes} Mins` : 'Untimed'} | 📚 ${quiz.topic}\n🎯 Free CBT Mock Test on Evalnium\n👉 Attempt Now: ${window.location.origin}/exam/${encodeURIComponent(quiz.slug || quiz.id)}`
-                          )}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
-                          title="Share direct formatted message to WhatsApp"
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                        {/* Preview Quiz Button (Student View Sandbox) */}
+                        <button
+                          type="button"
+                          onClick={() => setPreviewingQuiz(quiz)}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-300 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                          title="Preview how this exam looks to students (responses are not saved)"
                         >
-                          <span>📲 WhatsApp</span>
-                        </a>
+                          <Eye className="w-3.5 h-3.5 text-slate-600" />
+                          <span>Preview</span>
+                        </button>
+
+                        {/* Edit Quiz Button (Addressing Point #4!) */}
+                        <button
+                          onClick={() => handleEditQuizClick(quiz)}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 flex items-center space-x-1 transition-all cursor-pointer"
+                          title="Edit questions, time limit, and sectional rules"
+                        >
+                          <Edit className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>Edit Quiz</span>
+                        </button>
+
+                        {/* Publish/Unpublish Action */}
+                        {quiz.isPublished ? (
+                          <button
+                            type="button"
+                            onClick={() => onTogglePublish(quiz)}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-amber-50 text-amber-700 hover:text-amber-800 border border-amber-300 hover:border-amber-400 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                            title="Unpublish this exam: hides it from students immediately"
+                          >
+                            <EyeOff className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Unpublish</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onTogglePublish(quiz)}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                            title="Publish this exam: makes it live in the student catalog"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-white" />
+                            <span>Publish</span>
+                          </button>
+                        )}
 
                         {/* Copy Direct Shareable Exam Link */}
                         <button
@@ -2767,77 +2814,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           )}
                         </button>
 
-                        {/* Preview Quiz Button (Student View Sandbox) */}
-                        <button
-                          type="button"
-                          onClick={() => setPreviewingQuiz(quiz)}
-                          className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-300 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
-                          title="Preview how this exam looks to students (responses are not saved)"
+                        {/* WhatsApp Direct Share */}
+                        <a
+                          href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                            `📝 *${quiz.title}*\n📊 ${quiz.questions.length} MCQs | ⏱️ ${quiz.timeLimitMinutes > 0 ? `${quiz.timeLimitMinutes} Mins` : 'Untimed'} | 📚 ${quiz.topic}\n🎯 Free CBT Mock Test on Evalnium\n👉 Attempt Now: ${window.location.origin}/exam/${encodeURIComponent(quiz.slug || quiz.id)}`
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                          title="Share direct formatted message to WhatsApp"
                         >
-                          <Eye className="w-3.5 h-3.5 text-slate-600" />
-                          <span>Preview</span>
-                        </button>
-
-                        {/* Edit Quiz Button (Addressing Point #4!) */}
-                        <button
-                          onClick={() => handleEditQuizClick(quiz)}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 flex items-center space-x-1 transition-all"
-                          title="Edit questions, time limit, and sectional rules"
-                        >
-                          <Edit className="w-3.5 h-3.5 text-indigo-600" />
-                          <span>Edit Quiz</span>
-                        </button>
+                          <span>📲 WhatsApp</span>
+                        </a>
 
                         {/* Email Results to Candidates Button */}
                         <button
                           type="button"
                           onClick={() => handleDispatchResultEmails(quiz)}
                           disabled={dispatchingResultId === quiz.id}
-                          className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 hover:border-indigo-300 flex items-center gap-1 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 hover:border-indigo-300 flex items-center gap-1 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
                           title="Email results scorecard notification to all candidates who attempted this exam"
                         >
                           <Mail className="w-3.5 h-3.5 text-indigo-600" />
                           <span>{dispatchingResultId === quiz.id ? 'Sending...' : 'Email Results'}</span>
                         </button>
+                        </div>
 
-                        {/* Explicit Status Badge & Publish/Unpublish Action */}
-                        {quiz.isPublished ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                              Live
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => onTogglePublish(quiz)}
-                              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-amber-50 text-amber-700 hover:text-amber-800 border border-amber-300 hover:border-amber-400 flex items-center gap-1 transition-all shadow-sm cursor-pointer"
-                              title="Unpublish this exam: hides it from students immediately"
-                            >
-                              <EyeOff className="w-3.5 h-3.5 text-amber-600" />
-                              <span>Unpublish</span>
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-                              Draft
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => onTogglePublish(quiz)}
-                              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1 transition-all shadow-sm cursor-pointer"
-                              title="Publish this exam: makes it live in the student catalog"
-                            >
-                              <Eye className="w-3.5 h-3.5 text-white" />
-                              <span>Publish</span>
-                            </button>
-                          </div>
-                        )}
-
+                        <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleExportJSON(quiz)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
                           title="Export JSON"
                         >
                           <FileDown className="w-4 h-4" />
@@ -2850,6 +2856,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
+                        </div>
                       </div>
                     </div>
                   ))}
